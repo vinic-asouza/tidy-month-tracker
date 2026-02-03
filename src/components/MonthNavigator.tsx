@@ -31,43 +31,52 @@ export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorPr
     onMonthChange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   };
 
+  const isCurrentMonth = () => {
+    const now = new Date();
+    return year === now.getFullYear() && month === now.getMonth() + 1;
+  };
+
   return (
-    <div className="flex items-center justify-between bg-card rounded-xl p-4 card-shadow">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={goToPrevMonth}
-        className="h-10 w-10"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
-      
-      <div className="flex items-center gap-3">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">
-            {MONTH_NAMES[month - 1]}
-          </h2>
-          <p className="text-sm text-muted-foreground">{year}</p>
-        </div>
+    <div className="bg-card rounded-2xl p-4 card-shadow">
+      <div className="flex items-center justify-between">
         <Button
-          variant="outline"
-          size="sm"
-          onClick={goToCurrentMonth}
-          className="flex items-center gap-1.5"
+          variant="ghost"
+          size="icon"
+          onClick={goToPrevMonth}
+          className="h-11 w-11 rounded-xl hover:bg-muted transition-colors"
         >
-          <Calendar className="h-4 w-4" />
-          Hoje
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              {MONTH_NAMES[month - 1]}
+            </h2>
+            <p className="text-sm font-medium text-muted-foreground">{year}</p>
+          </div>
+          {!isCurrentMonth() && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToCurrentMonth}
+              className="flex items-center gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground transition-all"
+            >
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Hoje</span>
+            </Button>
+          )}
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={goToNextMonth}
+          className="h-11 w-11 rounded-xl hover:bg-muted transition-colors"
+        >
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={goToNextMonth}
-        className="h-10 w-10"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
     </div>
   );
 };
