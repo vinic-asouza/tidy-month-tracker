@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, PiggyBank } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -94,54 +94,74 @@ export const InvestmentSection = ({
   const total = investments.reduce((sum, i) => sum + i.value, 0);
 
   return (
-    <div className="bg-card rounded-xl p-5 card-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-1 bg-investment rounded-full" />
-          <h3 className="text-lg font-semibold">Investimentos</h3>
-          <span className="text-sm text-muted-foreground">
-            ({formatCurrency(total)})
-          </span>
+    <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl gradient-investment shadow-glow-investment">
+            <PiggyBank className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Investimentos</h3>
+            <p className="text-sm text-muted-foreground">
+              {formatCurrency(total)}
+            </p>
+          </div>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-investment hover:bg-investment/90 text-investment-foreground">
-              <Plus className="h-4 w-4 mr-1" />
+            <Button 
+              size="sm" 
+              className="rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
               Adicionar
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="rounded-2xl">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-xl font-semibold">
                 {editingId ? 'Editar Investimento' : 'Novo Investimento'}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-5 pt-4">
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Descrição</label>
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Descrição
+                </label>
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Tesouro Direto"
+                  placeholder="Ex: Tesouro Direto, CDB..."
+                  className="rounded-xl h-11"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Valor (R$)</label>
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Valor (R$)
+                </label>
                 <Input
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   placeholder="0,00"
                   type="text"
+                  className="rounded-xl h-11 text-lg font-medium"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Tags</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Tags
+                </label>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {tags.map((tag) => (
                     <Badge
                       key={tag}
                       variant={selectedTags.includes(tag) ? 'default' : 'outline'}
-                      className="cursor-pointer"
+                      className={`cursor-pointer rounded-lg px-3 py-1 transition-all ${
+                        selectedTags.includes(tag) 
+                          ? 'bg-investment text-investment-foreground hover:bg-investment/90' 
+                          : 'hover:bg-investment-light hover:text-investment hover:border-investment/30'
+                      }`}
                       onClick={() => toggleTag(tag)}
                     >
                       {tag}
@@ -153,67 +173,83 @@ export const InvestmentSection = ({
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Nova tag..."
-                    className="flex-1"
+                    className="flex-1 rounded-xl h-10"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddNewTag()}
                   />
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={handleAddNewTag}
+                    className="rounded-xl h-10 w-10"
                   >
                     <Tag className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              <Button onClick={handleSubmit} className="w-full bg-investment hover:bg-investment/90 text-investment-foreground">
-                {editingId ? 'Salvar' : 'Adicionar'}
+              <Button 
+                onClick={handleSubmit} 
+                className="w-full h-11 rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+              >
+                {editingId ? 'Salvar Alterações' : 'Adicionar Investimento'}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* List */}
       {investments.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-6">
-          Nenhum investimento registrado
-        </p>
+        <div className="text-center py-10">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-investment-light mb-3">
+            <PiggyBank className="h-6 w-6 text-investment" />
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Nenhum investimento registrado
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
-          {investments.map((investment) => (
+          {investments.map((investment, index) => (
             <div
               key={investment.id}
-              className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg group hover:bg-secondary transition-colors"
+              className="group flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-200"
+              style={{ animationDelay: `${index * 30}ms` }}
             >
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{investment.description}</p>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <p className="font-medium truncate text-foreground">{investment.description}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
                   {investment.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
+                    <Badge 
+                      key={tag} 
+                      variant="secondary" 
+                      className="text-2xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5"
+                    >
                       {tag}
                     </Badge>
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-3">
-                <span className="font-semibold text-investment whitespace-nowrap">
+              <div className="flex items-center gap-3 ml-4">
+                <span className="font-bold text-investment whitespace-nowrap text-lg">
                   {formatCurrency(investment.value)}
                 </span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 rounded-lg hover:bg-muted"
                     onClick={() => handleEdit(investment)}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive"
+                    className="h-8 w-8 rounded-lg hover:bg-destructive/10"
                     onClick={() => onDelete(investment.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
