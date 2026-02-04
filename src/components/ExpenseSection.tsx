@@ -259,8 +259,47 @@ const ExpenseForm = ({
   );
 };
 
+// Payment method color mapping
+const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardType[]) => {
+  // Check if it's a credit card payment
+  const creditCard = creditCards.find(c => c.name === paymentMethod);
+  if (creditCard) {
+    // Use the card's color with darker tone
+    return {
+      backgroundColor: `${creditCard.color}30`,
+      borderColor: `${creditCard.color}50`,
+      color: creditCard.color,
+    };
+  }
+
+  // Standard payment methods
+  switch (paymentMethod.toLowerCase()) {
+    case 'dinheiro':
+      return {
+        className: 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-400',
+      };
+    case 'pix':
+      return {
+        className: 'bg-yellow-100 border-yellow-300 text-yellow-700 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-400',
+      };
+    case 'débito':
+      return {
+        className: 'bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-400',
+      };
+    case 'boleto':
+      return {
+        className: 'bg-red-100 border-red-300 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-400',
+      };
+    default:
+      return {
+        className: 'bg-muted border-muted-foreground/20 text-muted-foreground',
+      };
+  }
+};
+
 const ExpenseItem = ({
   expense,
+  creditCards,
   onUpdate,
   onDelete,
   onEdit,
@@ -270,6 +309,7 @@ const ExpenseItem = ({
   isDragged,
 }: {
   expense: Expense;
+  creditCards: CreditCardType[];
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
@@ -330,10 +370,33 @@ const ExpenseItem = ({
         {expense.description}
       </span>
 
-      {/* Payment Method */}
-      <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:block">
-        {expense.paymentMethod}
-      </span>
+      {/* Payment Method Badge */}
+      {(() => {
+        const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
+        if ('className' in style) {
+          return (
+            <Badge 
+              variant="outline" 
+              className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex ${style.className}`}
+            >
+              {expense.paymentMethod}
+            </Badge>
+          );
+        }
+        return (
+          <Badge 
+            variant="outline" 
+            className="text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex"
+            style={{
+              backgroundColor: style.backgroundColor,
+              borderColor: style.borderColor,
+              color: style.color,
+            }}
+          >
+            {expense.paymentMethod}
+          </Badge>
+        );
+      })()}
 
       {/* Installment */}
       {installmentText && (
@@ -469,7 +532,8 @@ export const ExpenseSection = ({
     list, 
     type,
     emptyMessage,
-    groupTotal 
+    groupTotal,
+    creditCards: groupCreditCards,
   }: { 
     title: string; 
     icon: typeof Receipt;
@@ -477,6 +541,7 @@ export const ExpenseSection = ({
     type: Expense['type'];
     emptyMessage: string;
     groupTotal: number;
+    creditCards: CreditCardType[];
   }) => (
     <div className="space-y-1">
       <div className="flex items-center justify-between mb-2">
@@ -496,6 +561,7 @@ export const ExpenseSection = ({
             <ExpenseItem
               key={expense.id}
               expense={expense}
+              creditCards={groupCreditCards}
               onUpdate={onUpdate}
               onDelete={handleDeleteRequest}
               onEdit={handleEdit}
@@ -588,6 +654,7 @@ export const ExpenseSection = ({
           type="fixed"
           emptyMessage="Nenhum gasto fixo"
           groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
+          creditCards={creditCards}
         />
         <ExpenseGroup
           title="Gastos Variáveis"
@@ -596,6 +663,7 @@ export const ExpenseSection = ({
           type="variable"
           emptyMessage="Nenhum gasto variável"
           groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
+          creditCards={creditCards}
         />
         <ExpenseGroup
           title="Gastos Parcelados"
@@ -604,6 +672,7 @@ export const ExpenseSection = ({
           type="installment"
           emptyMessage="Nenhum gasto parcelado"
           groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
+          creditCards={creditCards}
         />
       </div>
 
