@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CreditCard, CARD_COLORS } from '@/types/finance';
+import { toast } from '@/hooks/use-toast';
 
 interface CreditCardSectionProps {
   creditCards: CreditCard[];
@@ -27,6 +37,7 @@ interface CreditCardSectionProps {
   onDelete: (id: string) => void;
   getCardTotal: (cardName: string) => number;
   canDeleteCard: (cardName: string) => boolean;
+  cardNameExists: (name: string, excludeId?: string) => boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -43,29 +54,38 @@ export const CreditCardSection = ({
   onDelete,
   getCardTotal,
   canDeleteCard,
+  cardNameExists,
 }: CreditCardSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [holder, setHolder] = useState('');
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0].id);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const resetForm = () => {
     setName('');
-    setHolder('');
     setSelectedColor(CARD_COLORS[0].id);
     setEditingId(null);
+    setNameError(null);
   };
 
   const handleSubmit = () => {
-    if (!name) return;
+    if (!name.trim()) {
+      setNameError('Nome do cartão é obrigatório');
+      return;
+    }
+
+    if (cardNameExists(name.trim(), editingId || undefined)) {
+      setNameError('Já existe um cartão com este nome');
+      return;
+    }
 
     if (editingId) {
-      onUpdate(editingId, { name, holder, color: selectedColor });
+      onUpdate(editingId, { name: name.trim(), color: selectedColor });
     } else {
-      onAdd({ name, holder, color: selectedColor, paid: false });
+      onAdd({ name: name.trim(), color: selectedColor, paid: false });
     }
     resetForm();
     setIsOpen(false);
@@ -74,7 +94,6 @@ export const CreditCardSection = ({
   const handleEdit = (card: CreditCard) => {
     setEditingId(card.id);
     setName(card.name);
-    setHolder(card.holder || '');
     setSelectedColor(card.color || CARD_COLORS[0].id);
     setIsOpen(true);
   };
@@ -138,21 +157,13 @@ export const CreditCardSection = ({
                 </label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => { setName(e.target.value); setNameError(null); }}
                   placeholder="Ex: Nubank, Inter, C6..."
-                  className="rounded-xl h-11"
+                  className={`rounded-xl h-11 ${nameError ? 'border-destructive' : ''}`}
                 />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Titular do Cartão
-                </label>
-                <Input
-                  value={holder}
-                  onChange={(e) => setHolder(e.target.value)}
-                  placeholder="Nome do titular"
-                  className="rounded-xl h-11"
-                />
+                {nameError && (
+                  <p className="text-destructive text-sm mt-1">{nameError}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block text-muted-foreground">
@@ -209,18 +220,18 @@ export const CreditCardSection = ({
             return (
               <div
                 key={card.id}
-                className={`group relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover-lift ${
+                className={`group relative overflow-hidden rounded-xl p-3 transition-all duration-300 hover-lift ${
                   card.paid ? 'opacity-70' : ''
                 }`}
               >
                 {/* Card Background */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-90`} />
-                <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-12 translate-x-12" />
-                <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-white/5 translate-y-10 -translate-x-10" />
+                <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-white/10 -translate-y-10 translate-x-10" />
+                <div className="absolute bottom-0 left-0 w-16 h-16 rounded-full bg-white/5 translate-y-8 -translate-x-8" />
                 
                 {/* Content */}
                 <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <CreditCardIcon className="h-4 w-4 text-white/80" />
                       <span className="font-semibold text-white text-sm">{card.name}</span>
@@ -245,13 +256,9 @@ export const CreditCardSection = ({
                     </div>
                   </div>
                   
-                  {card.holder && (
-                    <p className="text-white/60 text-xs mb-2 truncate">{card.holder}</p>
-                  )}
-                  
-                  <div className="mb-3">
+                  <div className="mb-2">
                     <p className="text-white/60 text-xs uppercase tracking-wider mb-0.5">Fatura</p>
-                    <p className="text-xl font-bold text-white">
+                    <p className="text-lg font-bold text-white">
                       {formatCurrency(total)}
                     </p>
                   </div>
@@ -287,14 +294,26 @@ export const CreditCardSection = ({
         description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
       />
 
-      {/* Error Dialog */}
-      <DeleteConfirmDialog
-        open={!!deleteError}
-        onOpenChange={(open) => !open && setDeleteError(null)}
-        onConfirm={() => setDeleteError(null)}
-        title="Não é possível excluir"
-        description={deleteError || ''}
-      />
+      {/* Error Dialog - Cannot Delete */}
+      <AlertDialog open={!!deleteError} onOpenChange={(open) => !open && setDeleteError(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Não é possível excluir
+            </AlertDialogTitle>
+            <AlertDialogDescription>{deleteError}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setDeleteError(null)}
+              className="rounded-xl"
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

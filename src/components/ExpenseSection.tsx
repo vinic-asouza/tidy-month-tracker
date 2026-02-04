@@ -33,6 +33,7 @@ interface ExpenseSectionProps {
   onAdd: (expense: Omit<Expense, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (id: string) => void;
+  onDeleteInstallment: (expense: Expense) => void;
   onReorder: (expenses: Expense[]) => void;
 }
 
@@ -78,18 +79,43 @@ const ExpenseForm = ({
   const [totalInstallments, setTotalInstallments] = useState(
     initialData?.totalInstallments?.toString() || '12'
   );
+  
+  // Error states
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [valueError, setValueError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Build payment methods list with active credit cards
   const allPaymentMethods = [...paymentMethods, ...creditCards.map(c => c.name)];
 
   const handleSubmit = () => {
     const numValue = parseCurrencyToNumber(value);
-    if (!category || !description || numValue <= 0 || !paymentMethod) return;
+    let hasError = false;
+    
+    if (!category) {
+      setCategoryError('Selecione uma categoria');
+      hasError = true;
+    }
+    if (!description.trim()) {
+      setDescriptionError('Descrição é obrigatória');
+      hasError = true;
+    }
+    if (numValue <= 0) {
+      setValueError('Valor deve ser maior que zero');
+      hasError = true;
+    }
+    if (!paymentMethod) {
+      setPaymentError('Selecione uma forma de pagamento');
+      hasError = true;
+    }
+    
+    if (hasError) return;
 
     onSubmit({
       type,
       category,
-      description,
+      description: description.trim(),
       paymentMethod,
       value: numValue,
       paid: initialData?.paid || false,
@@ -104,11 +130,11 @@ const ExpenseForm = ({
       {/* Category */}
       <div>
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Categoria</label>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="rounded-xl h-11">
+        <Select value={category} onValueChange={(v) => { setCategory(v); setCategoryError(null); }}>
+          <SelectTrigger className={`rounded-xl h-11 ${categoryError ? 'border-destructive' : ''}`}>
             <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
-          <SelectContent className="rounded-xl">
+          <SelectContent className="rounded-xl max-h-64">
             {categories.map((cat) => (
               <SelectItem key={cat} value={cat} className="rounded-lg">
                 {cat}
@@ -116,6 +142,7 @@ const ExpenseForm = ({
             ))}
           </SelectContent>
         </Select>
+        {categoryError && <p className="text-destructive text-sm mt-1">{categoryError}</p>}
       </div>
 
       {/* Description and Value on same line */}
@@ -124,26 +151,30 @@ const ExpenseForm = ({
           <label className="text-sm font-medium mb-2 block text-muted-foreground">Descrição</label>
           <Input
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
             placeholder="Ex: Conta de luz"
-            className="rounded-xl h-11"
+            className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
           />
+          {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
         </div>
         <div className="col-span-2">
-          <label className="text-sm font-medium mb-2 block text-muted-foreground">Valor</label>
+          <label className="text-sm font-medium mb-2 block text-muted-foreground">
+            {type === 'installment' ? 'Valor da parcela' : 'Valor'}
+          </label>
           <CurrencyInput
             value={value}
-            onValueChange={setValue}
-            className="rounded-xl h-11"
+            onValueChange={(v) => { setValue(v); setValueError(null); }}
+            className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
           />
+          {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
         </div>
       </div>
 
       {/* Payment Method */}
       <div>
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Forma de Pagamento</label>
-        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-          <SelectTrigger className="rounded-xl h-11">
+        <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); setPaymentError(null); }}>
+          <SelectTrigger className={`rounded-xl h-11 ${paymentError ? 'border-destructive' : ''}`}>
             <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
@@ -154,6 +185,7 @@ const ExpenseForm = ({
             ))}
           </SelectContent>
         </Select>
+        {paymentError && <p className="text-destructive text-sm mt-1">{paymentError}</p>}
       </div>
 
       {/* Installments for parcelado */}
@@ -231,7 +263,7 @@ const ExpenseItem = ({
 }: {
   expense: Expense;
   onUpdate: (id: string, updates: Partial<Expense>) => void;
-  onDelete: (id: string) => void;
+  onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -250,7 +282,7 @@ const ExpenseItem = ({
       onDragEnd={onDragEnd}
       className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
         expense.paid 
-          ? 'bg-muted/20 opacity-60' 
+          ? 'bg-muted/20' 
           : 'bg-muted/30 hover:bg-muted/50'
       } ${isDragged ? 'opacity-50' : ''}`}
     >
@@ -259,11 +291,11 @@ const ExpenseItem = ({
         <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
       </div>
 
-      {/* Checkbox */}
+      {/* Checkbox - expense themed */}
       <Checkbox
         checked={expense.paid}
         onCheckedChange={(checked) => onUpdate(expense.id, { paid: !!checked })}
-        className="h-4 w-4 rounded-md border-2 data-[state=checked]:bg-income data-[state=checked]:border-income flex-shrink-0"
+        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense flex-shrink-0"
       />
 
       {/* Category */}
@@ -275,7 +307,7 @@ const ExpenseItem = ({
       </Badge>
 
       {/* Description */}
-      <span className={`flex-1 text-sm font-medium truncate ${expense.paid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+      <span className={`flex-1 text-sm font-medium truncate ${expense.paid ? 'text-muted-foreground' : 'text-foreground'}`}>
         {expense.description}
       </span>
 
@@ -318,7 +350,7 @@ const ExpenseItem = ({
           variant="ghost"
           size="icon"
           className="h-7 w-7 rounded-lg hover:bg-muted"
-          onClick={() => onDelete(expense.id)}
+          onClick={() => onDelete(expense)}
         >
           <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
@@ -335,12 +367,13 @@ export const ExpenseSection = ({
   onAdd,
   onUpdate,
   onDelete,
+  onDeleteInstallment,
   onReorder,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<{ type: Expense['type']; index: number } | null>(null);
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
@@ -363,10 +396,18 @@ export const ExpenseSection = ({
     setIsOpen(true);
   };
 
+  const handleDeleteRequest = (expense: Expense) => {
+    setDeleteExpense(expense);
+  };
+
   const handleConfirmDelete = () => {
-    if (deleteId) {
-      onDelete(deleteId);
-      setDeleteId(null);
+    if (deleteExpense) {
+      if (deleteExpense.type === 'installment') {
+        onDeleteInstallment(deleteExpense);
+      } else {
+        onDelete(deleteExpense.id);
+      }
+      setDeleteExpense(null);
     }
   };
 
@@ -378,15 +419,22 @@ export const ExpenseSection = ({
     e.preventDefault();
     if (!draggedIndex || draggedIndex.type !== type || draggedIndex.index === index) return;
 
-    const typeExpenses = expenses.filter(exp => exp.type === type);
-    const otherExpenses = expenses.filter(exp => exp.type !== type);
+    // Get only expenses of this type
+    const typeExpenses = type === 'fixed' ? [...fixedExpenses] : 
+                         type === 'variable' ? [...variableExpenses] : 
+                         [...installmentExpenses];
     
-    const newTypeExpenses = [...typeExpenses];
-    const draggedItem = newTypeExpenses[draggedIndex.index];
-    newTypeExpenses.splice(draggedIndex.index, 1);
-    newTypeExpenses.splice(index, 0, draggedItem);
+    // Reorder within the type group
+    const draggedItem = typeExpenses[draggedIndex.index];
+    typeExpenses.splice(draggedIndex.index, 1);
+    typeExpenses.splice(index, 0, draggedItem);
     
-    onReorder([...otherExpenses, ...newTypeExpenses]);
+    // Rebuild full expenses array maintaining type order
+    const otherFixed = type === 'fixed' ? typeExpenses : fixedExpenses;
+    const otherVariable = type === 'variable' ? typeExpenses : variableExpenses;
+    const otherInstallment = type === 'installment' ? typeExpenses : installmentExpenses;
+    
+    onReorder([...otherFixed, ...otherVariable, ...otherInstallment]);
     setDraggedIndex({ type, index });
   };
 
@@ -430,7 +478,7 @@ export const ExpenseSection = ({
               key={expense.id}
               expense={expense}
               onUpdate={onUpdate}
-              onDelete={(id) => setDeleteId(id)}
+              onDelete={handleDeleteRequest}
               onEdit={handleEdit}
               onDragStart={() => handleDragStart(type, index)}
               onDragOver={(e) => handleDragOver(e, type, index)}
@@ -442,6 +490,15 @@ export const ExpenseSection = ({
       )}
     </div>
   );
+
+  // Get delete confirmation message based on expense type
+  const getDeleteMessage = () => {
+    if (!deleteExpense) return '';
+    if (deleteExpense.type === 'installment') {
+      return 'Este é um gasto parcelado. A exclusão será aplicada a todos os meses subsequentes. Deseja continuar?';
+    }
+    return 'Tem certeza que deseja excluir este gasto? Esta ação não pode ser desfeita.';
+  };
 
   return (
     <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
@@ -533,11 +590,11 @@ export const ExpenseSection = ({
 
       {/* Delete Confirmation */}
       <DeleteConfirmDialog
-        open={!!deleteId}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        open={!!deleteExpense}
+        onOpenChange={(open) => !open && setDeleteExpense(null)}
         onConfirm={handleConfirmDelete}
-        title="Excluir gasto"
-        description="Tem certeza que deseja excluir este gasto? Esta ação não pode ser desfeita."
+        title={deleteExpense?.type === 'installment' ? 'Excluir gasto parcelado' : 'Excluir gasto'}
+        description={getDeleteMessage()}
       />
     </div>
   );

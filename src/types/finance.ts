@@ -25,7 +25,6 @@ export interface Expense {
 export interface CreditCard {
   id: string;
   name: string;
-  holder?: string;
   color: string;
   paid: boolean;
 }
@@ -41,7 +40,6 @@ export interface Investment {
 export interface MonthData {
   incomes: IncomeEntry[];
   expenses: Expense[];
-  creditCards: CreditCard[];
   investments: Investment[];
 }
 
@@ -55,25 +53,46 @@ export interface FinanceSettings {
 export interface FinanceData {
   months: { [yearMonth: string]: MonthData };
   settings: FinanceSettings;
+  creditCards: CreditCard[]; // Global credit cards
 }
 
 export const DEFAULT_INCOME_TAGS = [
   'Salário',
   'Benefício',
+  'Extra',
+  'Bonificação',
   'Pagamento de terceiros',
   'Freelance',
   'Resgate de investimentos',
+  'Rendimentos',
+  'Presente',
   'Outros',
 ];
 
 export const DEFAULT_EXPENSE_CATEGORIES = [
   'Moradia',
-  'Alimentação',
+  'Contas pessoais',
+  'Compras Gerais',
+  'Vestuário',
+  'Assinaturas',
+  'Trabalho',
+  'Serviços Gerais',
+  'Mercado',
+  'Lanches',
+  'Combustível',
   'Transporte',
+  'Carro',
+  'Presentes',
   'Lazer',
-  'Saúde',
+  'Estilo de Vida',
+  'Consultas Médicas',
+  'Suplementação',
+  'Remédios',
   'Educação',
-  'Outros',
+  'Viagem',
+  'Empréstimos',
+  'Doação',
+  'Taxas',
 ];
 
 export const DEFAULT_INVESTMENT_TAGS = [
@@ -96,7 +115,7 @@ export const CARD_COLORS = [
   { id: 'emerald', name: 'Esmeralda', class: 'from-emerald-500 to-teal-600' },
   { id: 'blue', name: 'Azul', class: 'from-blue-500 to-indigo-600' },
   { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-rose-600' },
-  { id: 'amber', name: 'Âmbar', class: 'from-amber-500 to-orange-600' },
+  { id: 'yellow', name: 'Amarelo', class: 'from-yellow-400 to-amber-500' },
   { id: 'slate', name: 'Cinza', class: 'from-slate-600 to-slate-800' },
   { id: 'cyan', name: 'Ciano', class: 'from-cyan-500 to-blue-500' },
 ];
@@ -104,6 +123,5 @@ export const CARD_COLORS = [
 export const getEmptyMonthData = (): MonthData => ({
   incomes: [],
   expenses: [],
-  creditCards: [],
   investments: [],
 });

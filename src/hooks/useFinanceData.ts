@@ -30,8 +30,13 @@ const getInitialData = (): FinanceData => {
           investmentTags: DEFAULT_INVESTMENT_TAGS,
           paymentMethods: DEFAULT_PAYMENT_METHODS,
         },
+        creditCards: [],
       };
     }
+    
+    // Migrate credit cards from monthly to global if needed
+    let globalCards: CreditCard[] = parsed.creditCards || [];
+    
     // Migrate tags[] to tag for incomes and investments
     Object.keys(parsed.months).forEach(monthKey => {
       const month = parsed.months[monthKey];
@@ -47,15 +52,21 @@ const getInitialData = (): FinanceData => {
           tag: inv.tag || (inv.tags && inv.tags[0]) || 'Outros',
         }));
       }
-      // Migrate credit cards to include color
-      if (month.creditCards) {
-        month.creditCards = month.creditCards.map((card: CreditCard) => ({
+      // Migrate monthly credit cards to global (only once, take from first month that has cards)
+      if (month.creditCards && month.creditCards.length > 0 && globalCards.length === 0) {
+        globalCards = month.creditCards.map((card: CreditCard) => ({
           ...card,
           color: card.color || CARD_COLORS[0].id,
         }));
       }
+      // Remove creditCards from month data
+      delete month.creditCards;
     });
-    return parsed;
+    
+    return {
+      ...parsed,
+      creditCards: globalCards,
+    };
   }
   return {
     months: {},
@@ -65,6 +76,7 @@ const getInitialData = (): FinanceData => {
       investmentTags: DEFAULT_INVESTMENT_TAGS,
       paymentMethods: DEFAULT_PAYMENT_METHODS,
     },
+    creditCards: [],
   };
 };
 
@@ -238,6 +250,52 @@ export const useFinanceData = () => {
     });
   }, [currentMonth, getMonthData, updateMonthData]);
 
+  // Delete installment expense from all months
+  const deleteInstallmentExpense = useCallback((expense: Expense) => {
+    if (expense.type !== 'installment' || !expense.baseExpenseId) {
+      // Just delete from current month if it's the original
+      const monthData = getMonthData(currentMonth);
+      const baseId = expense.id;
+      
+      // Delete from current month
+      updateMonthData(currentMonth, {
+        ...monthData,
+        expenses: monthData.expenses.filter(e => e.id !== expense.id),
+      });
+      
+      // Delete related expenses from all months
+      Object.keys(data.months).forEach(monthKey => {
+        if (monthKey === currentMonth) return;
+        const targetMonthData = data.months[monthKey];
+        if (!targetMonthData) return;
+        
+        const hasRelated = targetMonthData.expenses.some(e => e.baseExpenseId === baseId);
+        if (hasRelated) {
+          updateMonthData(monthKey, {
+            ...targetMonthData,
+            expenses: targetMonthData.expenses.filter(e => e.baseExpenseId !== baseId),
+          });
+        }
+      });
+    } else {
+      // This is a linked expense, find and delete all linked ones
+      const baseId = expense.baseExpenseId;
+      
+      Object.keys(data.months).forEach(monthKey => {
+        const targetMonthData = data.months[monthKey];
+        if (!targetMonthData) return;
+        
+        const hasRelated = targetMonthData.expenses.some(e => e.id === baseId || e.baseExpenseId === baseId);
+        if (hasRelated) {
+          updateMonthData(monthKey, {
+            ...targetMonthData,
+            expenses: targetMonthData.expenses.filter(e => e.id !== baseId && e.baseExpenseId !== baseId),
+          });
+        }
+      });
+    }
+  }, [currentMonth, data.months, getMonthData, updateMonthData]);
+
   const reorderExpenses = useCallback((expenses: Expense[]) => {
     const monthData = getMonthData(currentMonth);
     updateMonthData(currentMonth, {
@@ -246,34 +304,31 @@ export const useFinanceData = () => {
     });
   }, [currentMonth, getMonthData, updateMonthData]);
 
-  // Credit Card operations
+  // Credit Card operations (now global)
   const addCreditCard = useCallback((card: Omit<CreditCard, 'id'>) => {
-    const monthData = getMonthData(currentMonth);
     const newCard: CreditCard = {
       ...card,
       id: crypto.randomUUID(),
     };
-    updateMonthData(currentMonth, {
-      ...monthData,
-      creditCards: [...monthData.creditCards, newCard],
-    });
-  }, [currentMonth, getMonthData, updateMonthData]);
+    setData(prev => ({
+      ...prev,
+      creditCards: [...prev.creditCards, newCard],
+    }));
+  }, []);
 
   const updateCreditCard = useCallback((id: string, updates: Partial<CreditCard>) => {
-    const monthData = getMonthData(currentMonth);
-    updateMonthData(currentMonth, {
-      ...monthData,
-      creditCards: monthData.creditCards.map(c => c.id === id ? { ...c, ...updates } : c),
-    });
-  }, [currentMonth, getMonthData, updateMonthData]);
+    setData(prev => ({
+      ...prev,
+      creditCards: prev.creditCards.map(c => c.id === id ? { ...c, ...updates } : c),
+    }));
+  }, []);
 
   const deleteCreditCard = useCallback((id: string) => {
-    const monthData = getMonthData(currentMonth);
-    updateMonthData(currentMonth, {
-      ...monthData,
-      creditCards: monthData.creditCards.filter(c => c.id !== id),
-    });
-  }, [currentMonth, getMonthData, updateMonthData]);
+    setData(prev => ({
+      ...prev,
+      creditCards: prev.creditCards.filter(c => c.id !== id),
+    }));
+  }, []);
 
   const getCreditCardTotal = useCallback((cardName: string): number => {
     const monthData = getMonthData(currentMonth);
@@ -283,9 +338,21 @@ export const useFinanceData = () => {
   }, [currentMonth, getMonthData]);
 
   const canDeleteCard = useCallback((cardName: string): boolean => {
-    const monthData = getMonthData(currentMonth);
-    return !monthData.expenses.some(e => e.paymentMethod === cardName);
-  }, [currentMonth, getMonthData]);
+    // Check all months for expenses linked to this card
+    for (const monthKey of Object.keys(data.months)) {
+      const monthData = data.months[monthKey];
+      if (monthData.expenses.some(e => e.paymentMethod === cardName)) {
+        return false;
+      }
+    }
+    return true;
+  }, [data.months]);
+
+  const cardNameExists = useCallback((name: string, excludeId?: string): boolean => {
+    return data.creditCards.some(c => 
+      c.name.toLowerCase() === name.toLowerCase() && c.id !== excludeId
+    );
+  }, [data.creditCards]);
 
   // Investment operations
   const addInvestment = useCallback((investment: Omit<Investment, 'id'>) => {
@@ -324,6 +391,57 @@ export const useFinanceData = () => {
     });
   }, [currentMonth, getMonthData, updateMonthData]);
 
+  // Investment tags management
+  const addInvestmentTag = useCallback((tag: string) => {
+    setData(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        investmentTags: [...prev.settings.investmentTags, tag],
+      },
+    }));
+  }, []);
+
+  const updateInvestmentTag = useCallback((oldTag: string, newTag: string) => {
+    setData(prev => {
+      // Update settings
+      const newSettings = {
+        ...prev.settings,
+        investmentTags: prev.settings.investmentTags.map(t => t === oldTag ? newTag : t),
+      };
+      
+      // Update all investments with this tag
+      const newMonths = { ...prev.months };
+      Object.keys(newMonths).forEach(monthKey => {
+        const month = newMonths[monthKey];
+        if (month.investments.some(i => i.tag === oldTag)) {
+          newMonths[monthKey] = {
+            ...month,
+            investments: month.investments.map(i => 
+              i.tag === oldTag ? { ...i, tag: newTag } : i
+            ),
+          };
+        }
+      });
+      
+      return {
+        ...prev,
+        settings: newSettings,
+        months: newMonths,
+      };
+    });
+  }, []);
+
+  const deleteInvestmentTag = useCallback((tag: string) => {
+    setData(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        investmentTags: prev.settings.investmentTags.filter(t => t !== tag),
+      },
+    }));
+  }, []);
+
   // Get all data for year
   const getYearData = useCallback((year: number) => {
     const months: MonthData[] = [];
@@ -340,6 +458,7 @@ export const useFinanceData = () => {
     setCurrentMonth,
     monthData: getMonthData(currentMonth),
     settings: data.settings,
+    creditCards: data.creditCards,
     // Income
     addIncome,
     updateIncome,
@@ -349,6 +468,7 @@ export const useFinanceData = () => {
     addExpense,
     updateExpense,
     deleteExpense,
+    deleteInstallmentExpense,
     reorderExpenses,
     // Credit Card
     addCreditCard,
@@ -356,11 +476,16 @@ export const useFinanceData = () => {
     deleteCreditCard,
     getCreditCardTotal,
     canDeleteCard,
+    cardNameExists,
     // Investment
     addInvestment,
     updateInvestment,
     deleteInvestment,
     reorderInvestments,
+    // Investment tags
+    addInvestmentTag,
+    updateInvestmentTag,
+    deleteInvestmentTag,
     // Stats
     getYearData,
     getMonthData,
