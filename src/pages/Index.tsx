@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, BarChart3, Menu, X, Sparkles } from 'lucide-react';
+import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
 import { SummaryCards } from '@/components/SummaryCards';
@@ -8,15 +8,22 @@ import { ExpenseSection } from '@/components/ExpenseSection';
 import { CreditCardSection } from '@/components/CreditCardSection';
 import { InvestmentSection } from '@/components/InvestmentSection';
 import { Statistics } from '@/components/Statistics';
-import { useFinanceData } from '@/hooks/useFinanceData';
+import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 type View = 'dashboard' | 'statistics';
 
 const Index = () => {
   const [view, setView] = useState<View>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [yearData, setYearData] = useState<ReturnType<typeof useSupabaseFinance>['monthData'][]>([]);
+  const [loadingYearData, setLoadingYearData] = useState(false);
+  
+  const { signOut } = useAuth();
   
   const {
+    loading,
     currentMonth,
     setCurrentMonth,
     monthData,
@@ -45,9 +52,40 @@ const Index = () => {
     updateInvestmentTag,
     deleteInvestmentTag,
     getYearData,
-  } = useFinanceData();
+  } = useSupabaseFinance();
 
   const currentYear = parseInt(currentMonth.split('-')[0]);
+
+  const handleViewChange = async (newView: View) => {
+    setView(newView);
+    setMobileMenuOpen(false);
+    
+    if (newView === 'statistics' && yearData.length === 0) {
+      setLoadingYearData(true);
+      const data = await getYearData(currentYear);
+      setYearData(data);
+      setLoadingYearData(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Logout realizado com sucesso!');
+  };
+
+  // Wrapper for canDeleteCard to handle async
+  const canDeleteCardSync = (cardName: string): boolean => {
+    // For sync compatibility, check current month expenses only
+    return !monthData.expenses.some(e => e.paymentMethod === cardName);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background gradient-subtle flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background gradient-subtle">
@@ -69,42 +107,62 @@ const Index = () => {
             </div>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center gap-1 p-1 bg-muted/50 rounded-xl">
+            <nav className="hidden md:flex items-center gap-2">
+              <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-xl">
+                <Button
+                  variant={view === 'dashboard' ? 'default' : 'ghost'}
+                  onClick={() => handleViewChange('dashboard')}
+                  className={`gap-2 rounded-lg transition-all ${
+                    view === 'dashboard' 
+                      ? 'gradient-primary shadow-glow text-primary-foreground' 
+                      : 'hover:bg-background/80'
+                  }`}
+                >
+                  <Wallet className="h-4 w-4" />
+                  Controle
+                </Button>
+                <Button
+                  variant={view === 'statistics' ? 'default' : 'ghost'}
+                  onClick={() => handleViewChange('statistics')}
+                  className={`gap-2 rounded-lg transition-all ${
+                    view === 'statistics' 
+                      ? 'gradient-primary shadow-glow text-primary-foreground' 
+                      : 'hover:bg-background/80'
+                  }`}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Estatísticas
+                </Button>
+              </div>
               <Button
-                variant={view === 'dashboard' ? 'default' : 'ghost'}
-                onClick={() => setView('dashboard')}
-                className={`gap-2 rounded-lg transition-all ${
-                  view === 'dashboard' 
-                    ? 'gradient-primary shadow-glow text-primary-foreground' 
-                    : 'hover:bg-background/80'
-                }`}
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive"
               >
-                <Wallet className="h-4 w-4" />
-                Controle
-              </Button>
-              <Button
-                variant={view === 'statistics' ? 'default' : 'ghost'}
-                onClick={() => setView('statistics')}
-                className={`gap-2 rounded-lg transition-all ${
-                  view === 'statistics' 
-                    ? 'gradient-primary shadow-glow text-primary-foreground' 
-                    : 'hover:bg-background/80'
-                }`}
-              >
-                <BarChart3 className="h-4 w-4" />
-                Estatísticas
+                <LogOut className="h-4 w-4" />
               </Button>
             </nav>
 
             {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden h-10 w-10 rounded-xl"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+            <div className="flex md:hidden items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-xl"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
           </div>
 
           {/* Mobile Nav */}
@@ -112,7 +170,7 @@ const Index = () => {
             <nav className="md:hidden pt-3 pb-1 flex gap-2 animate-fade-in">
               <Button
                 variant={view === 'dashboard' ? 'default' : 'outline'}
-                onClick={() => { setView('dashboard'); setMobileMenuOpen(false); }}
+                onClick={() => handleViewChange('dashboard')}
                 className={`flex-1 gap-2 rounded-xl ${
                   view === 'dashboard' ? 'gradient-primary shadow-glow' : ''
                 }`}
@@ -122,7 +180,7 @@ const Index = () => {
               </Button>
               <Button
                 variant={view === 'statistics' ? 'default' : 'outline'}
-                onClick={() => { setView('statistics'); setMobileMenuOpen(false); }}
+                onClick={() => handleViewChange('statistics')}
                 className={`flex-1 gap-2 rounded-xl ${
                   view === 'statistics' ? 'gradient-primary shadow-glow' : ''
                 }`}
@@ -181,7 +239,7 @@ const Index = () => {
                   onUpdate={updateCreditCard}
                   onDelete={deleteCreditCard}
                   getCardTotal={getCreditCardTotal}
-                  canDeleteCard={canDeleteCard}
+                  canDeleteCard={canDeleteCardSync}
                   cardNameExists={cardNameExists}
                 />
                 <InvestmentSection
@@ -200,11 +258,17 @@ const Index = () => {
           </div>
         ) : (
           <div className="animate-fade-in">
-            <Statistics
-              monthData={monthData}
-              yearData={getYearData(currentYear)}
-              currentYear={currentYear}
-            />
+            {loadingYearData ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <Statistics
+                monthData={monthData}
+                yearData={yearData}
+                currentYear={currentYear}
+              />
+            )}
           </div>
         )}
       </main>
@@ -216,7 +280,7 @@ const Index = () => {
             <Sparkles className="h-4 w-4 text-primary" />
             <span>Controle Financeiro Pessoal</span>
             <span className="text-border">•</span>
-            <span>Dados salvos localmente</span>
+            <span>Dados sincronizados na nuvem</span>
           </div>
         </div>
       </footer>
