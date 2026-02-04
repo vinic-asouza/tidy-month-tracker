@@ -14,7 +14,7 @@ import {
   CARD_COLORS,
 } from '@/types/finance';
 
-const STORAGE_KEY = 'finance-data';
+const STORAGE_KEY = 'finance-data-v2';
 
 const getInitialData = (): FinanceData => {
   const stored = localStorage.getItem(STORAGE_KEY);
