@@ -65,12 +65,8 @@ export const Statistics = ({ monthData, yearData, currentYear }: StatisticsProps
   const incomeByTag = useMemo(() => {
     const tagMap = new Map<string, number>();
     monthData.incomes.forEach((income) => {
-      income.tags.forEach((tag) => {
-        tagMap.set(tag, (tagMap.get(tag) || 0) + income.value);
-      });
-      if (income.tags.length === 0) {
-        tagMap.set('Sem tag', (tagMap.get('Sem tag') || 0) + income.value);
-      }
+      const tag = income.tag || 'Sem tag';
+      tagMap.set(tag, (tagMap.get(tag) || 0) + income.value);
     });
     return Array.from(tagMap.entries()).map(([name, value]) => ({ name, value }));
   }, [monthData.incomes]);
@@ -78,12 +74,8 @@ export const Statistics = ({ monthData, yearData, currentYear }: StatisticsProps
   const investmentByTag = useMemo(() => {
     const tagMap = new Map<string, number>();
     monthData.investments.forEach((inv) => {
-      inv.tags.forEach((tag) => {
-        tagMap.set(tag, (tagMap.get(tag) || 0) + inv.value);
-      });
-      if (inv.tags.length === 0) {
-        tagMap.set('Sem tag', (tagMap.get('Sem tag') || 0) + inv.value);
-      }
+      const tag = inv.tag || 'Sem tag';
+      tagMap.set(tag, (tagMap.get(tag) || 0) + inv.value);
     });
     return Array.from(tagMap.entries()).map(([name, value]) => ({ name, value }));
   }, [monthData.investments]);

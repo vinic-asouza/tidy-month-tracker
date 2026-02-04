@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Tag, TrendingUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingUp, GripVertical, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +12,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { IncomeEntry } from '@/types/finance';
 
 interface IncomeSectionProps {
@@ -18,8 +29,7 @@ interface IncomeSectionProps {
   onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<IncomeEntry>) => void;
   onDelete: (id: string) => void;
-  onAddTag: (tag: string) => void;
-  onRemoveTag: (tag: string) => void;
+  onReorder: (incomes: IncomeEntry[]) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -29,41 +39,51 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const formatValueForInput = (value: number): string => {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 export const IncomeSection = ({
   incomes,
   tags,
   onAdd,
   onUpdate,
   onDelete,
-  onAddTag,
+  onReorder,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
+  const [repeatAllMonths, setRepeatAllMonths] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const resetForm = () => {
     setDescription('');
     setValue('');
-    setSelectedTags([]);
+    setSelectedTag('');
+    setRepeatAllMonths(false);
     setEditingId(null);
-    setNewTag('');
   };
 
   const handleSubmit = () => {
-    const numValue = parseFloat(value.replace(',', '.'));
-    if (!description || isNaN(numValue)) return;
+    const numValue = parseCurrencyToNumber(value);
+    if (!description || numValue <= 0 || !selectedTag) return;
 
     if (editingId) {
-      onUpdate(editingId, { description, value: numValue, tags: selectedTags });
+      onUpdate(editingId, { description, value: numValue, tag: selectedTag, repeatAllMonths });
     } else {
       onAdd({
         description,
         value: numValue,
-        tags: selectedTags,
+        tag: selectedTag,
         date: new Date().toISOString(),
+        repeatAllMonths,
       });
     }
     resetForm();
@@ -73,23 +93,37 @@ export const IncomeSection = ({
   const handleEdit = (income: IncomeEntry) => {
     setEditingId(income.id);
     setDescription(income.description);
-    setValue(income.value.toString());
-    setSelectedTags(income.tags);
+    setValue(formatValueForInput(income.value));
+    setSelectedTag(income.tag);
+    setRepeatAllMonths(income.repeatAllMonths || false);
     setIsOpen(true);
   };
 
-  const handleAddNewTag = () => {
-    if (newTag && !tags.includes(newTag)) {
-      onAddTag(newTag);
-      setSelectedTags([...selectedTags, newTag]);
-      setNewTag('');
+  const handleConfirmDelete = () => {
+    if (deleteId) {
+      onDelete(deleteId);
+      setDeleteId(null);
     }
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newIncomes = [...incomes];
+    const draggedItem = newIncomes[draggedIndex];
+    newIncomes.splice(draggedIndex, 1);
+    newIncomes.splice(index, 0, draggedItem);
+    onReorder(newIncomes);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
@@ -104,7 +138,7 @@ export const IncomeSection = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Entradas</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base font-bold text-income">
               {formatCurrency(total)}
             </p>
           </div>
@@ -126,68 +160,65 @@ export const IncomeSection = ({
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-5 pt-4">
+              {/* Tag Selection */}
               <div>
                 <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Descrição
+                  Categoria
                 </label>
-                <Input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Salário janeiro"
-                  className="rounded-xl h-11"
-                />
+                <Select value={selectedTag} onValueChange={setSelectedTag}>
+                  <SelectTrigger className="rounded-xl h-11">
+                    <SelectValue placeholder="Selecione uma categoria..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {tags.map((tag) => (
+                      <SelectItem key={tag} value={tag} className="rounded-lg">
+                        {tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Valor (R$)
-                </label>
-                <Input
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder="0,00"
-                  type="text"
-                  className="rounded-xl h-11 text-lg font-medium"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Tags
-                </label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant={selectedTags.includes(tag) ? 'default' : 'outline'}
-                      className={`cursor-pointer rounded-lg px-3 py-1 transition-all ${
-                        selectedTags.includes(tag) 
-                          ? 'bg-income text-income-foreground hover:bg-income/90' 
-                          : 'hover:bg-income-light hover:text-income hover:border-income/30'
-                      }`}
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
+
+              {/* Description and Value on same line */}
+              <div className="grid grid-cols-5 gap-3">
+                <div className="col-span-3">
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Descrição
+                  </label>
                   <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Nova tag..."
-                    className="flex-1 rounded-xl h-10"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddNewTag()}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Salário janeiro"
+                    className="rounded-xl h-11"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAddNewTag}
-                    className="rounded-xl h-10 w-10"
-                  >
-                    <Tag className="h-4 w-4" />
-                  </Button>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Valor
+                  </label>
+                  <CurrencyInput
+                    value={value}
+                    onValueChange={setValue}
+                    className="rounded-xl h-11"
+                  />
                 </div>
               </div>
+
+              {/* Repeat All Months */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Repeat className="h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="repeat-months" className="text-sm font-medium cursor-pointer">
+                    Repetir todos os meses
+                  </Label>
+                </div>
+                <Switch
+                  id="repeat-months"
+                  checked={repeatAllMonths}
+                  onCheckedChange={setRepeatAllMonths}
+                />
+              </div>
+
               <Button 
                 onClick={handleSubmit} 
                 className="w-full h-11 rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
@@ -210,54 +241,78 @@ export const IncomeSection = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {incomes.map((income, index) => (
             <div
               key={income.id}
-              className="group flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-200"
-              style={{ animationDelay: `${index * 30}ms` }}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`group flex items-center gap-2 py-2.5 px-3 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-200 cursor-default ${
+                draggedIndex === index ? 'opacity-50' : ''
+              }`}
             >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate text-foreground">{income.description}</p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {income.tags.map((tag) => (
-                    <Badge 
-                      key={tag} 
-                      variant="secondary" 
-                      className="text-2xs bg-income-light text-income border-0 rounded-md px-2 py-0.5"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+              {/* Drag Handle */}
+              <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0">
+                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
               </div>
-              <div className="flex items-center gap-3 ml-4">
-                <span className="font-bold text-income whitespace-nowrap text-lg">
-                  {formatCurrency(income.value)}
-                </span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-muted"
-                    onClick={() => handleEdit(income)}
-                  >
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-destructive/10"
-                    onClick={() => onDelete(income.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+
+              {/* Tag */}
+              <Badge 
+                variant="secondary" 
+                className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0"
+              >
+                {income.tag}
+              </Badge>
+
+              {/* Description */}
+              <span className="flex-1 text-sm font-medium truncate text-foreground">
+                {income.description}
+              </span>
+
+              {/* Repeat indicator */}
+              {income.repeatAllMonths && (
+                <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              )}
+
+              {/* Value */}
+              <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">
+                {formatCurrency(income.value)}
+              </span>
+
+              {/* Actions - slide in from right */}
+              <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg hover:bg-muted"
+                  onClick={() => handleEdit(income)}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg hover:bg-muted"
+                  onClick={() => setDeleteId(income.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir entrada"
+        description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita."
+      />
     </div>
   );
 };
