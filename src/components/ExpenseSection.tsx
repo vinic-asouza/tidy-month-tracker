@@ -87,7 +87,10 @@ const ExpenseForm = ({
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Build payment methods list with active credit cards
-  const allPaymentMethods = [...paymentMethods, ...creditCards.map(c => c.name)];
+  const allPaymentMethods = [
+    ...paymentMethods, 
+    ...creditCards.map(c => ({ label: `Crédito: ${c.name}`, value: c.name }))
+  ];
 
   const handleSubmit = () => {
     const numValue = parseCurrencyToNumber(value);
@@ -178,11 +181,16 @@ const ExpenseForm = ({
             <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
-            {allPaymentMethods.map((method) => (
-              <SelectItem key={method} value={method} className="rounded-lg">
-                {method}
-              </SelectItem>
-            ))}
+            {allPaymentMethods.map((method) => {
+              const isCard = typeof method === 'object';
+              const value = isCard ? method.value : method;
+              const label = isCard ? method.label : method;
+              return (
+                <SelectItem key={value} value={value} className="rounded-lg">
+                  {label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
         {paymentError && <p className="text-destructive text-sm mt-1">{paymentError}</p>}
@@ -274,28 +282,39 @@ const ExpenseItem = ({
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
     : null;
 
+  const handleDragStartEvent = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    onDragStart();
+  };
+
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
+      draggable="true"
+      onDragStart={handleDragStartEvent}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver(e);
+      }}
+      onDrop={(e) => e.preventDefault()}
       onDragEnd={onDragEnd}
-      className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
+      className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${
         expense.paid 
           ? 'bg-muted/20' 
           : 'bg-muted/30 hover:bg-muted/50'
-      } ${isDragged ? 'opacity-50' : ''}`}
+      } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
     >
       {/* Drag Handle */}
-      <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0">
-        <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
+      <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0 cursor-grab active:cursor-grabbing">
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
       </div>
 
       {/* Checkbox - expense themed */}
       <Checkbox
         checked={expense.paid}
         onCheckedChange={(checked) => onUpdate(expense.id, { paid: !!checked })}
-        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense flex-shrink-0"
+        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
       />
 
       {/* Category */}

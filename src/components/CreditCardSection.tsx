@@ -128,7 +128,7 @@ export const CreditCardSection = ({
             <CreditCardIcon className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold tracking-tight">Cartões</h3>
+            <h3 className="text-lg font-semibold tracking-tight">Cartões de Crédito</h3>
             <p className="text-base font-bold text-primary">
               {formatCurrency(totalInvoices)}
             </p>
