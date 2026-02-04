@@ -62,6 +62,11 @@ export const IncomeSection = ({
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
+  // Error states
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [valueError, setValueError] = useState<string | null>(null);
+  const [tagError, setTagError] = useState<string | null>(null);
 
   const resetForm = () => {
     setDescription('');
@@ -69,17 +74,35 @@ export const IncomeSection = ({
     setSelectedTag('');
     setRepeatAllMonths(false);
     setEditingId(null);
+    setDescriptionError(null);
+    setValueError(null);
+    setTagError(null);
   };
 
   const handleSubmit = () => {
     const numValue = parseCurrencyToNumber(value);
-    if (!description || numValue <= 0 || !selectedTag) return;
+    let hasError = false;
+    
+    if (!description.trim()) {
+      setDescriptionError('Descrição é obrigatória');
+      hasError = true;
+    }
+    if (numValue <= 0) {
+      setValueError('Valor deve ser maior que zero');
+      hasError = true;
+    }
+    if (!selectedTag) {
+      setTagError('Selecione uma categoria');
+      hasError = true;
+    }
+    
+    if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description, value: numValue, tag: selectedTag, repeatAllMonths });
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths });
     } else {
       onAdd({
-        description,
+        description: description.trim(),
         value: numValue,
         tag: selectedTag,
         date: new Date().toISOString(),
@@ -165,8 +188,8 @@ export const IncomeSection = ({
                 <label className="text-sm font-medium mb-2 block text-muted-foreground">
                   Categoria
                 </label>
-                <Select value={selectedTag} onValueChange={setSelectedTag}>
-                  <SelectTrigger className="rounded-xl h-11">
+                <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
+                  <SelectTrigger className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''}`}>
                     <SelectValue placeholder="Selecione uma categoria..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -177,6 +200,7 @@ export const IncomeSection = ({
                     ))}
                   </SelectContent>
                 </Select>
+                {tagError && <p className="text-destructive text-sm mt-1">{tagError}</p>}
               </div>
 
               {/* Description and Value on same line */}
@@ -187,10 +211,11 @@ export const IncomeSection = ({
                   </label>
                   <Input
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
                     placeholder="Ex: Salário janeiro"
-                    className="rounded-xl h-11"
+                    className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
                   />
+                  {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium mb-2 block text-muted-foreground">
@@ -198,9 +223,10 @@ export const IncomeSection = ({
                   </label>
                   <CurrencyInput
                     value={value}
-                    onValueChange={setValue}
-                    className="rounded-xl h-11"
+                    onValueChange={(v) => { setValue(v); setValueError(null); }}
+                    className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
                   />
+                  {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
                 </div>
               </div>
 

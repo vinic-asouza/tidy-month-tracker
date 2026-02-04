@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, GripVertical, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Investment } from '@/types/finance';
@@ -28,6 +33,9 @@ interface InvestmentSectionProps {
   onUpdate: (id: string, updates: Partial<Investment>) => void;
   onDelete: (id: string) => void;
   onReorder: (investments: Investment[]) => void;
+  onAddTag: (tag: string) => void;
+  onUpdateTag: (oldTag: string, newTag: string) => void;
+  onDeleteTag: (tag: string) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -51,6 +59,9 @@ export const InvestmentSection = ({
   onUpdate,
   onDelete,
   onReorder,
+  onAddTag,
+  onUpdateTag,
+  onDeleteTag,
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,23 +70,51 @@ export const InvestmentSection = ({
   const [selectedTag, setSelectedTag] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
+  // Tag management
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editingTagValue, setEditingTagValue] = useState('');
+  
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [valueError, setValueError] = useState<string | null>(null);
+  const [tagError, setTagError] = useState<string | null>(null);
 
   const resetForm = () => {
     setDescription('');
     setValue('');
     setSelectedTag('');
     setEditingId(null);
+    setDescriptionError(null);
+    setValueError(null);
+    setTagError(null);
   };
 
   const handleSubmit = () => {
     const numValue = parseCurrencyToNumber(value);
-    if (!description || numValue <= 0 || !selectedTag) return;
+    let hasError = false;
+    
+    if (!description.trim()) {
+      setDescriptionError('Descrição é obrigatória');
+      hasError = true;
+    }
+    if (numValue <= 0) {
+      setValueError('Valor deve ser maior que zero');
+      hasError = true;
+    }
+    if (!selectedTag) {
+      setTagError('Selecione uma instituição');
+      hasError = true;
+    }
+    
+    if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description, value: numValue, tag: selectedTag });
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag });
     } else {
       onAdd({
-        description,
+        description: description.trim(),
         value: numValue,
         tag: selectedTag,
         date: new Date().toISOString(),
@@ -119,6 +158,31 @@ export const InvestmentSection = ({
   const handleDragEnd = () => {
     setDraggedIndex(null);
   };
+  
+  // Tag management handlers
+  const handleAddTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      onAddTag(newTag.trim());
+      setNewTag('');
+    }
+  };
+  
+  const handleSaveTagEdit = () => {
+    if (editingTag && editingTagValue.trim() && editingTagValue !== editingTag) {
+      onUpdateTag(editingTag, editingTagValue.trim());
+    }
+    setEditingTag(null);
+    setEditingTagValue('');
+  };
+  
+  const handleDeleteTag = (tag: string) => {
+    // Check if any investment uses this tag
+    const hasInvestments = investments.some(i => i.tag === tag);
+    if (hasInvestments) {
+      return; // Don't delete if in use
+    }
+    onDeleteTag(tag);
+  };
 
   const total = investments.reduce((sum, i) => sum + i.value, 0);
 
@@ -137,76 +201,176 @@ export const InvestmentSection = ({
             </p>
           </div>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button 
-              size="sm" 
-              className="rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">
-                {editingId ? 'Editar Investimento' : 'Novo Investimento'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-5 pt-4">
-              {/* Tag Selection */}
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Instituição
-                </label>
-                <Select value={selectedTag} onValueChange={setSelectedTag}>
-                  <SelectTrigger className="rounded-xl h-11">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {tags.map((tag) => (
-                      <SelectItem key={tag} value={tag} className="rounded-lg">
-                        {tag}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Description and Value on same line */}
-              <div className="grid grid-cols-5 gap-3">
-                <div className="col-span-3">
-                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                    Descrição
-                  </label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Ex: Tesouro Direto, CDB..."
-                    className="rounded-xl h-11"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                    Valor
-                  </label>
-                  <CurrencyInput
-                    value={value}
-                    onValueChange={setValue}
-                    className="rounded-xl h-11"
-                  />
-                </div>
-              </div>
-
+        <div className="flex gap-2">
+          {/* Tag Management Popover */}
+          <Popover open={isTagsOpen} onOpenChange={setIsTagsOpen}>
+            <PopoverTrigger asChild>
               <Button 
-                onClick={handleSubmit} 
-                className="w-full h-11 rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+                size="sm" 
+                variant="outline"
+                className="rounded-xl"
               >
-                {editingId ? 'Salvar Alterações' : 'Adicionar Investimento'}
+                <Settings className="h-4 w-4" />
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 rounded-xl p-4" align="end">
+              <h4 className="font-semibold mb-3 text-sm">Gerenciar Instituições</h4>
+              
+              {/* Add new tag */}
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Nova instituição..."
+                  className="rounded-lg h-9 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                />
+                <Button 
+                  size="sm" 
+                  onClick={handleAddTag}
+                  className="rounded-lg h-9 px-3"
+                  disabled={!newTag.trim() || tags.includes(newTag.trim())}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* List of tags */}
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {tags.map((tag) => {
+                  const isUsed = investments.some(i => i.tag === tag);
+                  const isEditing = editingTag === tag;
+                  
+                  return (
+                    <div 
+                      key={tag} 
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted"
+                    >
+                      {isEditing ? (
+                        <Input
+                          value={editingTagValue}
+                          onChange={(e) => setEditingTagValue(e.target.value)}
+                          className="h-7 text-sm rounded-md flex-1"
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
+                          onBlur={handleSaveTagEdit}
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="flex-1 text-sm truncate">{tag}</span>
+                      )}
+                      
+                      {!isEditing && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-md"
+                            onClick={() => {
+                              setEditingTag(tag);
+                              setEditingTagValue(tag);
+                            }}
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-md"
+                            onClick={() => handleDeleteTag(tag)}
+                            disabled={isUsed}
+                            title={isUsed ? 'Esta instituição está em uso' : 'Excluir'}
+                          >
+                            <Trash2 className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                className="rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-semibold">
+                  {editingId ? 'Editar Investimento' : 'Novo Investimento'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5 pt-4">
+                {/* Tag Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Instituição
+                  </label>
+                  <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
+                    <SelectTrigger className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''}`}>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {tags.map((tag) => (
+                        <SelectItem key={tag} value={tag} className="rounded-lg">
+                          {tag}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {tagError && (
+                    <p className="text-destructive text-sm mt-1">{tagError}</p>
+                  )}
+                </div>
+
+                {/* Description and Value on same line */}
+                <div className="grid grid-cols-5 gap-3">
+                  <div className="col-span-3">
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      Descrição
+                    </label>
+                    <Input
+                      value={description}
+                      onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
+                      placeholder="Ex: Tesouro Direto, CDB..."
+                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
+                    />
+                    {descriptionError && (
+                      <p className="text-destructive text-sm mt-1">{descriptionError}</p>
+                    )}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      Valor
+                    </label>
+                    <CurrencyInput
+                      value={value}
+                      onValueChange={(v) => { setValue(v); setValueError(null); }}
+                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
+                    />
+                    {valueError && (
+                      <p className="text-destructive text-sm mt-1">{valueError}</p>
+                    )}
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleSubmit} 
+                  className="w-full h-11 rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+                >
+                  {editingId ? 'Salvar Alterações' : 'Adicionar Investimento'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* List */}
