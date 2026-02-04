@@ -24,17 +24,20 @@ const Index = () => {
     addIncome,
     updateIncome,
     deleteIncome,
+    reorderIncomes,
     addExpense,
     updateExpense,
     deleteExpense,
+    reorderExpenses,
     addCreditCard,
     updateCreditCard,
     deleteCreditCard,
     getCreditCardTotal,
+    canDeleteCard,
     addInvestment,
     updateInvestment,
     deleteInvestment,
-    addTag,
+    reorderInvestments,
     getYearData,
   } = useFinanceData();
 
@@ -149,17 +152,17 @@ const Index = () => {
                   onAdd={addIncome}
                   onUpdate={updateIncome}
                   onDelete={deleteIncome}
-                  onAddTag={(tag) => addTag('income', tag)}
-                  onRemoveTag={() => {}}
+                  onReorder={reorderIncomes}
                 />
                 <ExpenseSection
                   expenses={monthData.expenses}
                   categories={settings.expenseCategories}
-                  paymentMethods={[...settings.paymentMethods, ...monthData.creditCards.map(c => c.name)]}
+                  paymentMethods={settings.paymentMethods}
+                  creditCards={monthData.creditCards}
                   onAdd={addExpense}
                   onUpdate={updateExpense}
                   onDelete={deleteExpense}
-                  onAddCategory={(cat) => addTag('expense', cat)}
+                  onReorder={reorderExpenses}
                 />
               </div>
 
@@ -171,6 +174,7 @@ const Index = () => {
                   onUpdate={updateCreditCard}
                   onDelete={deleteCreditCard}
                   getCardTotal={getCreditCardTotal}
+                  canDeleteCard={canDeleteCard}
                 />
                 <InvestmentSection
                   investments={monthData.investments}
@@ -178,7 +182,7 @@ const Index = () => {
                   onAdd={addInvestment}
                   onUpdate={updateInvestment}
                   onDelete={deleteInvestment}
-                  onAddTag={(tag) => addTag('investment', tag)}
+                  onReorder={reorderInvestments}
                 />
               </div>
             </div>

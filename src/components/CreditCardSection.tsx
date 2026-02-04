@@ -10,7 +10,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { CreditCard } from '@/types/finance';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { CreditCard, CARD_COLORS } from '@/types/finance';
 
 interface CreditCardSectionProps {
   creditCards: CreditCard[];
@@ -18,6 +26,7 @@ interface CreditCardSectionProps {
   onUpdate: (id: string, updates: Partial<CreditCard>) => void;
   onDelete: (id: string) => void;
   getCardTotal: (cardName: string) => number;
+  canDeleteCard: (cardName: string) => boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -27,29 +36,26 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Card brand colors
-const CARD_COLORS = [
-  { bg: 'from-violet-500 to-purple-600', accent: 'bg-violet-400' },
-  { bg: 'from-orange-500 to-red-500', accent: 'bg-orange-400' },
-  { bg: 'from-emerald-500 to-teal-600', accent: 'bg-emerald-400' },
-  { bg: 'from-blue-500 to-indigo-600', accent: 'bg-blue-400' },
-  { bg: 'from-pink-500 to-rose-600', accent: 'bg-pink-400' },
-  { bg: 'from-amber-500 to-orange-600', accent: 'bg-amber-400' },
-];
-
 export const CreditCardSection = ({
   creditCards,
   onAdd,
   onUpdate,
   onDelete,
   getCardTotal,
+  canDeleteCard,
 }: CreditCardSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [holder, setHolder] = useState('');
+  const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0].id);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const resetForm = () => {
     setName('');
+    setHolder('');
+    setSelectedColor(CARD_COLORS[0].id);
     setEditingId(null);
   };
 
@@ -57,9 +63,9 @@ export const CreditCardSection = ({
     if (!name) return;
 
     if (editingId) {
-      onUpdate(editingId, { name });
+      onUpdate(editingId, { name, holder, color: selectedColor });
     } else {
-      onAdd({ name, paid: false });
+      onAdd({ name, holder, color: selectedColor, paid: false });
     }
     resetForm();
     setIsOpen(false);
@@ -68,7 +74,28 @@ export const CreditCardSection = ({
   const handleEdit = (card: CreditCard) => {
     setEditingId(card.id);
     setName(card.name);
+    setHolder(card.holder || '');
+    setSelectedColor(card.color || CARD_COLORS[0].id);
     setIsOpen(true);
+  };
+
+  const handleDeleteAttempt = (card: CreditCard) => {
+    if (!canDeleteCard(card.name)) {
+      setDeleteError(`Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Remova os gastos primeiro.`);
+      return;
+    }
+    setDeleteId(card.id);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteId) {
+      onDelete(deleteId);
+      setDeleteId(null);
+    }
+  };
+
+  const getColorClass = (colorId: string) => {
+    return CARD_COLORS.find(c => c.id === colorId)?.class || CARD_COLORS[0].class;
   };
 
   const totalInvoices = creditCards.reduce((sum, card) => sum + getCardTotal(card.name), 0);
@@ -83,7 +110,7 @@ export const CreditCardSection = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Cartões</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base font-bold text-primary">
               {formatCurrency(totalInvoices)}
             </p>
           </div>
@@ -116,6 +143,42 @@ export const CreditCardSection = ({
                   className="rounded-xl h-11"
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Titular do Cartão
+                </label>
+                <Input
+                  value={holder}
+                  onChange={(e) => setHolder(e.target.value)}
+                  placeholder="Nome do titular"
+                  className="rounded-xl h-11"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                  Cor do Cartão
+                </label>
+                <Select value={selectedColor} onValueChange={setSelectedColor}>
+                  <SelectTrigger className="rounded-xl h-11">
+                    <SelectValue>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${getColorClass(selectedColor)}`} />
+                        <span>{CARD_COLORS.find(c => c.id === selectedColor)?.name}</span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {CARD_COLORS.map((color) => (
+                      <SelectItem key={color.id} value={color.id} className="rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${color.class}`} />
+                          <span>{color.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button 
                 onClick={handleSubmit} 
                 className="w-full h-11 rounded-xl gradient-primary shadow-glow hover:opacity-90 transition-opacity text-white border-0"
@@ -138,69 +201,73 @@ export const CreditCardSection = ({
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {creditCards.map((card, index) => {
+        <div className="grid gap-3 sm:grid-cols-2">
+          {creditCards.map((card) => {
             const total = getCardTotal(card.name);
-            const colors = CARD_COLORS[index % CARD_COLORS.length];
+            const colorClass = getColorClass(card.color);
             
             return (
               <div
                 key={card.id}
-                className={`group relative overflow-hidden rounded-2xl p-5 transition-all duration-300 hover-lift ${
+                className={`group relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover-lift ${
                   card.paid ? 'opacity-70' : ''
                 }`}
               >
                 {/* Card Background */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-90`} />
-                <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 -translate-y-16 translate-x-16" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 translate-y-12 -translate-x-12" />
+                <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-90`} />
+                <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-12 translate-x-12" />
+                <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-white/5 translate-y-10 -translate-x-10" />
                 
                 {/* Content */}
                 <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <CreditCardIcon className="h-5 w-5 text-white/80" />
-                      <span className="font-semibold text-white">{card.name}</span>
+                      <CreditCardIcon className="h-4 w-4 text-white/80" />
+                      <span className="font-semibold text-white text-sm">{card.name}</span>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
+                        className="h-6 w-6 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
                         onClick={() => handleEdit(card)}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3 w-3" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
-                        onClick={() => onDelete(card.id)}
+                        className="h-6 w-6 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
+                        onClick={() => handleDeleteAttempt(card)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
                   
-                  <div className="mb-4">
-                    <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Fatura atual</p>
-                    <p className="text-2xl font-bold text-white">
+                  {card.holder && (
+                    <p className="text-white/60 text-xs mb-2 truncate">{card.holder}</p>
+                  )}
+                  
+                  <div className="mb-3">
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-0.5">Fatura</p>
+                    <p className="text-xl font-bold text-white">
                       {formatCurrency(total)}
                     </p>
                   </div>
                   
-                  <div className="flex items-center gap-2 pt-3 border-t border-white/20">
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/20">
                     <Checkbox
                       id={`card-paid-${card.id}`}
                       checked={card.paid}
                       onCheckedChange={(checked) => onUpdate(card.id, { paid: !!checked })}
-                      className="h-5 w-5 rounded-md border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900"
+                      className="h-4 w-4 rounded-md border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900"
                     />
                     <label
                       htmlFor={`card-paid-${card.id}`}
-                      className="text-sm text-white/80 cursor-pointer flex items-center gap-1.5"
+                      className="text-xs text-white/80 cursor-pointer flex items-center gap-1"
                     >
-                      {card.paid && <CheckCircle2 className="h-4 w-4" />}
+                      {card.paid && <CheckCircle2 className="h-3 w-3" />}
                       Fatura paga
                     </label>
                   </div>
@@ -210,6 +277,24 @@ export const CreditCardSection = ({
           })}
         </div>
       )}
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir cartão"
+        description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
+      />
+
+      {/* Error Dialog */}
+      <DeleteConfirmDialog
+        open={!!deleteError}
+        onOpenChange={(open) => !open && setDeleteError(null)}
+        onConfirm={() => setDeleteError(null)}
+        title="Não é possível excluir"
+        description={deleteError || ''}
+      />
     </div>
   );
 };
