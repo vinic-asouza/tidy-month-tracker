@@ -817,22 +817,22 @@ export const ExpenseSection = ({
           type="single"
           value={viewMode}
           onValueChange={(value) => value && setViewMode(value as ViewMode)}
-          className="bg-muted/50 rounded-lg p-1"
+          className="bg-expense-light rounded-lg p-0.5"
         >
           <ToggleGroupItem
             value="general"
             aria-label="Visualização geral"
-            className="rounded-md px-3 py-1.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-sm"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense"
           >
-            <List className="h-3.5 w-3.5 mr-1.5" />
+            <List className="h-3 w-3 mr-1" />
             Geral
           </ToggleGroupItem>
           <ToggleGroupItem
             value="summary"
             aria-label="Visualização resumida"
-            className="rounded-md px-3 py-1.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-sm"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense"
           >
-            <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+            <LayoutGrid className="h-3 w-3 mr-1" />
             Resumo
           </ToggleGroupItem>
         </ToggleGroup>
@@ -841,11 +841,11 @@ export const ExpenseSection = ({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="rounded-lg h-8 px-3 text-xs gap-1.5"
+              className="rounded-lg h-7 px-2.5 text-xs gap-1 text-expense hover:text-expense hover:bg-expense-light"
             >
-              <ArrowUpDown className="h-3.5 w-3.5" />
+              <ArrowUpDown className="h-3 w-3" />
               <span className="hidden sm:inline">
                 {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
               </span>
@@ -856,7 +856,7 @@ export const ExpenseSection = ({
               <DropdownMenuItem
                 key={option.value}
                 onClick={() => setSortOption(option.value)}
-                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-accent' : ''}`}
+                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-expense-light text-expense' : ''}`}
               >
                 {option.label}
               </DropdownMenuItem>
