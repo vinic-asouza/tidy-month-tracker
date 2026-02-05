@@ -36,6 +36,8 @@ interface InvestmentSectionProps {
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
   onDeleteTag: (tag: string) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -61,6 +63,8 @@ export const InvestmentSection = ({
   onAddTag,
   onUpdateTag,
   onDeleteTag,
+  selectedIds,
+  onSelectionChange,
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,7 +72,6 @@ export const InvestmentSection = ({
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Tag management
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -135,24 +138,20 @@ export const InvestmentSection = ({
     if (deleteId) {
       onDelete(deleteId);
       setDeleteId(null);
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(deleteId);
-        return newSet;
-      });
+      const newSet = new Set(selectedIds);
+      newSet.delete(deleteId);
+      onSelectionChange(newSet);
     }
   };
 
   const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    onSelectionChange(newSet);
   };
   
   // Tag management handlers
