@@ -235,6 +235,16 @@ const Index = () => {
 
             {/* Right Column - Sticky Credit Cards */}
             <div className="space-y-6">
+              <InvestmentSection
+                investments={monthData.investments}
+                tags={settings.investmentTags}
+                onAdd={addInvestment}
+                onUpdate={updateInvestment}
+                onDelete={deleteInvestment}
+                onAddTag={addInvestmentTag}
+                onUpdateTag={updateInvestmentTag}
+                onDeleteTag={deleteInvestmentTag}
+              />
               <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+1.5rem)]">
                 <CreditCardSection
                   creditCards={creditCards}
@@ -249,16 +259,6 @@ const Index = () => {
                   setCardPaidStatus={setCardPaidStatus}
                 />
               </div>
-              <InvestmentSection
-                investments={monthData.investments}
-                tags={settings.investmentTags}
-                onAdd={addInvestment}
-                onUpdate={updateInvestment}
-                onDelete={deleteInvestment}
-                onAddTag={addInvestmentTag}
-                onUpdateTag={updateInvestmentTag}
-                onDeleteTag={deleteInvestmentTag}
-              />
             </div>
             </div>
           </div>
