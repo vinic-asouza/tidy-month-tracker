@@ -25,10 +25,10 @@ export const SummaryCards = ({
   creditCards = [],
   getCardPaidStatus,
 }: SummaryCardsProps) => {
-  // Calculate totals based on marked items
-  const totalIncome = receivedIncomeIds.size > 0
-    ? monthData.incomes.filter(i => receivedIncomeIds.has(i.id)).reduce((sum, i) => sum + i.value, 0)
-    : monthData.incomes.reduce((sum, i) => sum + i.value, 0);
+  // Calculate totals based on marked items only
+  const totalIncome = monthData.incomes
+    .filter(i => receivedIncomeIds.has(i.id))
+    .reduce((sum, i) => sum + i.value, 0);
   
   // For expenses, consider both manually paid and card-paid items
   const calculatePaidExpenses = () => {
@@ -39,19 +39,16 @@ export const SummaryCards = ({
         // If linked to a card, use the card's paid status
         return getCardPaidStatus(linkedCard.id) ? sum + e.value : sum;
       }
-      // Otherwise, use the expense's own paid status or selection
-      if (paidExpenseIds.size > 0) {
-        return paidExpenseIds.has(e.id) ? sum + e.value : sum;
-      }
+      // Otherwise, use the expense's own paid status
       return e.paid ? sum + e.value : sum;
     }, 0);
   };
 
   const totalExpenses = calculatePaidExpenses();
   
-  const totalInvestments = investedIds.size > 0
-    ? monthData.investments.filter(i => investedIds.has(i.id)).reduce((sum, i) => sum + i.value, 0)
-    : monthData.investments.reduce((sum, i) => sum + i.value, 0);
+  const totalInvestments = monthData.investments
+    .filter(i => investedIds.has(i.id))
+    .reduce((sum, i) => sum + i.value, 0);
   
   const balance = totalIncome - totalExpenses - totalInvestments;
 
