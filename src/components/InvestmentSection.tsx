@@ -126,10 +126,10 @@ const InstitutionSummaryItem = ({
   total: number;
 }) => {
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200">
+    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30">
       <Badge 
         variant="secondary" 
-        className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0"
+        className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0 cursor-default"
       >
         {institution}
       </Badge>
@@ -559,7 +559,7 @@ export const InvestmentSection = ({
                 {/* Tag */}
                 <Badge 
                   variant="secondary" 
-                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0"
+                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default"
                 >
                   {investment.tag}
                 </Badge>
