@@ -30,6 +30,8 @@ interface IncomeSectionProps {
   onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<IncomeEntry>) => void;
   onDelete: (id: string) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -52,6 +54,8 @@ export const IncomeSection = ({
   onAdd,
   onUpdate,
   onDelete,
+  selectedIds,
+  onSelectionChange,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -60,7 +64,6 @@ export const IncomeSection = ({
   const [selectedTag, setSelectedTag] = useState('');
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Error states
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
@@ -125,24 +128,20 @@ export const IncomeSection = ({
     if (deleteId) {
       onDelete(deleteId);
       setDeleteId(null);
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(deleteId);
-        return newSet;
-      });
+      const newSet = new Set(selectedIds);
+      newSet.delete(deleteId);
+      onSelectionChange(newSet);
     }
   };
 
   const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    onSelectionChange(newSet);
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
