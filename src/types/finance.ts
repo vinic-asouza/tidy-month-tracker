@@ -118,6 +118,7 @@ export const CARD_COLORS = [
   { id: 'yellow', name: 'Amarelo', class: 'from-yellow-400 to-amber-500' },
   { id: 'slate', name: 'Cinza', class: 'from-slate-600 to-slate-800' },
   { id: 'cyan', name: 'Ciano', class: 'from-cyan-500 to-blue-500' },
+  { id: 'red', name: 'Vermelho', class: 'from-red-500 to-rose-600' },
 ];
 
 export const getEmptyMonthData = (): MonthData => ({

@@ -19,6 +19,7 @@ import {
 export const useSupabaseFinance = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -29,6 +30,7 @@ export const useSupabaseFinance = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
+  const [cardMonthlyStatus, setCardMonthlyStatus] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState<FinanceSettings>({
     incomeTags: DEFAULT_INCOME_TAGS,
     expenseCategories: DEFAULT_EXPENSE_CATEGORIES,
@@ -159,7 +161,30 @@ export const useSupabaseFinance = () => {
 
     if (showLoading) {
       setLoading(false);
+      setInitialLoadDone(true);
     }
+  }, [user]);
+
+  // Fetch card monthly status
+  const fetchCardMonthlyStatus = useCallback(async (yearMonth: string) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('credit_card_monthly_status' as any)
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('year_month', yearMonth);
+
+    if (error) {
+      console.error('Error fetching card monthly status:', error);
+      return;
+    }
+
+    const statusMap: Record<string, boolean> = {};
+    (data as any[])?.forEach((item: any) => {
+      statusMap[item.credit_card_id] = item.paid;
+    });
+    setCardMonthlyStatus(statusMap);
   }, [user]);
 
   // Initial load
@@ -167,9 +192,11 @@ export const useSupabaseFinance = () => {
     if (user) {
       fetchSettings();
       fetchCreditCards();
-      fetchMonthData(currentMonth);
+      // Only show loading on initial load, not on month changes after first load
+      fetchMonthData(currentMonth, !initialLoadDone);
+      fetchCardMonthlyStatus(currentMonth);
     }
-  }, [user, fetchSettings, fetchCreditCards, fetchMonthData, currentMonth]);
+  }, [user, fetchSettings, fetchCreditCards, fetchMonthData, fetchCardMonthlyStatus, currentMonth, initialLoadDone]);
 
   // Income operations
   const addIncome = useCallback(async (income: Omit<IncomeEntry, 'id'>): Promise<boolean> => {
@@ -643,6 +670,39 @@ export const useSupabaseFinance = () => {
     );
   }, [creditCards]);
 
+  // Card monthly paid status
+  const getCardPaidStatus = useCallback((cardId: string): boolean => {
+    return cardMonthlyStatus[cardId] || false;
+  }, [cardMonthlyStatus]);
+
+  const setCardPaidStatus = useCallback(async (cardId: string, paid: boolean): Promise<boolean> => {
+    if (!user) return false;
+
+    // Optimistic update
+    setCardMonthlyStatus(prev => ({ ...prev, [cardId]: paid }));
+
+    // Upsert the status
+    const { error } = await (supabase
+      .from('credit_card_monthly_status' as any)
+      .upsert({
+        user_id: user.id,
+        credit_card_id: cardId,
+        year_month: currentMonth,
+        paid,
+      }, {
+        onConflict: 'user_id,credit_card_id,year_month',
+      }) as any);
+
+    if (error) {
+      console.error('Error updating card paid status:', error);
+      // Rollback
+      setCardMonthlyStatus(prev => ({ ...prev, [cardId]: !paid }));
+      return false;
+    }
+
+    return true;
+  }, [user, currentMonth]);
+
   // Investment operations
   const addInvestment = useCallback(async (investment: Omit<Investment, 'id'>): Promise<boolean> => {
     if (!user) return false;
@@ -884,13 +944,11 @@ export const useSupabaseFinance = () => {
     addIncome,
     updateIncome,
     deleteIncome,
-    reorderIncomes,
     // Expense
     addExpense,
     updateExpense,
     deleteExpense,
     deleteInstallmentExpense,
-    reorderExpenses,
     // Credit Card
     addCreditCard,
     updateCreditCard,
@@ -898,11 +956,12 @@ export const useSupabaseFinance = () => {
     getCreditCardTotal,
     canDeleteCard,
     cardNameExists,
+    getCardPaidStatus,
+    setCardPaidStatus,
     // Investment
     addInvestment,
     updateInvestment,
     deleteInvestment,
-    reorderInvestments,
     // Investment tags
     addInvestmentTag,
     updateInvestmentTag,

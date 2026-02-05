@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, GripVertical, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,6 @@ interface InvestmentSectionProps {
   onAdd: (investment: Omit<Investment, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<Investment>) => void;
   onDelete: (id: string) => void;
-  onReorder: (investments: Investment[]) => void;
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
   onDeleteTag: (tag: string) => void;
@@ -58,7 +58,6 @@ export const InvestmentSection = ({
   onAdd,
   onUpdate,
   onDelete,
-  onReorder,
   onAddTag,
   onUpdateTag,
   onDeleteTag,
@@ -69,7 +68,7 @@ export const InvestmentSection = ({
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Tag management
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -136,27 +135,24 @@ export const InvestmentSection = ({
     if (deleteId) {
       onDelete(deleteId);
       setDeleteId(null);
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deleteId);
+        return newSet;
+      });
     }
   };
 
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    const newInvestments = [...investments];
-    const draggedItem = newInvestments[draggedIndex];
-    newInvestments.splice(draggedIndex, 1);
-    newInvestments.splice(index, 0, draggedItem);
-    onReorder(newInvestments);
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
   
   // Tag management handlers
@@ -185,6 +181,9 @@ export const InvestmentSection = ({
   };
 
   const total = investments.reduce((sum, i) => sum + i.value, 0);
+  const selectedTotal = investments
+    .filter(i => selectedIds.has(i.id))
+    .reduce((sum, i) => sum + i.value, 0);
 
   return (
     <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
@@ -196,9 +195,24 @@ export const InvestmentSection = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Investimentos</h3>
-            <p className="text-base font-bold text-investment">
-              {formatCurrency(total)}
-            </p>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">Total:</span>
+                </>
+              )}
+              <p className="text-base font-bold text-investment">
+                {formatCurrency(total)}
+              </p>
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <p className="text-base font-bold text-investment">
+                    {formatCurrency(selectedTotal)}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex gap-2">
@@ -385,61 +399,62 @@ export const InvestmentSection = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {investments.map((investment, index) => (
-            <div
-              key={investment.id}
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
-              className={`group flex items-center gap-2 py-2.5 px-3 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-200 cursor-default ${
-                draggedIndex === index ? 'opacity-50' : ''
-              }`}
-            >
-              {/* Drag Handle */}
-              <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0">
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
-              </div>
-
-              {/* Tag */}
-              <Badge 
-                variant="secondary" 
-                className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0"
+          {investments.map((investment) => {
+            const isSelected = selectedIds.has(investment.id);
+            return (
+              <div
+                key={investment.id}
+                className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
+                  isSelected ? 'bg-investment-light' : 'bg-muted/30 hover:bg-muted/50'
+                }`}
               >
-                {investment.tag}
-              </Badge>
+                {/* Checkbox */}
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleSelection(investment.id)}
+                  className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0"
+                />
 
-              {/* Description */}
-              <span className="flex-1 text-sm font-medium truncate text-foreground">
-                {investment.description}
-              </span>
-
-              {/* Value */}
-              <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">
-                {formatCurrency(investment.value)}
-              </span>
-
-              {/* Actions */}
-              <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg hover:bg-muted"
-                  onClick={() => handleEdit(investment)}
+                {/* Tag */}
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0"
                 >
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg hover:bg-muted"
-                  onClick={() => setDeleteId(investment.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
+                  {investment.tag}
+                </Badge>
+
+                {/* Description */}
+                <span className="flex-1 text-sm font-medium truncate text-foreground">
+                  {investment.description}
+                </span>
+
+                {/* Value */}
+                <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">
+                  {formatCurrency(investment.value)}
+                </span>
+
+                {/* Actions */}
+                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg hover:bg-muted"
+                    onClick={() => handleEdit(investment)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg hover:bg-muted"
+                    onClick={() => setDeleteId(investment.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

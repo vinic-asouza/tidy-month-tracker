@@ -28,16 +28,18 @@ import {
 } from '@/components/ui/select';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CreditCard, CARD_COLORS } from '@/types/finance';
-import { toast } from '@/hooks/use-toast';
 
 interface CreditCardSectionProps {
   creditCards: CreditCard[];
+  currentMonth: string;
   onAdd: (card: Omit<CreditCard, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<CreditCard>) => void;
   onDelete: (id: string) => void;
   getCardTotal: (cardName: string) => number;
   canDeleteCard: (cardName: string) => boolean;
   cardNameExists: (name: string, excludeId?: string) => boolean;
+  getCardPaidStatus: (cardId: string) => boolean;
+  setCardPaidStatus: (cardId: string, paid: boolean) => Promise<boolean>;
 }
 
 const formatCurrency = (value: number) => {
@@ -49,12 +51,15 @@ const formatCurrency = (value: number) => {
 
 export const CreditCardSection = ({
   creditCards,
+  currentMonth,
   onAdd,
   onUpdate,
   onDelete,
   getCardTotal,
   canDeleteCard,
   cardNameExists,
+  getCardPaidStatus,
+  setCardPaidStatus,
 }: CreditCardSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -216,12 +221,13 @@ export const CreditCardSection = ({
           {creditCards.map((card) => {
             const total = getCardTotal(card.name);
             const colorClass = getColorClass(card.color);
+            const isPaid = getCardPaidStatus(card.id);
             
             return (
               <div
                 key={card.id}
                 className={`group relative overflow-hidden rounded-xl p-3 transition-all duration-300 hover-lift ${
-                  card.paid ? 'opacity-70' : ''
+                  isPaid ? 'opacity-70' : ''
                 }`}
               >
                 {/* Card Background */}
@@ -266,15 +272,15 @@ export const CreditCardSection = ({
                   <div className="flex items-center gap-2 pt-2 border-t border-white/20">
                     <Checkbox
                       id={`card-paid-${card.id}`}
-                      checked={card.paid}
-                      onCheckedChange={(checked) => onUpdate(card.id, { paid: !!checked })}
+                      checked={isPaid}
+                      onCheckedChange={(checked) => setCardPaidStatus(card.id, !!checked)}
                       className="h-4 w-4 rounded-md border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900"
                     />
                     <label
                       htmlFor={`card-paid-${card.id}`}
                       className="text-xs text-white/80 cursor-pointer flex items-center gap-1"
                     >
-                      {card.paid && <CheckCircle2 className="h-3 w-3" />}
+                      {isPaid && <CheckCircle2 className="h-3 w-3" />}
                       Fatura paga
                     </label>
                   </div>
