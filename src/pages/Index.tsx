@@ -89,7 +89,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background gradient-subtle">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border/50">
+      <header className="sticky top-0 z-50 glass border-b border-border/50" style={{ '--header-height': '64px' } as React.CSSProperties}>
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -233,8 +233,9 @@ const Index = () => {
                 />
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-6">
+            {/* Right Column - Sticky Credit Cards */}
+            <div className="space-y-6">
+              <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+1.5rem)]">
                 <CreditCardSection
                   creditCards={creditCards}
                   currentMonth={currentMonth}
@@ -247,17 +248,18 @@ const Index = () => {
                   getCardPaidStatus={getCardPaidStatus}
                   setCardPaidStatus={setCardPaidStatus}
                 />
-                <InvestmentSection
-                  investments={monthData.investments}
-                  tags={settings.investmentTags}
-                  onAdd={addInvestment}
-                  onUpdate={updateInvestment}
-                  onDelete={deleteInvestment}
-                  onAddTag={addInvestmentTag}
-                  onUpdateTag={updateInvestmentTag}
-                  onDeleteTag={deleteInvestmentTag}
-                />
               </div>
+              <InvestmentSection
+                investments={monthData.investments}
+                tags={settings.investmentTags}
+                onAdd={addInvestment}
+                onUpdate={updateInvestment}
+                onDelete={deleteInvestment}
+                onAddTag={addInvestmentTag}
+                onUpdateTag={updateInvestmentTag}
+                onDeleteTag={deleteInvestmentTag}
+              />
+            </div>
             </div>
           </div>
         ) : (
