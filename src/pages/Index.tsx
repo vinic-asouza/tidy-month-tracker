@@ -203,7 +203,11 @@ const Index = () => {
         {view === 'dashboard' ? (
           <div className="animate-fade-in">
             {/* Summary Cards */}
-            <SummaryCards monthData={monthData} />
+            <SummaryCards 
+              monthData={monthData}
+              creditCards={creditCards}
+              getCardPaidStatus={getCardPaidStatus}
+            />
 
             {/* Main Grid */}
             <div className="grid lg:grid-cols-2 gap-6 mt-6">
@@ -225,6 +229,7 @@ const Index = () => {
                   onUpdate={updateExpense}
                   onDelete={deleteExpense}
                   onDeleteInstallment={deleteInstallmentExpense}
+                  getCardPaidStatus={getCardPaidStatus}
                 />
               </div>
 

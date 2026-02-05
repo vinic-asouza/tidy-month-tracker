@@ -161,17 +161,12 @@ export const IncomeSection = ({
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Entradas</h3>
             <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
-                <>
-                  <span className="text-xs text-muted-foreground">Total:</span>
-                </>
-              )}
               <p className="text-base font-bold text-income">
                 {formatCurrency(total)}
               </p>
               {selectedIds.size > 0 && (
                 <>
-                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <span className="text-xs text-muted-foreground">| Recebido:</span>
                   <p className="text-base font-bold text-income">
                     {formatCurrency(selectedTotal)}
                   </p>
