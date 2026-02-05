@@ -292,26 +292,22 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
   // Check if it's a credit card payment
   const creditCard = creditCards.find(c => c.name === paymentMethod);
   if (creditCard) {
-    // Get card color from CARD_COLORS
-    const cardColor = CARD_COLORS.find(c => c.id === creditCard.color);
-    if (cardColor) {
-      // Map card color to tailwind classes with light bg and darker text
-      const colorMap: Record<string, string> = {
-        'violet': 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
-        'orange': 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
-        'emerald': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
-        'blue': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
-        'pink': 'bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-400',
-        'yellow': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
-        'slate': 'bg-slate-200 text-slate-700 dark:bg-slate-900 dark:text-slate-400',
-        'cyan': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
-        'red': 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
-      };
-      return {
-        className: colorMap[creditCard.color] || 'bg-muted text-muted-foreground',
-        isCard: true,
-      };
-    }
+    // Get card color from CARD_COLORS - use solid color with white text
+    const colorMap: Record<string, string> = {
+      'violet': 'bg-violet-600 text-white',
+      'orange': 'bg-orange-500 text-white',
+      'emerald': 'bg-emerald-600 text-white',
+      'blue': 'bg-blue-600 text-white',
+      'pink': 'bg-pink-500 text-white',
+      'yellow': 'bg-yellow-500 text-white',
+      'slate': 'bg-slate-600 text-white',
+      'cyan': 'bg-cyan-600 text-white',
+      'red': 'bg-red-600 text-white',
+    };
+    return {
+      className: colorMap[creditCard.color] || 'bg-muted text-muted-foreground',
+      isCard: true,
+    };
   }
 
   // Standard payment methods
@@ -397,7 +393,7 @@ const ExpenseItem = ({
       {/* Category */}
       <Badge 
         variant="secondary" 
-        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0"
+        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default"
       >
         {expense.category}
       </Badge>
@@ -410,7 +406,7 @@ const ExpenseItem = ({
       {/* Payment Method Badge */}
       <Badge 
         variant="secondary" 
-        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 ${style.className}`}
+        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 cursor-default ${style.className}`}
       >
         {expense.paymentMethod}
       </Badge>
@@ -419,7 +415,7 @@ const ExpenseItem = ({
       {installmentText && (
         <Badge 
           variant="secondary" 
-          className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 flex-shrink-0"
+          className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 flex-shrink-0 cursor-default"
         >
           {installmentText}
         </Badge>
@@ -467,10 +463,10 @@ const CategorySummaryItem = ({
   total: number;
 }) => {
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200">
+    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30">
       <Badge 
         variant="secondary" 
-        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0"
+        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 cursor-default"
       >
         {category}
       </Badge>
