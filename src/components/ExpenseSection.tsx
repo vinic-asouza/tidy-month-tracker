@@ -381,7 +381,7 @@ const ExpenseItem = ({
       </Badge>
 
       {/* Description */}
-      <span className={`flex-1 text-sm font-medium truncate ${isPaid ? 'text-muted-foreground' : 'text-foreground'}`}>
+      <span className="flex-1 text-sm font-medium truncate text-foreground">
         {expense.description}
       </span>
 
@@ -409,7 +409,7 @@ const ExpenseItem = ({
       )}
 
       {/* Value */}
-      <span className={`font-bold whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 ${isPaid ? 'text-muted-foreground' : 'text-expense'}`}>
+      <span className="font-bold whitespace-nowrap text-sm flex-shrink-0 text-expense">
         {formatCurrency(expense.value)}
       </span>
 
