@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Expense, CreditCard as CreditCardType, CARD_COLORS } from '@/types/finance';
@@ -46,6 +53,9 @@ interface ExpenseSectionProps {
   getCardPaidStatus?: (cardId: string) => boolean;
 }
 
+type ViewMode = 'general' | 'summary';
+type SortOption = 'default' | 'alphabetic' | 'category' | 'payment' | 'highest' | 'lowest';
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -59,6 +69,15 @@ const formatValueForInput = (value: number): string => {
     maximumFractionDigits: 2,
   });
 };
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Padrão' },
+  { value: 'alphabetic', label: 'Ordem Alfabética' },
+  { value: 'category', label: 'Categoria' },
+  { value: 'payment', label: 'Forma de Pagamento' },
+  { value: 'highest', label: 'Maior Valor' },
+  { value: 'lowest', label: 'Menor Valor' },
+];
 
 const ExpenseForm = ({
   type,
@@ -439,6 +458,80 @@ const ExpenseItem = ({
   );
 };
 
+// Summary item component for category summary view
+const CategorySummaryItem = ({
+  category,
+  total,
+}: {
+  category: string;
+  total: number;
+}) => {
+  return (
+    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200">
+      <Badge 
+        variant="secondary" 
+        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0"
+      >
+        {category}
+      </Badge>
+      <span className="font-bold whitespace-nowrap text-sm text-expense">
+        {formatCurrency(total)}
+      </span>
+    </div>
+  );
+};
+
+// Sorting function
+const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: CreditCardType[]): Expense[] => {
+  if (sortOption === 'default') return expenses;
+  
+  const sorted = [...expenses];
+  
+  switch (sortOption) {
+    case 'alphabetic':
+      return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
+    
+    case 'category':
+      return sorted.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+    
+    case 'payment':
+      // Sort by payment method, with credit cards last
+      return sorted.sort((a, b) => {
+        const aIsCard = creditCards.some(c => c.name === a.paymentMethod);
+        const bIsCard = creditCards.some(c => c.name === b.paymentMethod);
+        
+        if (aIsCard && !bIsCard) return 1;
+        if (!aIsCard && bIsCard) return -1;
+        
+        return a.paymentMethod.localeCompare(b.paymentMethod, 'pt-BR');
+      });
+    
+    case 'highest':
+      return sorted.sort((a, b) => b.value - a.value);
+    
+    case 'lowest':
+      return sorted.sort((a, b) => a.value - b.value);
+    
+    default:
+      return sorted;
+  }
+};
+
+// Group expenses by category and calculate totals
+const groupByCategory = (expenses: Expense[]): { category: string; total: number }[] => {
+  const grouped = expenses.reduce((acc, expense) => {
+    if (!acc[expense.category]) {
+      acc[expense.category] = 0;
+    }
+    acc[expense.category] += expense.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return Object.entries(grouped)
+    .map(([category, total]) => ({ category, total }))
+    .sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+};
+
 export const ExpenseSection = ({
   expenses,
   categories,
@@ -455,10 +548,31 @@ export const ExpenseSection = ({
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('general');
+  const [sortOption, setSortOption] = useState<SortOption>('default');
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
   const variableExpenses = expenses.filter((e) => e.type === 'variable');
   const installmentExpenses = expenses.filter((e) => e.type === 'installment');
+
+  // Apply sorting to each group
+  const sortedFixedExpenses = useMemo(
+    () => sortExpenses(fixedExpenses, sortOption, creditCards),
+    [fixedExpenses, sortOption, creditCards]
+  );
+  const sortedVariableExpenses = useMemo(
+    () => sortExpenses(variableExpenses, sortOption, creditCards),
+    [variableExpenses, sortOption, creditCards]
+  );
+  const sortedInstallmentExpenses = useMemo(
+    () => sortExpenses(installmentExpenses, sortOption, creditCards),
+    [installmentExpenses, sortOption, creditCards]
+  );
+
+  // Group by category for summary view
+  const fixedByCategory = useMemo(() => groupByCategory(fixedExpenses), [fixedExpenses]);
+  const variableByCategory = useMemo(() => groupByCategory(variableExpenses), [variableExpenses]);
+  const installmentByCategory = useMemo(() => groupByCategory(installmentExpenses), [installmentExpenses]);
 
   // Check if expense is linked to a credit card
   const isExpenseLinkedToCard = (expense: Expense): boolean => {
@@ -573,6 +687,45 @@ export const ExpenseSection = ({
     </div>
   );
 
+  const SummaryGroup = ({
+    title,
+    icon: Icon,
+    categoryData,
+    emptyMessage,
+    groupTotal,
+  }: {
+    title: string;
+    icon: typeof Receipt;
+    categoryData: { category: string; total: number }[];
+    emptyMessage: string;
+    groupTotal: number;
+  }) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+        </div>
+        <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
+      </div>
+      {categoryData.length === 0 ? (
+        <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-xl">
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {categoryData.map(({ category, total }) => (
+            <CategorySummaryItem
+              key={category}
+              category={category}
+              total={total}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   // Get delete confirmation message based on expense type
   const getDeleteMessage = () => {
     if (!deleteExpense) return '';
@@ -657,35 +810,118 @@ export const ExpenseSection = ({
         </Dialog>
       </div>
 
+      {/* View Controls */}
+      <div className="flex items-center justify-between mb-4 gap-2">
+        {/* View Mode Toggle */}
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(value) => value && setViewMode(value as ViewMode)}
+          className="bg-muted/50 rounded-lg p-1"
+        >
+          <ToggleGroupItem
+            value="general"
+            aria-label="Visualização geral"
+            className="rounded-md px-3 py-1.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-sm"
+          >
+            <List className="h-3.5 w-3.5 mr-1.5" />
+            Geral
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="summary"
+            aria-label="Visualização resumida"
+            className="rounded-md px-3 py-1.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-sm"
+          >
+            <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+            Resumo
+          </ToggleGroupItem>
+        </ToggleGroup>
+
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-lg h-8 px-3 text-xs gap-1.5"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">
+                {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl">
+            {SORT_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => setSortOption(option.value)}
+                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-accent' : ''}`}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Expense Groups */}
       <div className="space-y-6">
-        <ExpenseGroup
-          title="Gastos Fixos"
-          icon={Receipt}
-          list={fixedExpenses}
-          type="fixed"
-          emptyMessage="Nenhum gasto fixo"
-          groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
-          groupCreditCards={creditCards}
-        />
-        <ExpenseGroup
-          title="Gastos Variáveis"
-          icon={Repeat}
-          list={variableExpenses}
-          type="variable"
-          emptyMessage="Nenhum gasto variável"
-          groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
-          groupCreditCards={creditCards}
-        />
-        <ExpenseGroup
-          title="Gastos Parcelados"
-          icon={CreditCard}
-          list={installmentExpenses}
-          type="installment"
-          emptyMessage="Nenhum gasto parcelado"
-          groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
-          groupCreditCards={creditCards}
-        />
+        {viewMode === 'general' ? (
+          <>
+            <ExpenseGroup
+              title="Gastos Fixos"
+              icon={Receipt}
+              list={sortedFixedExpenses}
+              type="fixed"
+              emptyMessage="Nenhum gasto fixo"
+              groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
+              groupCreditCards={creditCards}
+            />
+            <ExpenseGroup
+              title="Gastos Variáveis"
+              icon={Repeat}
+              list={sortedVariableExpenses}
+              type="variable"
+              emptyMessage="Nenhum gasto variável"
+              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
+              groupCreditCards={creditCards}
+            />
+            <ExpenseGroup
+              title="Gastos Parcelados"
+              icon={CreditCard}
+              list={sortedInstallmentExpenses}
+              type="installment"
+              emptyMessage="Nenhum gasto parcelado"
+              groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
+              groupCreditCards={creditCards}
+            />
+          </>
+        ) : (
+          <>
+            <SummaryGroup
+              title="Gastos Fixos"
+              icon={Receipt}
+              categoryData={fixedByCategory}
+              emptyMessage="Nenhum gasto fixo"
+              groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
+            />
+            <SummaryGroup
+              title="Gastos Variáveis"
+              icon={Repeat}
+              categoryData={variableByCategory}
+              emptyMessage="Nenhum gasto variável"
+              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
+            />
+            <SummaryGroup
+              title="Gastos Parcelados"
+              icon={CreditCard}
+              categoryData={installmentByCategory}
+              emptyMessage="Nenhum gasto parcelado"
+              groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
+            />
+          </>
+        )}
       </div>
 
       {/* Delete Confirmation */}
