@@ -358,12 +358,15 @@ const ExpenseItem = ({
     >
       {/* Paid Checkbox */}
       {isLinkedToCard ? (
-        <Checkbox
-          checked={isCardPaid}
-          disabled
+        <div 
           onClick={onCardItemClick}
-          className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 cursor-not-allowed data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
-        />
+          className="cursor-pointer"
+        >
+          <Checkbox
+            checked={isCardPaid}
+            className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+          />
+        </div>
       ) : (
         <Checkbox
           checked={expense.paid}
