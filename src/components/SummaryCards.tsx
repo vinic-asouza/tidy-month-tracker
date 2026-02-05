@@ -1,8 +1,13 @@
 import { TrendingUp, TrendingDown, PiggyBank, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { MonthData } from '@/types/finance';
+import { MonthData, CreditCard } from '@/types/finance';
 
 interface SummaryCardsProps {
   monthData: MonthData;
+  receivedIncomeIds?: Set<string>;
+  paidExpenseIds?: Set<string>;
+  investedIds?: Set<string>;
+  creditCards?: CreditCard[];
+  getCardPaidStatus?: (cardId: string) => boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -12,20 +17,42 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatCompact = (value: number) => {
-  if (Math.abs(value) >= 1000) {
-    return new Intl.NumberFormat('pt-BR', {
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(value);
-  }
-  return formatCurrency(value);
-};
+export const SummaryCards = ({ 
+  monthData, 
+  receivedIncomeIds = new Set(),
+  paidExpenseIds = new Set(),
+  investedIds = new Set(),
+  creditCards = [],
+  getCardPaidStatus,
+}: SummaryCardsProps) => {
+  // Calculate totals based on marked items
+  const totalIncome = receivedIncomeIds.size > 0
+    ? monthData.incomes.filter(i => receivedIncomeIds.has(i.id)).reduce((sum, i) => sum + i.value, 0)
+    : monthData.incomes.reduce((sum, i) => sum + i.value, 0);
+  
+  // For expenses, consider both manually paid and card-paid items
+  const calculatePaidExpenses = () => {
+    return monthData.expenses.reduce((sum, e) => {
+      // Check if expense is linked to a card
+      const linkedCard = creditCards.find(c => c.name === e.paymentMethod);
+      if (linkedCard && getCardPaidStatus) {
+        // If linked to a card, use the card's paid status
+        return getCardPaidStatus(linkedCard.id) ? sum + e.value : sum;
+      }
+      // Otherwise, use the expense's own paid status or selection
+      if (paidExpenseIds.size > 0) {
+        return paidExpenseIds.has(e.id) ? sum + e.value : sum;
+      }
+      return e.paid ? sum + e.value : sum;
+    }, 0);
+  };
 
-export const SummaryCards = ({ monthData }: SummaryCardsProps) => {
-  const totalIncome = monthData.incomes.reduce((sum, i) => sum + i.value, 0);
-  const totalExpenses = monthData.expenses.reduce((sum, e) => sum + e.value, 0);
-  const totalInvestments = monthData.investments.reduce((sum, i) => sum + i.value, 0);
+  const totalExpenses = calculatePaidExpenses();
+  
+  const totalInvestments = investedIds.size > 0
+    ? monthData.investments.filter(i => investedIds.has(i.id)).reduce((sum, i) => sum + i.value, 0)
+    : monthData.investments.reduce((sum, i) => sum + i.value, 0);
+  
   const balance = totalIncome - totalExpenses - totalInvestments;
 
   const cards = [

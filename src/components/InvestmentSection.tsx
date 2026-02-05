@@ -196,17 +196,12 @@ export const InvestmentSection = ({
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Investimentos</h3>
             <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
-                <>
-                  <span className="text-xs text-muted-foreground">Total:</span>
-                </>
-              )}
               <p className="text-base font-bold text-investment">
                 {formatCurrency(total)}
               </p>
               {selectedIds.size > 0 && (
                 <>
-                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <span className="text-xs text-muted-foreground">| Investido:</span>
                   <p className="text-base font-bold text-investment">
                     {formatCurrency(selectedTotal)}
                   </p>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -34,6 +43,7 @@ interface ExpenseSectionProps {
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (id: string) => void;
   onDeleteInstallment: (expense: Expense) => void;
+  getCardPaidStatus?: (cardId: string) => boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -313,49 +323,54 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
 const ExpenseItem = ({
   expense,
   creditCards,
-  isSelected,
-  onToggleSelect,
+  isLinkedToCard,
+  isCardPaid,
+  onTogglePaid,
   onUpdate,
   onDelete,
   onEdit,
+  onCardItemClick,
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
-  isSelected: boolean;
-  onToggleSelect: () => void;
+  isLinkedToCard: boolean;
+  isCardPaid: boolean;
+  onTogglePaid: () => void;
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
+  onCardItemClick: () => void;
 }) => {
   const installmentText = expense.currentInstallment && expense.totalInstallments
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
     : null;
 
   const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
+  const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
 
   return (
     <div
       className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${
-        isSelected 
+        isPaid 
           ? 'bg-expense-light' 
-          : expense.paid 
-            ? 'bg-muted/20' 
-            : 'bg-muted/30 hover:bg-muted/50'
+          : 'bg-muted/30 hover:bg-muted/50'
       }`}
     >
-      {/* Selection Checkbox */}
-      <Checkbox
-        checked={isSelected}
-        onCheckedChange={onToggleSelect}
-        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
-      />
-
       {/* Paid Checkbox */}
-      <Checkbox
-        checked={expense.paid}
-        onCheckedChange={(checked) => onUpdate(expense.id, { paid: !!checked })}
-        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
-      />
+      {isLinkedToCard ? (
+        <Checkbox
+          checked={isCardPaid}
+          disabled
+          onClick={onCardItemClick}
+          className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 cursor-not-allowed data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+        />
+      ) : (
+        <Checkbox
+          checked={expense.paid}
+          onCheckedChange={onTogglePaid}
+          className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+        />
+      )}
 
       {/* Category */}
       <Badge 
@@ -366,7 +381,7 @@ const ExpenseItem = ({
       </Badge>
 
       {/* Description */}
-      <span className={`flex-1 text-sm font-medium truncate ${expense.paid ? 'text-muted-foreground' : 'text-foreground'}`}>
+      <span className={`flex-1 text-sm font-medium truncate ${isPaid ? 'text-muted-foreground' : 'text-foreground'}`}>
         {expense.description}
       </span>
 
@@ -394,7 +409,7 @@ const ExpenseItem = ({
       )}
 
       {/* Value */}
-      <span className={`font-bold whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 ${expense.paid ? 'text-muted-foreground' : 'text-expense'}`}>
+      <span className={`font-bold whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 ${isPaid ? 'text-muted-foreground' : 'text-expense'}`}>
         {formatCurrency(expense.value)}
       </span>
 
@@ -430,16 +445,35 @@ export const ExpenseSection = ({
   onUpdate,
   onDelete,
   onDeleteInstallment,
+  getCardPaidStatus,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [cardWarningOpen, setCardWarningOpen] = useState(false);
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
   const variableExpenses = expenses.filter((e) => e.type === 'variable');
   const installmentExpenses = expenses.filter((e) => e.type === 'installment');
+
+  // Check if expense is linked to a credit card
+  const isExpenseLinkedToCard = (expense: Expense): boolean => {
+    return creditCards.some(c => c.name === expense.paymentMethod);
+  };
+
+  // Get card ID from payment method
+  const getCardIdFromPaymentMethod = (paymentMethod: string): string | null => {
+    const card = creditCards.find(c => c.name === paymentMethod);
+    return card?.id || null;
+  };
+
+  // Check if expense's card is paid
+  const isExpenseCardPaid = (expense: Expense): boolean => {
+    if (!getCardPaidStatus) return false;
+    const cardId = getCardIdFromPaymentMethod(expense.paymentMethod);
+    return cardId ? getCardPaidStatus(cardId) : false;
+  };
 
   const handleSubmit = (data: Omit<Expense, 'id'>) => {
     if (editingExpense) {
@@ -468,31 +502,23 @@ export const ExpenseSection = ({
       } else {
         onDelete(deleteExpense.id);
       }
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(deleteExpense.id);
-        return newSet;
-      });
       setDeleteExpense(null);
     }
   };
 
-  const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
+  const handleTogglePaid = (expense: Expense) => {
+    onUpdate(expense.id, { paid: !expense.paid });
   };
 
+  // Calculate paid total (items marked as paid or linked to paid cards)
+  const paidTotal = expenses.reduce((sum, e) => {
+    const isLinked = isExpenseLinkedToCard(e);
+    const isPaid = isLinked ? isExpenseCardPaid(e) : e.paid;
+    return isPaid ? sum + e.value : sum;
+  }, 0);
+
   const total = expenses.reduce((sum, e) => sum + e.value, 0);
-  const selectedTotal = expenses
-    .filter(e => selectedIds.has(e.id))
-    .reduce((sum, e) => sum + e.value, 0);
+  const hasPaidItems = paidTotal > 0;
 
   const ExpenseGroup = ({ 
     title, 
@@ -530,11 +556,13 @@ export const ExpenseSection = ({
               key={expense.id}
               expense={expense}
               creditCards={groupCreditCards}
-              isSelected={selectedIds.has(expense.id)}
-              onToggleSelect={() => toggleSelection(expense.id)}
+              isLinkedToCard={isExpenseLinkedToCard(expense)}
+              isCardPaid={isExpenseCardPaid(expense)}
+              onTogglePaid={() => handleTogglePaid(expense)}
               onUpdate={onUpdate}
               onDelete={handleDeleteRequest}
               onEdit={handleEdit}
+              onCardItemClick={() => setCardWarningOpen(true)}
             />
           ))}
         </div>
@@ -562,7 +590,7 @@ export const ExpenseSection = ({
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Gastos</h3>
             <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
+              {hasPaidItems && (
                 <>
                   <span className="text-xs text-muted-foreground">Total:</span>
                 </>
@@ -570,11 +598,11 @@ export const ExpenseSection = ({
               <p className="text-base font-bold text-expense">
                 {formatCurrency(total)}
               </p>
-              {selectedIds.size > 0 && (
+              {hasPaidItems && (
                 <>
-                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <span className="text-xs text-muted-foreground">| Pago:</span>
                   <p className="text-base font-bold text-expense">
-                    {formatCurrency(selectedTotal)}
+                    {formatCurrency(paidTotal)}
                   </p>
                 </>
               )}
@@ -665,6 +693,29 @@ export const ExpenseSection = ({
         title={deleteExpense?.type === 'installment' ? 'Excluir gasto parcelado' : 'Excluir gasto'}
         description={getDeleteMessage()}
       />
+
+      {/* Card Item Warning Dialog */}
+      <AlertDialog open={cardWarningOpen} onOpenChange={setCardWarningOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Item vinculado a cartão
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Este gasto está vinculado a uma fatura de cartão de crédito e não pode ser marcado individualmente como pago. Para registrar o pagamento, acesse a seção "Cartões de Crédito" e marque a fatura correspondente como paga.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setCardWarningOpen(false)}
+              className="rounded-xl"
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
