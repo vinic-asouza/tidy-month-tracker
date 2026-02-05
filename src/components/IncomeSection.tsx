@@ -87,7 +87,7 @@ const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntr
 };
 
 // Group incomes by category and calculate totals
-const groupByCategory = (incomes: IncomeEntry[]): { category: string; total: number }[] => {
+const groupByCategory = (incomes: IncomeEntry[], sortOption: SortOption): { category: string; total: number }[] => {
   const grouped = incomes.reduce((acc, income) => {
     if (!acc[income.tag]) {
       acc[income.tag] = 0;
@@ -96,9 +96,19 @@ const groupByCategory = (incomes: IncomeEntry[]): { category: string; total: num
     return acc;
   }, {} as Record<string, number>);
 
-  return Object.entries(grouped)
-    .map(([category, total]) => ({ category, total }))
-    .sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+  const result = Object.entries(grouped).map(([category, total]) => ({ category, total }));
+
+  switch (sortOption) {
+    case 'alphabetic':
+    case 'category':
+      return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+    case 'highest':
+      return result.sort((a, b) => b.total - a.total);
+    case 'lowest':
+      return result.sort((a, b) => a.total - b.total);
+    default:
+      return result;
+  }
 };
 
 // Summary item component
@@ -150,7 +160,7 @@ export const IncomeSection = ({
 
   // Apply sorting and grouping
   const sortedIncomes = useMemo(() => sortIncomes(incomes, sortOption), [incomes, sortOption]);
-  const groupedByCategory = useMemo(() => groupByCategory(incomes), [incomes]);
+  const groupedByCategory = useMemo(() => groupByCategory(incomes, sortOption), [incomes, sortOption]);
 
   const resetForm = () => {
     setDescription('');
@@ -358,7 +368,7 @@ export const IncomeSection = ({
           <ToggleGroupItem
             value="general"
             aria-label="Visualização geral"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
           >
             <List className="h-3 w-3 mr-1" />
             Geral
@@ -366,7 +376,7 @@ export const IncomeSection = ({
           <ToggleGroupItem
             value="summary"
             aria-label="Visualização resumida"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
           >
             <LayoutGrid className="h-3 w-3 mr-1" />
             Resumo
@@ -392,7 +402,7 @@ export const IncomeSection = ({
               <DropdownMenuItem
                 key={option.value}
                 onClick={() => setSortOption(option.value)}
-                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-income-light text-income' : ''}`}
+                className={`rounded-lg cursor-pointer hover:bg-income-light hover:text-income ${sortOption === option.value ? 'bg-income-light text-income' : ''}`}
               >
                 {option.label}
               </DropdownMenuItem>

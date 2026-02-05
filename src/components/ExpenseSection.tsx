@@ -518,7 +518,7 @@ const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: 
 };
 
 // Group expenses by category and calculate totals
-const groupByCategory = (expenses: Expense[]): { category: string; total: number }[] => {
+const groupByCategory = (expenses: Expense[], sortOption: SortOption): { category: string; total: number }[] => {
   const grouped = expenses.reduce((acc, expense) => {
     if (!acc[expense.category]) {
       acc[expense.category] = 0;
@@ -527,9 +527,19 @@ const groupByCategory = (expenses: Expense[]): { category: string; total: number
     return acc;
   }, {} as Record<string, number>);
 
-  return Object.entries(grouped)
-    .map(([category, total]) => ({ category, total }))
-    .sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+  const result = Object.entries(grouped).map(([category, total]) => ({ category, total }));
+
+  switch (sortOption) {
+    case 'alphabetic':
+    case 'category':
+      return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+    case 'highest':
+      return result.sort((a, b) => b.total - a.total);
+    case 'lowest':
+      return result.sort((a, b) => a.total - b.total);
+    default:
+      return result;
+  }
 };
 
 export const ExpenseSection = ({
@@ -570,9 +580,9 @@ export const ExpenseSection = ({
   );
 
   // Group by category for summary view
-  const fixedByCategory = useMemo(() => groupByCategory(fixedExpenses), [fixedExpenses]);
-  const variableByCategory = useMemo(() => groupByCategory(variableExpenses), [variableExpenses]);
-  const installmentByCategory = useMemo(() => groupByCategory(installmentExpenses), [installmentExpenses]);
+  const fixedByCategory = useMemo(() => groupByCategory(fixedExpenses, sortOption), [fixedExpenses, sortOption]);
+  const variableByCategory = useMemo(() => groupByCategory(variableExpenses, sortOption), [variableExpenses, sortOption]);
+  const installmentByCategory = useMemo(() => groupByCategory(installmentExpenses, sortOption), [installmentExpenses, sortOption]);
 
   // Check if expense is linked to a credit card
   const isExpenseLinkedToCard = (expense: Expense): boolean => {
@@ -822,7 +832,7 @@ export const ExpenseSection = ({
           <ToggleGroupItem
             value="general"
             aria-label="Visualização geral"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense hover:bg-expense/20 hover:text-expense"
           >
             <List className="h-3 w-3 mr-1" />
             Geral
@@ -830,7 +840,7 @@ export const ExpenseSection = ({
           <ToggleGroupItem
             value="summary"
             aria-label="Visualização resumida"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-expense data-[state=on]:text-white data-[state=on]:shadow-sm text-expense hover:bg-expense/20 hover:text-expense"
           >
             <LayoutGrid className="h-3 w-3 mr-1" />
             Resumo
@@ -856,7 +866,7 @@ export const ExpenseSection = ({
               <DropdownMenuItem
                 key={option.value}
                 onClick={() => setSortOption(option.value)}
-                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-expense-light text-expense' : ''}`}
+                className={`rounded-lg cursor-pointer hover:bg-expense-light hover:text-expense ${sortOption === option.value ? 'bg-expense-light text-expense' : ''}`}
               >
                 {option.label}
               </DropdownMenuItem>
