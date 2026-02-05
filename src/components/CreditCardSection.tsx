@@ -253,8 +253,8 @@ export const CreditCardSection = ({
           allPaid ? 'opacity-70' : ''
         }`}
       >
-        {/* Multi-color gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-pink-500 via-orange-400 to-emerald-500 opacity-90" />
+        {/* Purple gradient background (section color) */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 opacity-90" />
         <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-12 translate-x-12" />
         <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-white/5 translate-y-10 -translate-x-10" />
         <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full bg-white/5 -translate-x-1/2 -translate-y-1/2" />
@@ -379,12 +379,12 @@ export const CreditCardSection = ({
             type="single"
             value={viewMode}
             onValueChange={(value) => value && setViewMode(value as ViewMode)}
-            className="bg-primary/10 rounded-lg p-0.5"
+            className="bg-violet-100 dark:bg-violet-950 rounded-lg p-0.5"
           >
             <ToggleGroupItem
               value="general"
               aria-label="Visualização geral"
-              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-primary data-[state=on]:text-white data-[state=on]:shadow-sm text-primary"
+              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white data-[state=on]:shadow-sm text-violet-600 hover:bg-violet-200 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900"
             >
               <List className="h-3 w-3 mr-1" />
               Geral
@@ -392,7 +392,7 @@ export const CreditCardSection = ({
             <ToggleGroupItem
               value="summary"
               aria-label="Visualização resumida"
-              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-primary data-[state=on]:text-white data-[state=on]:shadow-sm text-primary"
+              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white data-[state=on]:shadow-sm text-violet-600 hover:bg-violet-200 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900"
             >
               <LayoutGrid className="h-3 w-3 mr-1" />
               Resumo
@@ -403,30 +403,30 @@ export const CreditCardSection = ({
           {viewMode === 'general' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-lg h-7 px-2.5 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-lg h-7 px-2.5 text-xs gap-1 text-violet-600 hover:text-violet-600 hover:bg-violet-100 dark:text-violet-400 dark:hover:bg-violet-950"
+              >
+                <ArrowUpDown className="h-3 w-3" />
+                <span className="hidden sm:inline">
+                  {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl">
+              {SORT_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => setSortOption(option.value)}
+                  className={`rounded-lg cursor-pointer hover:bg-violet-100 hover:text-violet-600 dark:hover:bg-violet-950 dark:hover:text-violet-400 ${sortOption === option.value ? 'bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400' : ''}`}
                 >
-                  <ArrowUpDown className="h-3 w-3" />
-                  <span className="hidden sm:inline">
-                    {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl">
-                {SORT_OPTIONS.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => setSortOption(option.value)}
-                    className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-primary/10 text-primary' : ''}`}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         </div>
       )}
 

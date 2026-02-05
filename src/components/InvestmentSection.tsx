@@ -93,7 +93,7 @@ const sortInvestments = (investments: Investment[], sortOption: SortOption): Inv
 };
 
 // Group investments by institution and calculate totals
-const groupByInstitution = (investments: Investment[]): { institution: string; total: number }[] => {
+const groupByInstitution = (investments: Investment[], sortOption: SortOption): { institution: string; total: number }[] => {
   const grouped = investments.reduce((acc, investment) => {
     if (!acc[investment.tag]) {
       acc[investment.tag] = 0;
@@ -102,9 +102,19 @@ const groupByInstitution = (investments: Investment[]): { institution: string; t
     return acc;
   }, {} as Record<string, number>);
 
-  return Object.entries(grouped)
-    .map(([institution, total]) => ({ institution, total }))
-    .sort((a, b) => a.institution.localeCompare(b.institution, 'pt-BR'));
+  const result = Object.entries(grouped).map(([institution, total]) => ({ institution, total }));
+
+  switch (sortOption) {
+    case 'alphabetic':
+    case 'institution':
+      return result.sort((a, b) => a.institution.localeCompare(b.institution, 'pt-BR'));
+    case 'highest':
+      return result.sort((a, b) => b.total - a.total);
+    case 'lowest':
+      return result.sort((a, b) => a.total - b.total);
+    default:
+      return result;
+  }
 };
 
 // Summary item component
@@ -163,7 +173,7 @@ export const InvestmentSection = ({
 
   // Apply sorting and grouping
   const sortedInvestments = useMemo(() => sortInvestments(investments, sortOption), [investments, sortOption]);
-  const groupedByInstitution = useMemo(() => groupByInstitution(investments), [investments]);
+  const groupedByInstitution = useMemo(() => groupByInstitution(investments, sortOption), [investments, sortOption]);
 
   const resetForm = () => {
     setDescription('');
@@ -318,7 +328,7 @@ export const InvestmentSection = ({
                 <Button 
                   size="sm" 
                   onClick={handleAddTag}
-                  className="rounded-lg h-9 px-3"
+                  className="rounded-lg h-9 px-3 bg-investment hover:bg-investment/90"
                   disabled={!newTag.trim() || tags.includes(newTag.trim())}
                 >
                   <Plus className="h-4 w-4" />
@@ -475,7 +485,7 @@ export const InvestmentSection = ({
           <ToggleGroupItem
             value="general"
             aria-label="Visualização geral"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment hover:bg-investment/20 hover:text-investment"
           >
             <List className="h-3 w-3 mr-1" />
             Geral
@@ -483,7 +493,7 @@ export const InvestmentSection = ({
           <ToggleGroupItem
             value="summary"
             aria-label="Visualização resumida"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment hover:bg-investment/20 hover:text-investment"
           >
             <LayoutGrid className="h-3 w-3 mr-1" />
             Resumo
@@ -509,7 +519,7 @@ export const InvestmentSection = ({
               <DropdownMenuItem
                 key={option.value}
                 onClick={() => setSortOption(option.value)}
-                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-investment-light text-investment' : ''}`}
+                className={`rounded-lg cursor-pointer hover:bg-investment-light hover:text-investment ${sortOption === option.value ? 'bg-investment-light text-investment' : ''}`}
               >
                 {option.label}
               </DropdownMenuItem>
