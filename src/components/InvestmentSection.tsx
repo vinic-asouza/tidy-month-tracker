@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, Settings } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Investment } from '@/types/finance';
@@ -40,6 +47,9 @@ interface InvestmentSectionProps {
   onSelectionChange: (ids: Set<string>) => void;
 }
 
+type ViewMode = 'general' | 'summary';
+type SortOption = 'default' | 'alphabetic' | 'institution' | 'highest' | 'lowest';
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -52,6 +62,72 @@ const formatValueForInput = (value: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+};
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Padrão' },
+  { value: 'alphabetic', label: 'Ordem Alfabética' },
+  { value: 'institution', label: 'Instituição' },
+  { value: 'highest', label: 'Maior Valor' },
+  { value: 'lowest', label: 'Menor Valor' },
+];
+
+// Sorting function
+const sortInvestments = (investments: Investment[], sortOption: SortOption): Investment[] => {
+  if (sortOption === 'default') return investments;
+  
+  const sorted = [...investments];
+  
+  switch (sortOption) {
+    case 'alphabetic':
+      return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
+    case 'institution':
+      return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
+    case 'highest':
+      return sorted.sort((a, b) => b.value - a.value);
+    case 'lowest':
+      return sorted.sort((a, b) => a.value - b.value);
+    default:
+      return sorted;
+  }
+};
+
+// Group investments by institution and calculate totals
+const groupByInstitution = (investments: Investment[]): { institution: string; total: number }[] => {
+  const grouped = investments.reduce((acc, investment) => {
+    if (!acc[investment.tag]) {
+      acc[investment.tag] = 0;
+    }
+    acc[investment.tag] += investment.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return Object.entries(grouped)
+    .map(([institution, total]) => ({ institution, total }))
+    .sort((a, b) => a.institution.localeCompare(b.institution, 'pt-BR'));
+};
+
+// Summary item component
+const InstitutionSummaryItem = ({
+  institution,
+  total,
+}: {
+  institution: string;
+  total: number;
+}) => {
+  return (
+    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200">
+      <Badge 
+        variant="secondary" 
+        className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0"
+      >
+        {institution}
+      </Badge>
+      <span className="font-bold whitespace-nowrap text-sm text-investment">
+        {formatCurrency(total)}
+      </span>
+    </div>
+  );
 };
 
 export const InvestmentSection = ({
@@ -72,6 +148,8 @@ export const InvestmentSection = ({
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('general');
+  const [sortOption, setSortOption] = useState<SortOption>('default');
   
   // Tag management
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -82,6 +160,10 @@ export const InvestmentSection = ({
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
   const [tagError, setTagError] = useState<string | null>(null);
+
+  // Apply sorting and grouping
+  const sortedInvestments = useMemo(() => sortInvestments(investments, sortOption), [investments, sortOption]);
+  const groupedByInstitution = useMemo(() => groupByInstitution(investments), [investments]);
 
   const resetForm = () => {
     setDescription('');
@@ -381,6 +463,61 @@ export const InvestmentSection = ({
         </div>
       </div>
 
+      {/* View Controls */}
+      <div className="flex items-center justify-between mb-4 gap-2">
+        {/* View Mode Toggle */}
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(value) => value && setViewMode(value as ViewMode)}
+          className="bg-investment-light rounded-lg p-0.5"
+        >
+          <ToggleGroupItem
+            value="general"
+            aria-label="Visualização geral"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment"
+          >
+            <List className="h-3 w-3 mr-1" />
+            Geral
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="summary"
+            aria-label="Visualização resumida"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-investment data-[state=on]:text-white data-[state=on]:shadow-sm text-investment"
+          >
+            <LayoutGrid className="h-3 w-3 mr-1" />
+            Resumo
+          </ToggleGroupItem>
+        </ToggleGroup>
+
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-lg h-7 px-2.5 text-xs gap-1 text-investment hover:text-investment hover:bg-investment-light"
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              <span className="hidden sm:inline">
+                {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl">
+            {SORT_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => setSortOption(option.value)}
+                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-investment-light text-investment' : ''}`}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* List */}
       {investments.length === 0 ? (
         <div className="text-center py-10">
@@ -391,9 +528,9 @@ export const InvestmentSection = ({
             Nenhum investimento registrado
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'general' ? (
         <div className="space-y-1">
-          {investments.map((investment) => {
+          {sortedInvestments.map((investment) => {
             const isSelected = selectedIds.has(investment.id);
             return (
               <div
@@ -449,6 +586,16 @@ export const InvestmentSection = ({
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {groupedByInstitution.map(({ institution, total }) => (
+            <InstitutionSummaryItem
+              key={institution}
+              institution={institution}
+              total={total}
+            />
+          ))}
         </div>
       )}
 

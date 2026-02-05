@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, TrendingUp, Repeat } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { IncomeEntry } from '@/types/finance';
@@ -34,6 +41,9 @@ interface IncomeSectionProps {
   onSelectionChange: (ids: Set<string>) => void;
 }
 
+type ViewMode = 'general' | 'summary';
+type SortOption = 'default' | 'alphabetic' | 'category' | 'highest' | 'lowest';
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -46,6 +56,72 @@ const formatValueForInput = (value: number): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+};
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Padrão' },
+  { value: 'alphabetic', label: 'Ordem Alfabética' },
+  { value: 'category', label: 'Categoria' },
+  { value: 'highest', label: 'Maior Valor' },
+  { value: 'lowest', label: 'Menor Valor' },
+];
+
+// Sorting function
+const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntry[] => {
+  if (sortOption === 'default') return incomes;
+  
+  const sorted = [...incomes];
+  
+  switch (sortOption) {
+    case 'alphabetic':
+      return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
+    case 'category':
+      return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
+    case 'highest':
+      return sorted.sort((a, b) => b.value - a.value);
+    case 'lowest':
+      return sorted.sort((a, b) => a.value - b.value);
+    default:
+      return sorted;
+  }
+};
+
+// Group incomes by category and calculate totals
+const groupByCategory = (incomes: IncomeEntry[]): { category: string; total: number }[] => {
+  const grouped = incomes.reduce((acc, income) => {
+    if (!acc[income.tag]) {
+      acc[income.tag] = 0;
+    }
+    acc[income.tag] += income.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return Object.entries(grouped)
+    .map(([category, total]) => ({ category, total }))
+    .sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
+};
+
+// Summary item component
+const CategorySummaryItem = ({
+  category,
+  total,
+}: {
+  category: string;
+  total: number;
+}) => {
+  return (
+    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200">
+      <Badge 
+        variant="secondary" 
+        className="text-xs rounded-md px-2 py-0.5 bg-income-light text-income border-0"
+      >
+        {category}
+      </Badge>
+      <span className="font-bold whitespace-nowrap text-sm text-income">
+        {formatCurrency(total)}
+      </span>
+    </div>
+  );
 };
 
 export const IncomeSection = ({
@@ -64,11 +140,17 @@ export const IncomeSection = ({
   const [selectedTag, setSelectedTag] = useState('');
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('general');
+  const [sortOption, setSortOption] = useState<SortOption>('default');
   
   // Error states
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
   const [tagError, setTagError] = useState<string | null>(null);
+
+  // Apply sorting and grouping
+  const sortedIncomes = useMemo(() => sortIncomes(incomes, sortOption), [incomes, sortOption]);
+  const groupedByCategory = useMemo(() => groupByCategory(incomes), [incomes]);
 
   const resetForm = () => {
     setDescription('');
@@ -264,6 +346,61 @@ export const IncomeSection = ({
         </Dialog>
       </div>
 
+      {/* View Controls */}
+      <div className="flex items-center justify-between mb-4 gap-2">
+        {/* View Mode Toggle */}
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(value) => value && setViewMode(value as ViewMode)}
+          className="bg-income-light rounded-lg p-0.5"
+        >
+          <ToggleGroupItem
+            value="general"
+            aria-label="Visualização geral"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income"
+          >
+            <List className="h-3 w-3 mr-1" />
+            Geral
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="summary"
+            aria-label="Visualização resumida"
+            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income"
+          >
+            <LayoutGrid className="h-3 w-3 mr-1" />
+            Resumo
+          </ToggleGroupItem>
+        </ToggleGroup>
+
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-lg h-7 px-2.5 text-xs gap-1 text-income hover:text-income hover:bg-income-light"
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              <span className="hidden sm:inline">
+                {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl">
+            {SORT_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => setSortOption(option.value)}
+                className={`rounded-lg cursor-pointer ${sortOption === option.value ? 'bg-income-light text-income' : ''}`}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* List */}
       {incomes.length === 0 ? (
         <div className="text-center py-10">
@@ -274,9 +411,9 @@ export const IncomeSection = ({
             Nenhuma entrada registrada
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'general' ? (
         <div className="space-y-1">
-          {incomes.map((income) => {
+          {sortedIncomes.map((income) => {
             const isSelected = selectedIds.has(income.id);
             return (
               <div
@@ -337,6 +474,16 @@ export const IncomeSection = ({
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {groupedByCategory.map(({ category, total }) => (
+            <CategorySummaryItem
+              key={category}
+              category={category}
+              total={total}
+            />
+          ))}
         </div>
       )}
 
