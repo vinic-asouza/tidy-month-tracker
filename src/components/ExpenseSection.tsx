@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
-import { Expense, CreditCard as CreditCardType } from '@/types/finance';
+import { Expense, CreditCard as CreditCardType, CARD_COLORS } from '@/types/finance';
 
 interface ExpenseSectionProps {
   expenses: Expense[];
@@ -34,7 +34,6 @@ interface ExpenseSectionProps {
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (id: string) => void;
   onDeleteInstallment: (expense: Expense) => void;
-  onReorder: (expenses: Expense[]) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -264,35 +263,49 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
   // Check if it's a credit card payment
   const creditCard = creditCards.find(c => c.name === paymentMethod);
   if (creditCard) {
-    // Use the card's color with darker tone
-    return {
-      backgroundColor: `${creditCard.color}30`,
-      borderColor: `${creditCard.color}50`,
-      color: creditCard.color,
-    };
+    // Get card color from CARD_COLORS
+    const cardColor = CARD_COLORS.find(c => c.id === creditCard.color);
+    if (cardColor) {
+      // Map card color to tailwind classes with light bg and darker text
+      const colorMap: Record<string, string> = {
+        'violet': 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
+        'orange': 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
+        'emerald': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+        'blue': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
+        'pink': 'bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-400',
+        'yellow': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
+        'slate': 'bg-slate-200 text-slate-700 dark:bg-slate-900 dark:text-slate-400',
+        'cyan': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
+        'red': 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+      };
+      return {
+        className: colorMap[creditCard.color] || 'bg-muted text-muted-foreground',
+        isCard: true,
+      };
+    }
   }
 
   // Standard payment methods
   switch (paymentMethod.toLowerCase()) {
     case 'dinheiro':
       return {
-        className: 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-400',
+        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
       };
     case 'pix':
       return {
-        className: 'bg-yellow-100 border-yellow-300 text-yellow-700 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-400',
+        className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
       };
     case 'débito':
       return {
-        className: 'bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-400',
+        className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
       };
     case 'boleto':
       return {
-        className: 'bg-red-100 border-red-300 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-400',
+        className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
       };
     default:
       return {
-        className: 'bg-muted border-muted-foreground/20 text-muted-foreground',
+        className: 'bg-muted text-muted-foreground',
       };
   }
 };
@@ -300,57 +313,44 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
 const ExpenseItem = ({
   expense,
   creditCards,
+  isSelected,
+  onToggleSelect,
   onUpdate,
   onDelete,
   onEdit,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
-  isDragged,
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
+  isSelected: boolean;
+  onToggleSelect: () => void;
   onUpdate: (id: string, updates: Partial<Expense>) => void;
   onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
-  onDragStart: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragEnd: () => void;
-  isDragged: boolean;
 }) => {
   const installmentText = expense.currentInstallment && expense.totalInstallments
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
     : null;
 
-  const handleDragStartEvent = (e: React.DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', '');
-    onDragStart();
-  };
+  const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
 
   return (
     <div
-      draggable="true"
-      onDragStart={handleDragStartEvent}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        onDragOver(e);
-      }}
-      onDrop={(e) => e.preventDefault()}
-      onDragEnd={onDragEnd}
       className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${
-        expense.paid 
-          ? 'bg-muted/20' 
-          : 'bg-muted/30 hover:bg-muted/50'
-      } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
+        isSelected 
+          ? 'bg-expense-light' 
+          : expense.paid 
+            ? 'bg-muted/20' 
+            : 'bg-muted/30 hover:bg-muted/50'
+      }`}
     >
-      {/* Drag Handle */}
-      <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0 cursor-grab active:cursor-grabbing">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
+      {/* Selection Checkbox */}
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={onToggleSelect}
+        className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+      />
 
-      {/* Checkbox - expense themed */}
+      {/* Paid Checkbox */}
       <Checkbox
         checked={expense.paid}
         onCheckedChange={(checked) => onUpdate(expense.id, { paid: !!checked })}
@@ -359,8 +359,8 @@ const ExpenseItem = ({
 
       {/* Category */}
       <Badge 
-        variant="outline" 
-        className="text-xs rounded-md px-2 py-0.5 border-expense/30 text-expense bg-expense-light flex-shrink-0"
+        variant="secondary" 
+        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0"
       >
         {expense.category}
       </Badge>
@@ -371,38 +371,18 @@ const ExpenseItem = ({
       </span>
 
       {/* Payment Method Badge */}
-      {(() => {
-        const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
-        if ('className' in style) {
-          return (
-            <Badge 
-              variant="outline" 
-              className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex ${style.className}`}
-            >
-              {expense.paymentMethod}
-            </Badge>
-          );
-        }
-        return (
-          <Badge 
-            variant="outline" 
-            className="text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex"
-            style={{
-              backgroundColor: style.backgroundColor,
-              borderColor: style.borderColor,
-              color: style.color,
-            }}
-          >
-            {expense.paymentMethod}
-          </Badge>
-        );
-      })()}
+      <Badge 
+        variant="secondary" 
+        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 ${style.className}`}
+      >
+        {expense.paymentMethod}
+      </Badge>
 
       {/* Installment */}
       {installmentText && (
         <Badge 
           variant="secondary" 
-          className="text-xs rounded-md px-2 py-0.5 bg-muted flex-shrink-0"
+          className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 flex-shrink-0"
         >
           {installmentText}
         </Badge>
@@ -450,13 +430,12 @@ export const ExpenseSection = ({
   onUpdate,
   onDelete,
   onDeleteInstallment,
-  onReorder,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<{ type: Expense['type']; index: number } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
   const variableExpenses = expenses.filter((e) => e.type === 'variable');
@@ -489,42 +468,31 @@ export const ExpenseSection = ({
       } else {
         onDelete(deleteExpense.id);
       }
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deleteExpense.id);
+        return newSet;
+      });
       setDeleteExpense(null);
     }
   };
 
-  const handleDragStart = (type: Expense['type'], index: number) => {
-    setDraggedIndex({ type, index });
-  };
-
-  const handleDragOver = (e: React.DragEvent, type: Expense['type'], index: number) => {
-    e.preventDefault();
-    if (!draggedIndex || draggedIndex.type !== type || draggedIndex.index === index) return;
-
-    // Get only expenses of this type
-    const typeExpenses = type === 'fixed' ? [...fixedExpenses] : 
-                         type === 'variable' ? [...variableExpenses] : 
-                         [...installmentExpenses];
-    
-    // Reorder within the type group
-    const draggedItem = typeExpenses[draggedIndex.index];
-    typeExpenses.splice(draggedIndex.index, 1);
-    typeExpenses.splice(index, 0, draggedItem);
-    
-    // Rebuild full expenses array maintaining type order
-    const otherFixed = type === 'fixed' ? typeExpenses : fixedExpenses;
-    const otherVariable = type === 'variable' ? typeExpenses : variableExpenses;
-    const otherInstallment = type === 'installment' ? typeExpenses : installmentExpenses;
-    
-    onReorder([...otherFixed, ...otherVariable, ...otherInstallment]);
-    setDraggedIndex({ type, index });
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const total = expenses.reduce((sum, e) => sum + e.value, 0);
+  const selectedTotal = expenses
+    .filter(e => selectedIds.has(e.id))
+    .reduce((sum, e) => sum + e.value, 0);
 
   const ExpenseGroup = ({ 
     title, 
@@ -533,7 +501,7 @@ export const ExpenseSection = ({
     type,
     emptyMessage,
     groupTotal,
-    creditCards: groupCreditCards,
+    groupCreditCards,
   }: { 
     title: string; 
     icon: typeof Receipt;
@@ -541,7 +509,7 @@ export const ExpenseSection = ({
     type: Expense['type'];
     emptyMessage: string;
     groupTotal: number;
-    creditCards: CreditCardType[];
+    groupCreditCards: CreditCardType[];
   }) => (
     <div className="space-y-1">
       <div className="flex items-center justify-between mb-2">
@@ -557,18 +525,16 @@ export const ExpenseSection = ({
         </p>
       ) : (
         <div className="space-y-1">
-          {list.map((expense, index) => (
+          {list.map((expense) => (
             <ExpenseItem
               key={expense.id}
               expense={expense}
               creditCards={groupCreditCards}
+              isSelected={selectedIds.has(expense.id)}
+              onToggleSelect={() => toggleSelection(expense.id)}
               onUpdate={onUpdate}
               onDelete={handleDeleteRequest}
               onEdit={handleEdit}
-              onDragStart={() => handleDragStart(type, index)}
-              onDragOver={(e) => handleDragOver(e, type, index)}
-              onDragEnd={handleDragEnd}
-              isDragged={draggedIndex?.type === type && draggedIndex?.index === index}
             />
           ))}
         </div>
@@ -595,9 +561,24 @@ export const ExpenseSection = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Gastos</h3>
-            <p className="text-base font-bold text-expense">
-              {formatCurrency(total)}
-            </p>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">Total:</span>
+                </>
+              )}
+              <p className="text-base font-bold text-expense">
+                {formatCurrency(total)}
+              </p>
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <p className="text-base font-bold text-expense">
+                    {formatCurrency(selectedTotal)}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditingExpense(null); }}>
@@ -654,7 +635,7 @@ export const ExpenseSection = ({
           type="fixed"
           emptyMessage="Nenhum gasto fixo"
           groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
-          creditCards={creditCards}
+          groupCreditCards={creditCards}
         />
         <ExpenseGroup
           title="Gastos Variáveis"
@@ -663,7 +644,7 @@ export const ExpenseSection = ({
           type="variable"
           emptyMessage="Nenhum gasto variável"
           groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
-          creditCards={creditCards}
+          groupCreditCards={creditCards}
         />
         <ExpenseGroup
           title="Gastos Parcelados"
@@ -672,7 +653,7 @@ export const ExpenseSection = ({
           type="installment"
           emptyMessage="Nenhum gasto parcelado"
           groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
-          creditCards={creditCards}
+          groupCreditCards={creditCards}
         />
       </div>
 

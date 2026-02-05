@@ -32,22 +32,21 @@ const Index = () => {
     addIncome,
     updateIncome,
     deleteIncome,
-    reorderIncomes,
     addExpense,
     updateExpense,
     deleteExpense,
     deleteInstallmentExpense,
-    reorderExpenses,
     addCreditCard,
     updateCreditCard,
     deleteCreditCard,
     getCreditCardTotal,
     canDeleteCard,
     cardNameExists,
+    getCardPaidStatus,
+    setCardPaidStatus,
     addInvestment,
     updateInvestment,
     deleteInvestment,
-    reorderInvestments,
     addInvestmentTag,
     updateInvestmentTag,
     deleteInvestmentTag,
@@ -216,7 +215,6 @@ const Index = () => {
                   onAdd={addIncome}
                   onUpdate={updateIncome}
                   onDelete={deleteIncome}
-                  onReorder={reorderIncomes}
                 />
                 <ExpenseSection
                   expenses={monthData.expenses}
@@ -227,7 +225,6 @@ const Index = () => {
                   onUpdate={updateExpense}
                   onDelete={deleteExpense}
                   onDeleteInstallment={deleteInstallmentExpense}
-                  onReorder={reorderExpenses}
                 />
               </div>
 
@@ -235,12 +232,15 @@ const Index = () => {
               <div className="space-y-6">
                 <CreditCardSection
                   creditCards={creditCards}
+                  currentMonth={currentMonth}
                   onAdd={addCreditCard}
                   onUpdate={updateCreditCard}
                   onDelete={deleteCreditCard}
                   getCardTotal={getCreditCardTotal}
                   canDeleteCard={canDeleteCardSync}
                   cardNameExists={cardNameExists}
+                  getCardPaidStatus={getCardPaidStatus}
+                  setCardPaidStatus={setCardPaidStatus}
                 />
                 <InvestmentSection
                   investments={monthData.investments}
@@ -248,7 +248,6 @@ const Index = () => {
                   onAdd={addInvestment}
                   onUpdate={updateInvestment}
                   onDelete={deleteInvestment}
-                  onReorder={reorderInvestments}
                   onAddTag={addInvestmentTag}
                   onUpdateTag={updateInvestmentTag}
                   onDeleteTag={deleteInvestmentTag}

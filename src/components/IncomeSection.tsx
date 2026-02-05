@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, TrendingUp, GripVertical, Repeat } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingUp, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -29,7 +30,6 @@ interface IncomeSectionProps {
   onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<IncomeEntry>) => void;
   onDelete: (id: string) => void;
-  onReorder: (incomes: IncomeEntry[]) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -52,7 +52,6 @@ export const IncomeSection = ({
   onAdd,
   onUpdate,
   onDelete,
-  onReorder,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,7 +60,7 @@ export const IncomeSection = ({
   const [selectedTag, setSelectedTag] = useState('');
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Error states
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
@@ -126,30 +125,30 @@ export const IncomeSection = ({
     if (deleteId) {
       onDelete(deleteId);
       setDeleteId(null);
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deleteId);
+        return newSet;
+      });
     }
   };
 
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    const newIncomes = [...incomes];
-    const draggedItem = newIncomes[draggedIndex];
-    newIncomes.splice(draggedIndex, 1);
-    newIncomes.splice(index, 0, draggedItem);
-    onReorder(newIncomes);
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
+  const selectedTotal = incomes
+    .filter(i => selectedIds.has(i.id))
+    .reduce((sum, i) => sum + i.value, 0);
 
   return (
     <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
@@ -161,9 +160,24 @@ export const IncomeSection = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Entradas</h3>
-            <p className="text-base font-bold text-income">
-              {formatCurrency(total)}
-            </p>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">Total:</span>
+                </>
+              )}
+              <p className="text-base font-bold text-income">
+                {formatCurrency(total)}
+              </p>
+              {selectedIds.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground">| Selecionado:</span>
+                  <p className="text-base font-bold text-income">
+                    {formatCurrency(selectedTotal)}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
@@ -268,66 +282,67 @@ export const IncomeSection = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {incomes.map((income, index) => (
-            <div
-              key={income.id}
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
-              className={`group flex items-center gap-2 py-2.5 px-3 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-200 cursor-default ${
-                draggedIndex === index ? 'opacity-50' : ''
-              }`}
-            >
-              {/* Drag Handle */}
-              <div className="w-0 overflow-hidden group-hover:w-5 transition-all duration-200 flex-shrink-0">
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
-              </div>
-
-              {/* Tag */}
-              <Badge 
-                variant="secondary" 
-                className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0"
+          {incomes.map((income) => {
+            const isSelected = selectedIds.has(income.id);
+            return (
+              <div
+                key={income.id}
+                className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
+                  isSelected ? 'bg-income-light' : 'bg-muted/30 hover:bg-muted/50'
+                }`}
               >
-                {income.tag}
-              </Badge>
+                {/* Checkbox */}
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleSelection(income.id)}
+                  className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0"
+                />
 
-              {/* Description */}
-              <span className="flex-1 text-sm font-medium truncate text-foreground">
-                {income.description}
-              </span>
-
-              {/* Repeat indicator */}
-              {income.repeatAllMonths && (
-                <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              )}
-
-              {/* Value */}
-              <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">
-                {formatCurrency(income.value)}
-              </span>
-
-              {/* Actions - slide in from right */}
-              <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg hover:bg-muted"
-                  onClick={() => handleEdit(income)}
+                {/* Tag */}
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0"
                 >
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg hover:bg-muted"
-                  onClick={() => setDeleteId(income.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
+                  {income.tag}
+                </Badge>
+
+                {/* Description */}
+                <span className="flex-1 text-sm font-medium truncate text-foreground">
+                  {income.description}
+                </span>
+
+                {/* Repeat indicator */}
+                {income.repeatAllMonths && (
+                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                )}
+
+                {/* Value */}
+                <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">
+                  {formatCurrency(income.value)}
+                </span>
+
+                {/* Actions - slide in from right */}
+                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg hover:bg-muted"
+                    onClick={() => handleEdit(income)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg hover:bg-muted"
+                    onClick={() => setDeleteId(income.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

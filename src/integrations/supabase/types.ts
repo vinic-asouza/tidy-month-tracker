@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_card_monthly_status: {
+        Row: {
+          created_at: string
+          credit_card_id: string
+          id: string
+          paid: boolean
+          updated_at: string
+          user_id: string
+          year_month: string
+        }
+        Insert: {
+          created_at?: string
+          credit_card_id: string
+          id?: string
+          paid?: boolean
+          updated_at?: string
+          user_id: string
+          year_month: string
+        }
+        Update: {
+          created_at?: string
+          credit_card_id?: string
+          id?: string
+          paid?: boolean
+          updated_at?: string
+          user_id?: string
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_monthly_status_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           color: string
