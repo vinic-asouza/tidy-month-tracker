@@ -19,8 +19,6 @@ const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [yearData, setYearData] = useState<ReturnType<typeof useSupabaseFinance>['monthData'][]>([]);
   const [loadingYearData, setLoadingYearData] = useState(false);
-  const [receivedIncomeIds, setReceivedIncomeIds] = useState<Set<string>>(new Set());
-  const [investedIds, setInvestedIds] = useState<Set<string>>(new Set());
   
   const { signOut } = useAuth();
   
@@ -207,8 +205,6 @@ const Index = () => {
             {/* Summary Cards */}
             <SummaryCards 
               monthData={monthData}
-              receivedIncomeIds={receivedIncomeIds}
-              investedIds={investedIds}
               creditCards={creditCards}
               getCardPaidStatus={getCardPaidStatus}
             />
@@ -223,8 +219,6 @@ const Index = () => {
                   onAdd={addIncome}
                   onUpdate={updateIncome}
                   onDelete={deleteIncome}
-                  selectedIds={receivedIncomeIds}
-                  onSelectionChange={setReceivedIncomeIds}
                 />
                 <ExpenseSection
                   expenses={monthData.expenses}
@@ -250,8 +244,6 @@ const Index = () => {
                 onAddTag={addInvestmentTag}
                 onUpdateTag={updateInvestmentTag}
                 onDeleteTag={deleteInvestmentTag}
-                selectedIds={investedIds}
-                onSelectionChange={setInvestedIds}
               />
               <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+1.5rem)]">
                 <CreditCardSection

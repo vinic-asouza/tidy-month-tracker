@@ -38,6 +38,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Expense, CreditCard as CreditCardType, CARD_COLORS } from '@/types/finance';
 
@@ -47,8 +48,8 @@ interface ExpenseSectionProps {
   paymentMethods: string[];
   creditCards: CreditCardType[];
   onAdd: (expense: Omit<Expense, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<Expense>) => void;
-  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => void;
+  onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onDeleteInstallment: (expense: Expense) => void;
   getCardPaidStatus?: (cardId: string) => boolean;
 }
@@ -107,7 +108,7 @@ const ExpenseForm = ({
   const [totalInstallments, setTotalInstallments] = useState(
     initialData?.totalInstallments?.toString() || '12'
   );
-  
+
   // Error states
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
@@ -116,14 +117,14 @@ const ExpenseForm = ({
 
   // Build payment methods list with active credit cards
   const allPaymentMethods = [
-    ...paymentMethods, 
+    ...paymentMethods,
     ...creditCards.map(c => ({ label: `Crédito: ${c.name}`, value: c.name }))
   ];
 
   const handleSubmit = () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
-    
+
     if (!category) {
       setCategoryError('Selecione uma categoria');
       hasError = true;
@@ -140,7 +141,7 @@ const ExpenseForm = ({
       setPaymentError('Selecione uma forma de pagamento');
       hasError = true;
     }
-    
+
     if (hasError) return;
 
     onSubmit({
@@ -277,8 +278,8 @@ const ExpenseForm = ({
         </div>
       )}
 
-      <Button 
-        onClick={handleSubmit} 
+      <Button
+        onClick={handleSubmit}
         className="w-full h-11 rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
       >
         {initialData ? 'Salvar Alterações' : 'Adicionar Gasto'}
@@ -351,7 +352,7 @@ const ExpenseItem = ({
   isLinkedToCard: boolean;
   isCardPaid: boolean;
   onTogglePaid: () => void;
-  onUpdate: (id: string, updates: Partial<Expense>) => void;
+  onUpdate: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => void;
   onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
   onCardItemClick: () => void;
@@ -365,15 +366,14 @@ const ExpenseItem = ({
 
   return (
     <div
-      className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${
-        isPaid 
-          ? 'bg-expense-light' 
+      className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${isPaid
+          ? 'bg-expense-light'
           : 'bg-muted/30 hover:bg-muted/50'
-      }`}
+        }`}
     >
       {/* Paid Checkbox */}
       {isLinkedToCard ? (
-        <div 
+        <div
           onClick={onCardItemClick}
           className="cursor-pointer"
         >
@@ -391,8 +391,8 @@ const ExpenseItem = ({
       )}
 
       {/* Category */}
-      <Badge 
-        variant="secondary" 
+      <Badge
+        variant="secondary"
         className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default"
       >
         {expense.category}
@@ -404,8 +404,8 @@ const ExpenseItem = ({
       </span>
 
       {/* Payment Method Badge */}
-      <Badge 
-        variant="secondary" 
+      <Badge
+        variant="secondary"
         className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 cursor-default ${style.className}`}
       >
         {expense.paymentMethod}
@@ -413,8 +413,8 @@ const ExpenseItem = ({
 
       {/* Installment */}
       {installmentText && (
-        <Badge 
-          variant="secondary" 
+        <Badge
+          variant="secondary"
           className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 flex-shrink-0 cursor-default"
         >
           {installmentText}
@@ -463,9 +463,9 @@ const CategorySummaryItem = ({
   total: number;
 }) => {
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30">
-      <Badge 
-        variant="secondary" 
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
+      <Badge
+        variant="secondary"
         className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 cursor-default"
       >
         {category}
@@ -480,34 +480,34 @@ const CategorySummaryItem = ({
 // Sorting function
 const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: CreditCardType[]): Expense[] => {
   if (sortOption === 'default') return expenses;
-  
+
   const sorted = [...expenses];
-  
+
   switch (sortOption) {
     case 'alphabetic':
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
-    
+
     case 'category':
       return sorted.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
-    
+
     case 'payment':
       // Sort by payment method, with credit cards last
       return sorted.sort((a, b) => {
         const aIsCard = creditCards.some(c => c.name === a.paymentMethod);
         const bIsCard = creditCards.some(c => c.name === b.paymentMethod);
-        
+
         if (aIsCard && !bIsCard) return 1;
         if (!aIsCard && bIsCard) return -1;
-        
+
         return a.paymentMethod.localeCompare(b.paymentMethod, 'pt-BR');
       });
-    
+
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
-    
+
     case 'lowest':
       return sorted.sort((a, b) => a.value - b.value);
-    
+
     default:
       return sorted;
   }
@@ -556,6 +556,9 @@ export const ExpenseSection = ({
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('default');
+  const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
+  const [applyToAllMonths, setApplyToAllMonths] = useState(false);
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
   const variableExpenses = expenses.filter((e) => e.type === 'variable');
@@ -600,7 +603,8 @@ export const ExpenseSection = ({
 
   const handleSubmit = (data: Omit<Expense, 'id'>) => {
     if (editingExpense) {
-      onUpdate(editingExpense.id, data);
+      onUpdate(editingExpense.id, data, applyToAllMonths);
+      setApplyToAllMonths(false); // Reset após uso
     } else {
       onAdd(data);
     }
@@ -609,13 +613,82 @@ export const ExpenseSection = ({
   };
 
   const handleEdit = (expense: Expense) => {
-    setEditingExpense(expense);
-    setActiveTab(expense.type);
-    setIsOpen(true);
+    // Verifica se é item fixo (type === 'fixed' e tem repeatAllMonths ou baseExpenseId)
+    const isFixedItem = expense.type === 'fixed' && (expense.repeatAllMonths || !!expense.baseExpenseId);
+    // Verifica se é item parcelado
+    const isInstallmentItem = expense.type === 'installment';
+
+    if (isFixedItem || isInstallmentItem) {
+      // Mostra diálogo perguntando se quer editar apenas esta parcela/mês ou todas
+      setEditingExpense(expense);
+      setPendingAction('edit');
+      setShowApplyToAllDialog(true);
+    } else {
+      // Item normal, edita diretamente
+      setEditingExpense(expense);
+      setActiveTab(expense.type);
+      setIsOpen(true);
+    }
+  };
+
+  const handleEditCurrentMonth = () => {
+    if (editingExpense) {
+      setActiveTab(editingExpense.type);
+      setIsOpen(true);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleEditAllMonths = () => {
+    if (editingExpense) {
+      setActiveTab(editingExpense.type);
+      setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
+      setIsOpen(true);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
   };
 
   const handleDeleteRequest = (expense: Expense) => {
-    setDeleteExpense(expense);
+    // Verifica se é item fixo (type === 'fixed' e tem repeatAllMonths ou baseExpenseId)
+    const isFixedItem = expense.type === 'fixed' && (expense.repeatAllMonths || !!expense.baseExpenseId);
+    // Verifica se é item parcelado
+    const isInstallmentItem = expense.type === 'installment';
+
+    if (isFixedItem || isInstallmentItem) {
+      // Mostra diálogo perguntando se quer deletar apenas esta parcela/mês ou todas
+      setEditingExpense(expense);
+      setPendingAction('delete');
+      setShowApplyToAllDialog(true);
+    } else {
+      // Item normal, deleta diretamente
+      setDeleteExpense(expense);
+    }
+  };
+
+  const handleDeleteCurrentMonth = () => {
+    if (editingExpense) {
+      setDeleteExpense(editingExpense);
+      setEditingExpense(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleDeleteAllMonths = () => {
+    if (editingExpense) {
+      if (editingExpense.type === 'installment') {
+        // Para parcelas, deleta todas as parcelas relacionadas
+        onDeleteInstallment(editingExpense);
+      } else {
+        // Para itens fixos, deleta em todos os meses
+        onDelete(editingExpense.id, true);
+      }
+      setEditingExpense(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -623,7 +696,7 @@ export const ExpenseSection = ({
       if (deleteExpense.type === 'installment') {
         onDeleteInstallment(deleteExpense);
       } else {
-        onDelete(deleteExpense.id);
+        onDelete(deleteExpense.id, false); // Apenas este mês
       }
       setDeleteExpense(null);
     }
@@ -643,18 +716,18 @@ export const ExpenseSection = ({
   const total = expenses.reduce((sum, e) => sum + e.value, 0);
   const hasPaidItems = paidTotal > 0;
 
-  const ExpenseGroup = ({ 
-    title, 
-    icon: Icon, 
-    list, 
+  const ExpenseGroup = ({
+    title,
+    icon: Icon,
+    list,
     type,
     emptyMessage,
     groupTotal,
     groupCreditCards,
-  }: { 
-    title: string; 
+  }: {
+    title: string;
     icon: typeof Receipt;
-    list: Expense[]; 
+    list: Expense[];
     type: Expense['type'];
     emptyMessage: string;
     groupTotal: number;
@@ -773,8 +846,8 @@ export const ExpenseSection = ({
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditingExpense(null); }}>
           <DialogTrigger asChild>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               className="rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
             >
               <Plus className="h-4 w-4 mr-1.5" />
@@ -885,21 +958,21 @@ export const ExpenseSection = ({
               groupCreditCards={creditCards}
             />
             <ExpenseGroup
-              title="Gastos Variáveis"
-              icon={Repeat}
-              list={sortedVariableExpenses}
-              type="variable"
-              emptyMessage="Nenhum gasto variável"
-              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
-              groupCreditCards={creditCards}
-            />
-            <ExpenseGroup
               title="Gastos Parcelados"
               icon={CreditCard}
               list={sortedInstallmentExpenses}
               type="installment"
               emptyMessage="Nenhum gasto parcelado"
               groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
+              groupCreditCards={creditCards}
+            />
+            <ExpenseGroup
+              title="Gastos Variáveis"
+              icon={Repeat}
+              list={sortedVariableExpenses}
+              type="variable"
+              emptyMessage="Nenhum gasto variável"
+              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
               groupCreditCards={creditCards}
             />
           </>
@@ -937,6 +1010,29 @@ export const ExpenseSection = ({
         onConfirm={handleConfirmDelete}
         title={deleteExpense?.type === 'installment' ? 'Excluir gasto parcelado' : 'Excluir gasto'}
         description={getDeleteMessage()}
+      />
+
+      {/* Apply to All Months Dialog */}
+      <ApplyToAllDialog
+        open={showApplyToAllDialog}
+        onOpenChange={setShowApplyToAllDialog}
+        onApplyToCurrentMonth={pendingAction === 'edit' ? handleEditCurrentMonth : handleDeleteCurrentMonth}
+        onApplyToAllMonths={pendingAction === 'edit' ? handleEditAllMonths : handleDeleteAllMonths}
+        title={
+          pendingAction === 'edit'
+            ? editingExpense?.type === 'installment' ? 'Editar gasto parcelado' : 'Editar gasto fixo'
+            : editingExpense?.type === 'installment' ? 'Excluir gasto parcelado' : 'Excluir gasto fixo'
+        }
+        description={
+          pendingAction === 'edit'
+            ? editingExpense?.type === 'installment'
+              ? 'Este gasto é parcelado. Deseja editar apenas esta parcela ou todas as parcelas?'
+              : 'Este gasto se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
+            : editingExpense?.type === 'installment'
+              ? 'Este gasto é parcelado. Deseja excluir apenas esta parcela ou todas as parcelas?'
+              : 'Este gasto se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+        }
+        actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
       />
 
       {/* Card Item Warning Dialog */}

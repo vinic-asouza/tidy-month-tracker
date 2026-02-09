@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.incomes (
   value DECIMAL(15,2) NOT NULL,
   tag TEXT NOT NULL,
   date TEXT NOT NULL,
+  received BOOLEAN NOT NULL DEFAULT false,
   repeat_all_months BOOLEAN NOT NULL DEFAULT false,
   base_income_id UUID REFERENCES public.incomes(id) ON DELETE CASCADE,
   display_order INTEGER NOT NULL DEFAULT 0,
@@ -80,6 +81,9 @@ CREATE TABLE IF NOT EXISTS public.investments (
   value DECIMAL(15,2) NOT NULL,
   tag TEXT NOT NULL,
   date TEXT NOT NULL,
+  invested BOOLEAN NOT NULL DEFAULT false,
+  repeat_all_months BOOLEAN NOT NULL DEFAULT false,
+  base_investment_id UUID REFERENCES public.investments(id) ON DELETE CASCADE,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
@@ -291,6 +295,7 @@ CREATE POLICY "Users can delete their own card status"
 CREATE INDEX IF NOT EXISTS idx_credit_cards_user_id ON public.credit_cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_incomes_user_id_year_month ON public.incomes(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_id_year_month ON public.expenses(user_id, year_month);
+CREATE INDEX IF NOT EXISTS idx_expenses_user_id_payment_method ON public.expenses(user_id, payment_method);
 CREATE INDEX IF NOT EXISTS idx_investments_user_id_year_month ON public.investments(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_finance_settings_user_id ON public.finance_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_card_monthly_status_user_card_month ON public.credit_card_monthly_status(user_id, credit_card_id, year_month);

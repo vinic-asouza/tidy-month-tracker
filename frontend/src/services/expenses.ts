@@ -17,6 +17,7 @@ export interface UpdateExpenseParams {
   id: string;
   userId?: string; // Mantido para compatibilidade, mas não usado (backend obtém do token)
   updates: Partial<Omit<Expense, 'id'>>;
+  applyToAllMonths?: boolean;
 }
 
 /**
@@ -42,15 +43,15 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
  * Atualiza uma despesa existente
  */
 export async function updateExpense(params: UpdateExpenseParams): Promise<void> {
-  const { id, userId: _userId, updates } = params;
-  await apiClient.put(`/api/expenses/${id}`, updates);
+  const { id, userId: _userId, updates, applyToAllMonths } = params;
+  await apiClient.put(`/api/expenses/${id}`, { ...updates, applyToAllMonths });
 }
 
 /**
  * Deleta uma despesa
  */
-export async function deleteExpense(id: string, _userId: string): Promise<void> {
-  await apiClient.delete(`/api/expenses/${id}`);
+export async function deleteExpense(id: string, _userId: string, applyToAllMonths = false): Promise<void> {
+  await apiClient.delete(`/api/expenses/${id}`, { applyToAllMonths: applyToAllMonths.toString() });
 }
 
 /**

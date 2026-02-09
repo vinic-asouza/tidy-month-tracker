@@ -180,7 +180,7 @@ export const useSupabaseFinance = () => {
     }
   }, [user, currentMonth, incomes.length, fetchMonthData]);
 
-  const updateIncome = useCallback(async (id: string, updates: Partial<IncomeEntry>): Promise<boolean> => {
+  const updateIncome = useCallback(async (id: string, updates: Partial<IncomeEntry>, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -194,7 +194,12 @@ export const useSupabaseFinance = () => {
         id,
         userId: user.id,
         updates,
+        applyToAllMonths,
       });
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao atualizar entrada');
@@ -203,9 +208,9 @@ export const useSupabaseFinance = () => {
       setIncomes(previousIncomes);
       return false;
     }
-  }, [user, incomes]);
+  }, [user, incomes, currentMonth, fetchMonthData]);
 
-  const deleteIncome = useCallback(async (id: string): Promise<boolean> => {
+  const deleteIncome = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -213,7 +218,11 @@ export const useSupabaseFinance = () => {
     setIncomes((prev) => prev.filter((i) => i.id !== id));
 
     try {
-      await incomesService.deleteIncome(id, user.id);
+      await incomesService.deleteIncome(id, user.id, applyToAllMonths);
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao excluir entrada');
@@ -222,7 +231,7 @@ export const useSupabaseFinance = () => {
       setIncomes(previousIncomes);
       return false;
     }
-  }, [user, incomes]);
+  }, [user, incomes, currentMonth, fetchMonthData]);
 
   const reorderIncomes = useCallback(async (newIncomes: IncomeEntry[]) => {
     if (!user) return;
@@ -269,7 +278,7 @@ export const useSupabaseFinance = () => {
     }
   }, [user, currentMonth, expenses.length, fetchMonthData]);
 
-  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>): Promise<boolean> => {
+  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -283,7 +292,12 @@ export const useSupabaseFinance = () => {
         id,
         userId: user.id,
         updates,
+        applyToAllMonths,
       });
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao atualizar gasto');
@@ -292,9 +306,9 @@ export const useSupabaseFinance = () => {
       setExpenses(previousExpenses);
       return false;
     }
-  }, [user, expenses]);
+  }, [user, expenses, currentMonth, fetchMonthData]);
 
-  const deleteExpense = useCallback(async (id: string): Promise<boolean> => {
+  const deleteExpense = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -302,7 +316,11 @@ export const useSupabaseFinance = () => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      await expensesService.deleteExpense(id, user.id);
+      await expensesService.deleteExpense(id, user.id, applyToAllMonths);
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao excluir gasto');
@@ -311,7 +329,7 @@ export const useSupabaseFinance = () => {
       setExpenses(previousExpenses);
       return false;
     }
-  }, [user, expenses]);
+  }, [user, expenses, currentMonth, fetchMonthData]);
 
   const deleteInstallmentExpense = useCallback(async (expense: Expense): Promise<boolean> => {
     if (!user) return false;
@@ -391,15 +409,21 @@ export const useSupabaseFinance = () => {
         userId: user.id,
         updates,
       });
+      // Se o nome foi alterado, recarrega os dados do mês para atualizar os gastos
+      if (updates.name !== undefined) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
-    } catch (error) {
-      toast.error('Erro ao atualizar cartão');
+    } catch (error: any) {
+      // Mostra mensagem específica do backend se disponível
+      const errorMessage = error?.message || 'Erro ao atualizar cartão';
+      toast.error(errorMessage);
       console.error(error);
       // Rollback
       setCreditCards(previousCards);
       return false;
     }
-  }, [user, creditCards]);
+  }, [user, creditCards, currentMonth, fetchMonthData]);
 
   const deleteCreditCard = useCallback(async (id: string): Promise<boolean> => {
     if (!user) return false;
@@ -502,7 +526,7 @@ export const useSupabaseFinance = () => {
     }
   }, [user, currentMonth, investments.length, fetchMonthData]);
 
-  const updateInvestment = useCallback(async (id: string, updates: Partial<Investment>): Promise<boolean> => {
+  const updateInvestment = useCallback(async (id: string, updates: Partial<Investment>, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -516,7 +540,12 @@ export const useSupabaseFinance = () => {
         id,
         userId: user.id,
         updates,
+        applyToAllMonths,
       });
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao atualizar investimento');
@@ -525,9 +554,9 @@ export const useSupabaseFinance = () => {
       setInvestments(previousInvestments);
       return false;
     }
-  }, [user, investments]);
+  }, [user, investments, currentMonth, fetchMonthData]);
 
-  const deleteInvestment = useCallback(async (id: string): Promise<boolean> => {
+  const deleteInvestment = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
     if (!user) return false;
 
     // Optimistic update
@@ -535,7 +564,11 @@ export const useSupabaseFinance = () => {
     setInvestments((prev) => prev.filter((i) => i.id !== id));
 
     try {
-      await investmentsService.deleteInvestment(id, user.id);
+      await investmentsService.deleteInvestment(id, user.id, applyToAllMonths);
+      // Se aplicou em todos os meses, recarrega os dados
+      if (applyToAllMonths) {
+        await fetchMonthData(currentMonth, false);
+      }
       return true;
     } catch (error) {
       toast.error('Erro ao excluir investimento');
@@ -544,7 +577,7 @@ export const useSupabaseFinance = () => {
       setInvestments(previousInvestments);
       return false;
     }
-  }, [user, investments]);
+  }, [user, investments, currentMonth, fetchMonthData]);
 
   const reorderInvestments = useCallback(async (newInvestments: Investment[]) => {
     if (!user) return;

@@ -14,12 +14,15 @@ const createInvestmentSchema = z.object({
   value: z.number().positive('Valor deve ser positivo'),
   tag: z.string().min(1, 'Tag é obrigatória'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD'),
+  repeatAllMonths: z.boolean().optional(),
 });
 
 const updateInvestmentSchema = z.object({
   description: z.string().min(1).optional(),
   value: z.number().positive().optional(),
   tag: z.string().min(1).optional(),
+  invested: z.boolean().optional(),
+  repeatAllMonths: z.boolean().optional(),
 });
 
 // GET /api/investments?month=2024-01
@@ -63,8 +66,10 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res, next) => {
 router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const data = updateInvestmentSchema.parse(req.body);
-    await investmentsService.updateInvestment(req.userId!, id, data);
+    const { applyToAllMonths, ...data } = req.body;
+    const validatedData = updateInvestmentSchema.parse(data);
+    const applyToAll = applyToAllMonths === true || applyToAllMonths === 'true';
+    await investmentsService.updateInvestment(req.userId!, id, validatedData, applyToAll);
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -79,7 +84,8 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) =>
 router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    await investmentsService.deleteInvestment(req.userId!, id);
+    const applyToAllMonths = req.query.applyToAllMonths === 'true';
+    await investmentsService.deleteInvestment(req.userId!, id, applyToAllMonths);
     res.json({ success: true });
   } catch (error) {
     next(error);

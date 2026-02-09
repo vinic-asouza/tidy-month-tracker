@@ -58,6 +58,11 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) =>
       res.status(400).json({ error: 'Erro de validação', details: error.errors });
       return;
     }
+    // Se for um erro de validação de negócio (nome duplicado, cartão não encontrado)
+    if (error instanceof Error && (error.message.includes('Já existe') || error.message.includes('não encontrado'))) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

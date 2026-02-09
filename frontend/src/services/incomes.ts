@@ -17,6 +17,7 @@ export interface UpdateIncomeParams {
   id: string;
   userId?: string; // Mantido para compatibilidade, mas não usado (backend obtém do token)
   updates: Partial<Omit<Income, 'id'>>;
+  applyToAllMonths?: boolean;
 }
 
 /**
@@ -42,15 +43,15 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
  * Atualiza uma receita existente
  */
 export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
-  const { id, userId: _userId, updates } = params;
-  await apiClient.put(`/api/incomes/${id}`, updates);
+  const { id, userId: _userId, updates, applyToAllMonths } = params;
+  await apiClient.put(`/api/incomes/${id}`, { ...updates, applyToAllMonths });
 }
 
 /**
  * Deleta uma receita
  */
-export async function deleteIncome(id: string, _userId: string): Promise<void> {
-  await apiClient.delete(`/api/incomes/${id}`);
+export async function deleteIncome(id: string, _userId: string, applyToAllMonths = false): Promise<void> {
+  await apiClient.delete(`/api/incomes/${id}`, { applyToAllMonths: applyToAllMonths.toString() });
 }
 
 /**

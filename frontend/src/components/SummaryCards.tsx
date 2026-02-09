@@ -3,9 +3,6 @@ import { MonthData, CreditCard } from '@/types/finance';
 
 interface SummaryCardsProps {
   monthData: MonthData;
-  receivedIncomeIds?: Set<string>;
-  paidExpenseIds?: Set<string>;
-  investedIds?: Set<string>;
   creditCards?: CreditCard[];
   getCardPaidStatus?: (cardId: string) => boolean;
 }
@@ -19,15 +16,12 @@ const formatCurrency = (value: number) => {
 
 export const SummaryCards = ({ 
   monthData, 
-  receivedIncomeIds = new Set(),
-  paidExpenseIds = new Set(),
-  investedIds = new Set(),
   creditCards = [],
   getCardPaidStatus,
 }: SummaryCardsProps) => {
-  // Calculate totals based on marked items only
+  // Calculate totals based on marked items only (using fields from database)
   const totalIncome = monthData.incomes
-    .filter(i => receivedIncomeIds.has(i.id))
+    .filter(i => i.received)
     .reduce((sum, i) => sum + i.value, 0);
   
   // For expenses, consider both manually paid and card-paid items
@@ -47,7 +41,7 @@ export const SummaryCards = ({
   const totalExpenses = calculatePaidExpenses();
   
   const totalInvestments = monthData.investments
-    .filter(i => investedIds.has(i.id))
+    .filter(i => i.invested)
     .reduce((sum, i) => sum + i.value, 0);
   
   const balance = totalIncome - totalExpenses - totalInvestments;

@@ -22,6 +22,7 @@ const updateIncomeSchema = z.object({
   description: z.string().min(1).optional(),
   value: z.number().positive().optional(),
   tag: z.string().min(1).optional(),
+  received: z.boolean().optional(),
   repeatAllMonths: z.boolean().optional(),
 });
 
@@ -66,8 +67,10 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res, next) => {
 router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const data = updateIncomeSchema.parse(req.body);
-    await incomesService.updateIncome(req.userId!, id, data);
+    const { applyToAllMonths, ...data } = req.body;
+    const validatedData = updateIncomeSchema.parse(data);
+    const applyToAll = applyToAllMonths === true || applyToAllMonths === 'true';
+    await incomesService.updateIncome(req.userId!, id, validatedData, applyToAll);
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -82,7 +85,8 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) =>
 router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    await incomesService.deleteIncome(req.userId!, id);
+    const applyToAllMonths = req.query.applyToAllMonths === 'true';
+    await incomesService.deleteIncome(req.userId!, id, applyToAllMonths);
     res.json({ success: true });
   } catch (error) {
     next(error);

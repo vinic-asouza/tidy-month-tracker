@@ -28,6 +28,8 @@ const updateExpenseSchema = z.object({
   value: z.number().positive().optional(),
   paid: z.boolean().optional(),
   repeatAllMonths: z.boolean().optional(),
+  currentInstallment: z.number().int().positive().optional(),
+  totalInstallments: z.number().int().positive().optional(),
 });
 
 // GET /api/expenses?month=2024-01
@@ -71,8 +73,10 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res, next) => {
 router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const data = updateExpenseSchema.parse(req.body);
-    await expensesService.updateExpense(req.userId!, id, data);
+    const { applyToAllMonths, ...data } = req.body;
+    const validatedData = updateExpenseSchema.parse(data);
+    const applyToAll = applyToAllMonths === true || applyToAllMonths === 'true';
+    await expensesService.updateExpense(req.userId!, id, validatedData, applyToAll);
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -87,7 +91,8 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res, next) =>
 router.delete('/:id', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    await expensesService.deleteExpense(req.userId!, id);
+    const applyToAllMonths = req.query.applyToAllMonths === 'true';
+    await expensesService.deleteExpense(req.userId!, id, applyToAllMonths);
     res.json({ success: true });
   } catch (error) {
     next(error);

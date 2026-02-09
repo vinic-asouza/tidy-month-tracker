@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Investment } from '@/types/finance';
 import { formatDateToYYYYMMDD } from '@/lib/utils';
@@ -39,13 +42,11 @@ interface InvestmentSectionProps {
   investments: Investment[];
   tags: string[];
   onAdd: (investment: Omit<Investment, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<Investment>) => void;
-  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Investment>, applyToAllMonths?: boolean) => void;
+  onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
   onDeleteTag: (tag: string) => void;
-  selectedIds: Set<string>;
-  onSelectionChange: (ids: Set<string>) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -127,7 +128,7 @@ const InstitutionSummaryItem = ({
   total: number;
 }) => {
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30">
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
       <Badge 
         variant="secondary" 
         className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0 cursor-default"
@@ -150,15 +151,18 @@ export const InvestmentSection = ({
   onAddTag,
   onUpdateTag,
   onDeleteTag,
-  selectedIds,
-  onSelectionChange,
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+  const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
+  const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('default');
   
@@ -180,6 +184,7 @@ export const InvestmentSection = ({
     setDescription('');
     setValue('');
     setSelectedTag('');
+    setRepeatAllMonths(false);
     setEditingId(null);
     setDescriptionError(null);
     setValueError(null);
@@ -206,13 +211,16 @@ export const InvestmentSection = ({
     if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag });
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths }, applyToAllMonths);
+      setApplyToAllMonths(false); // Reset após uso
     } else {
       onAdd({
         description: description.trim(),
         value: numValue,
         tag: selectedTag,
         date: formatDateToYYYYMMDD(new Date()),
+        repeatAllMonths,
+        invested: false
       });
     }
     resetForm();
@@ -220,31 +228,96 @@ export const InvestmentSection = ({
   };
 
   const handleEdit = (investment: Investment) => {
-    setEditingId(investment.id);
-    setDescription(investment.description);
-    setValue(formatValueForInput(investment.value));
-    setSelectedTag(investment.tag);
-    setIsOpen(true);
+    // Verifica se é item fixo (tem repeatAllMonths ou baseInvestmentId)
+    const isFixedItem = investment.repeatAllMonths || !!investment.baseInvestmentId;
+    
+    if (isFixedItem) {
+      // Mostra diálogo perguntando se quer editar em todos os meses
+      setEditingInvestment(investment);
+      setPendingAction('edit');
+      setShowApplyToAllDialog(true);
+    } else {
+      // Item normal, edita diretamente
+      setEditingId(investment.id);
+      setDescription(investment.description);
+      setValue(formatValueForInput(investment.value));
+      setSelectedTag(investment.tag);
+      setRepeatAllMonths(investment.repeatAllMonths || false);
+      setIsOpen(true);
+    }
+  };
+
+  const handleEditCurrentMonth = () => {
+    if (editingInvestment) {
+      setEditingId(editingInvestment.id);
+      setDescription(editingInvestment.description);
+      setValue(formatValueForInput(editingInvestment.value));
+      setSelectedTag(editingInvestment.tag);
+      setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setIsOpen(true);
+      setEditingInvestment(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleEditAllMonths = () => {
+    if (editingInvestment) {
+      setEditingId(editingInvestment.id);
+      setDescription(editingInvestment.description);
+      setValue(formatValueForInput(editingInvestment.value));
+      setSelectedTag(editingInvestment.tag);
+      setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
+      setIsOpen(true);
+      setEditingInvestment(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    const investment = investments.find(i => i.id === id);
+    if (investment) {
+      const isFixedItem = investment.repeatAllMonths || !!investment.baseInvestmentId;
+      if (isFixedItem) {
+        setEditingInvestment(investment);
+        setPendingAction('delete');
+        setShowApplyToAllDialog(true);
+      } else {
+        setDeleteId(id);
+      }
+    }
+  };
+
+  const handleDeleteCurrentMonth = () => {
+    if (editingInvestment) {
+      setDeleteId(editingInvestment.id);
+      setEditingInvestment(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleDeleteAllMonths = () => {
+    if (editingInvestment) {
+      onDelete(editingInvestment.id, true); // Passa true para aplicar em todos os meses
+      setDeleteId(null);
+      setEditingInvestment(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
   };
 
   const handleConfirmDelete = () => {
     if (deleteId) {
-      onDelete(deleteId);
+      onDelete(deleteId, false); // Apenas este mês
       setDeleteId(null);
-      const newSet = new Set(selectedIds);
-      newSet.delete(deleteId);
-      onSelectionChange(newSet);
     }
   };
 
-  const toggleSelection = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    onSelectionChange(newSet);
+  const handleToggleInvested = (investment: Investment) => {
+    onUpdate(investment.id, { invested: !investment.invested });
   };
   
   // Tag management handlers
@@ -273,8 +346,8 @@ export const InvestmentSection = ({
   };
 
   const total = investments.reduce((sum, i) => sum + i.value, 0);
-  const selectedTotal = investments
-    .filter(i => selectedIds.has(i.id))
+  const investedTotal = investments
+    .filter(i => i.invested)
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
@@ -291,11 +364,11 @@ export const InvestmentSection = ({
               <p className="text-base font-bold text-investment">
                 {formatCurrency(total)}
               </p>
-              {selectedIds.size > 0 && (
+              {investedTotal > 0 && (
                 <>
                   <span className="text-xs text-muted-foreground">| Investido:</span>
                   <p className="text-base font-bold text-investment">
-                    {formatCurrency(selectedTotal)}
+                    {formatCurrency(investedTotal)}
                   </p>
                 </>
               )}
@@ -462,6 +535,21 @@ export const InvestmentSection = ({
                   </div>
                 </div>
 
+                {/* Repeat All Months */}
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="repeat-all-months" className="text-sm font-medium cursor-pointer">
+                      Repetir todos os meses
+                    </Label>
+                  </div>
+                  <Switch
+                    id="repeat-all-months"
+                    checked={repeatAllMonths}
+                    onCheckedChange={setRepeatAllMonths}
+                  />
+                </div>
+
                 <Button 
                   onClick={handleSubmit} 
                   className="w-full h-11 rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
@@ -542,18 +630,17 @@ export const InvestmentSection = ({
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
           {sortedInvestments.map((investment) => {
-            const isSelected = selectedIds.has(investment.id);
             return (
               <div
                 key={investment.id}
-                className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
-                  isSelected ? 'bg-investment-light' : 'bg-muted/30 hover:bg-muted/50'
+                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
+                  investment.invested ? 'bg-investment-light' : 'bg-muted/30 hover:bg-muted/50'
                 }`}
               >
                 {/* Checkbox */}
                 <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleSelection(investment.id)}
+                  checked={investment.invested}
+                  onCheckedChange={() => handleToggleInvested(investment)}
                   className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0"
                 />
 
@@ -569,6 +656,11 @@ export const InvestmentSection = ({
                 <span className="flex-1 text-sm font-medium truncate text-foreground">
                   {investment.description}
                 </span>
+
+                {/* Repeat indicator */}
+                {investment.repeatAllMonths && (
+                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                )}
 
                 {/* Value */}
                 <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">
@@ -589,7 +681,7 @@ export const InvestmentSection = ({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => setDeleteId(investment.id)}
+                    onClick={() => handleDeleteClick(investment.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
@@ -617,6 +709,21 @@ export const InvestmentSection = ({
         onConfirm={handleConfirmDelete}
         title="Excluir investimento"
         description="Tem certeza que deseja excluir este investimento? Esta ação não pode ser desfeita."
+      />
+
+      {/* Apply to All Months Dialog */}
+      <ApplyToAllDialog
+        open={showApplyToAllDialog}
+        onOpenChange={setShowApplyToAllDialog}
+        onApplyToCurrentMonth={pendingAction === 'edit' ? handleEditCurrentMonth : handleDeleteCurrentMonth}
+        onApplyToAllMonths={pendingAction === 'edit' ? handleEditAllMonths : handleDeleteAllMonths}
+        title={pendingAction === 'edit' ? 'Editar investimento fixo' : 'Excluir investimento fixo'}
+        description={
+          pendingAction === 'edit'
+            ? 'Este investimento se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
+            : 'Este investimento se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+        }
+        actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
       />
     </div>
   );

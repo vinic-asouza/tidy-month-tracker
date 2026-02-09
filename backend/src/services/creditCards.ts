@@ -70,6 +70,42 @@ export async function updateCreditCard(
   id: string,
   data: UpdateCreditCardInput
 ): Promise<void> {
+  // Se o nome está sendo alterado, precisamos buscar o nome antigo primeiro
+  let oldName: string | null = null;
+  if (data.name !== undefined) {
+    const currentCard = await pool.query(
+      'SELECT name FROM credit_cards WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    
+    if (currentCard.rows.length === 0) {
+      throw new Error('Cartão não encontrado');
+    }
+    
+    oldName = currentCard.rows[0].name;
+    
+    // Se o nome realmente mudou, validar e atualizar
+    if (oldName !== data.name) {
+      // Verificar se já existe outro cartão com o novo nome
+      const existingCard = await pool.query(
+        'SELECT id FROM credit_cards WHERE user_id = $1 AND name = $2 AND id != $3',
+        [userId, data.name, id]
+      );
+      
+      if (existingCard.rows.length > 0) {
+        throw new Error('Já existe um cartão com este nome');
+      }
+      
+      // Atualizar todos os gastos vinculados ao nome antigo
+      await pool.query(
+        `UPDATE expenses
+         SET payment_method = $1, updated_at = NOW()
+         WHERE user_id = $2 AND payment_method = $3`,
+        [data.name, userId, oldName]
+      );
+    }
+  }
+
   const updates: string[] = [];
   const values: any[] = [];
   let paramIndex = 1;

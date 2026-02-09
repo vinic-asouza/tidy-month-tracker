@@ -17,6 +17,7 @@ export interface UpdateInvestmentParams {
   id: string;
   userId?: string; // Mantido para compatibilidade, mas não usado (backend obtém do token)
   updates: Partial<Omit<Investment, 'id'>>;
+  applyToAllMonths?: boolean;
 }
 
 /**
@@ -42,15 +43,15 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
  * Atualiza um investimento existente
  */
 export async function updateInvestment(params: UpdateInvestmentParams): Promise<void> {
-  const { id, userId: _userId, updates } = params;
-  await apiClient.put(`/api/investments/${id}`, updates);
+  const { id, userId: _userId, updates, applyToAllMonths } = params;
+  await apiClient.put(`/api/investments/${id}`, { ...updates, applyToAllMonths });
 }
 
 /**
  * Deleta um investimento
  */
-export async function deleteInvestment(id: string, _userId: string): Promise<void> {
-  await apiClient.delete(`/api/investments/${id}`);
+export async function deleteInvestment(id: string, _userId: string, applyToAllMonths = false): Promise<void> {
+  await apiClient.delete(`/api/investments/${id}`, { applyToAllMonths: applyToAllMonths.toString() });
 }
 
 /**

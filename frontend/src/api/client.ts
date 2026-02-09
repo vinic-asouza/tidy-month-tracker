@@ -149,8 +149,11 @@ class ApiClient {
   /**
    * DELETE request
    */
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+    const queryString = params
+      ? '?' + new URLSearchParams(params).toString()
+      : '';
+    return this.request<T>(`${endpoint}${queryString}`, { method: 'DELETE' });
   }
 }
 

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { IncomeEntry } from '@/types/finance';
 import { formatDateToYYYYMMDD } from '@/lib/utils';
@@ -36,10 +37,8 @@ interface IncomeSectionProps {
   incomes: IncomeEntry[];
   tags: string[];
   onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<IncomeEntry>) => void;
-  onDelete: (id: string) => void;
-  selectedIds: Set<string>;
-  onSelectionChange: (ids: Set<string>) => void;
+  onUpdate: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => void;
+  onDelete: (id: string, applyToAllMonths?: boolean) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -121,7 +120,7 @@ const CategorySummaryItem = ({
   total: number;
 }) => {
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/30">
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
       <Badge 
         variant="secondary" 
         className="text-xs rounded-md px-2 py-0.5 bg-income-light text-income border-0 cursor-default"
@@ -141,8 +140,6 @@ export const IncomeSection = ({
   onAdd,
   onUpdate,
   onDelete,
-  selectedIds,
-  onSelectionChange,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -151,6 +148,10 @@ export const IncomeSection = ({
   const [selectedTag, setSelectedTag] = useState('');
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
+  const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
+  const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('default');
   
@@ -194,7 +195,8 @@ export const IncomeSection = ({
     if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths });
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths }, applyToAllMonths);
+      setApplyToAllMonths(false); // Reset após uso
     } else {
       onAdd({
         description: description.trim(),
@@ -202,6 +204,7 @@ export const IncomeSection = ({
         tag: selectedTag,
         date: formatDateToYYYYMMDD(new Date()),
         repeatAllMonths,
+        received: false
       });
     }
     resetForm();
@@ -209,37 +212,101 @@ export const IncomeSection = ({
   };
 
   const handleEdit = (income: IncomeEntry) => {
-    setEditingId(income.id);
-    setDescription(income.description);
-    setValue(formatValueForInput(income.value));
-    setSelectedTag(income.tag);
-    setRepeatAllMonths(income.repeatAllMonths || false);
-    setIsOpen(true);
+    // Verifica se é item fixo (tem repeatAllMonths ou baseIncomeId)
+    const isFixedItem = income.repeatAllMonths || !!income.baseIncomeId;
+    
+    if (isFixedItem) {
+      // Mostra diálogo perguntando se quer editar em todos os meses
+      setEditingIncome(income);
+      setPendingAction('edit');
+      setShowApplyToAllDialog(true);
+    } else {
+      // Item normal, edita diretamente
+      setEditingId(income.id);
+      setDescription(income.description);
+      setValue(formatValueForInput(income.value));
+      setSelectedTag(income.tag);
+      setRepeatAllMonths(income.repeatAllMonths || false);
+      setIsOpen(true);
+    }
+  };
+
+  const handleEditCurrentMonth = () => {
+    if (editingIncome) {
+      setEditingId(editingIncome.id);
+      setDescription(editingIncome.description);
+      setValue(formatValueForInput(editingIncome.value));
+      setSelectedTag(editingIncome.tag);
+      setRepeatAllMonths(editingIncome.repeatAllMonths || false);
+      setIsOpen(true);
+      setEditingIncome(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleEditAllMonths = () => {
+    if (editingIncome) {
+      setEditingId(editingIncome.id);
+      setDescription(editingIncome.description);
+      setValue(formatValueForInput(editingIncome.value));
+      setSelectedTag(editingIncome.tag);
+      setRepeatAllMonths(editingIncome.repeatAllMonths || false);
+      setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
+      setIsOpen(true);
+      setEditingIncome(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    const income = incomes.find(i => i.id === id);
+    if (income) {
+      const isFixedItem = income.repeatAllMonths || !!income.baseIncomeId;
+      if (isFixedItem) {
+        setEditingIncome(income);
+        setPendingAction('delete');
+        setShowApplyToAllDialog(true);
+      } else {
+        setDeleteId(id);
+      }
+    }
+  };
+
+  const handleDeleteCurrentMonth = () => {
+    if (editingIncome) {
+      setDeleteId(editingIncome.id);
+      setEditingIncome(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
+  };
+
+  const handleDeleteAllMonths = () => {
+    if (editingIncome) {
+      onDelete(editingIncome.id, true); // Passa true para aplicar em todos os meses
+      setDeleteId(null);
+      setEditingIncome(null);
+      setPendingAction(null);
+      setShowApplyToAllDialog(false);
+    }
   };
 
   const handleConfirmDelete = () => {
     if (deleteId) {
-      onDelete(deleteId);
+      onDelete(deleteId, false); // Apenas este mês
       setDeleteId(null);
-      const newSet = new Set(selectedIds);
-      newSet.delete(deleteId);
-      onSelectionChange(newSet);
     }
   };
 
-  const toggleSelection = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    onSelectionChange(newSet);
+  const handleToggleReceived = (income: IncomeEntry) => {
+    onUpdate(income.id, { received: !income.received });
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
-  const selectedTotal = incomes
-    .filter(i => selectedIds.has(i.id))
+  const receivedTotal = incomes
+    .filter(i => i.received)
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
@@ -256,11 +323,11 @@ export const IncomeSection = ({
               <p className="text-base font-bold text-income">
                 {formatCurrency(total)}
               </p>
-              {selectedIds.size > 0 && (
+              {receivedTotal > 0 && (
                 <>
                   <span className="text-xs text-muted-foreground">| Recebido:</span>
                   <p className="text-base font-bold text-income">
-                    {formatCurrency(selectedTotal)}
+                    {formatCurrency(receivedTotal)}
                   </p>
                 </>
               )}
@@ -425,18 +492,17 @@ export const IncomeSection = ({
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
           {sortedIncomes.map((income) => {
-            const isSelected = selectedIds.has(income.id);
             return (
               <div
                 key={income.id}
-                className={`group flex items-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
-                  isSelected ? 'bg-income-light' : 'bg-muted/30 hover:bg-muted/50'
+                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
+                  income.received ? 'bg-income-light' : 'bg-muted/30 hover:bg-muted/50'
                 }`}
               >
                 {/* Checkbox */}
                 <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleSelection(income.id)}
+                  checked={income.received}
+                  onCheckedChange={() => handleToggleReceived(income)}
                   className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0"
                 />
 
@@ -477,7 +543,7 @@ export const IncomeSection = ({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => setDeleteId(income.id)}
+                    onClick={() => handleDeleteClick(income.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
@@ -505,6 +571,21 @@ export const IncomeSection = ({
         onConfirm={handleConfirmDelete}
         title="Excluir entrada"
         description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita."
+      />
+
+      {/* Apply to All Months Dialog */}
+      <ApplyToAllDialog
+        open={showApplyToAllDialog}
+        onOpenChange={setShowApplyToAllDialog}
+        onApplyToCurrentMonth={pendingAction === 'edit' ? handleEditCurrentMonth : handleDeleteCurrentMonth}
+        onApplyToAllMonths={pendingAction === 'edit' ? handleEditAllMonths : handleDeleteAllMonths}
+        title={pendingAction === 'edit' ? 'Editar entrada fixa' : 'Excluir entrada fixa'}
+        description={
+          pendingAction === 'edit'
+            ? 'Esta entrada se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
+            : 'Esta entrada se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+        }
+        actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
       />
     </div>
   );

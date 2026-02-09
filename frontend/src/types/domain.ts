@@ -15,6 +15,7 @@ export interface Income {
   value: number;
   tag: string;
   date: string;
+  received: boolean;
   repeatAllMonths?: boolean;
   baseIncomeId?: string;
 }
@@ -46,6 +47,9 @@ export interface Investment {
   value: number;
   tag: string;
   date: string;
+  invested: boolean;
+  repeatAllMonths?: boolean;
+  baseInvestmentId?: string;
 }
 
 export interface MonthData {
