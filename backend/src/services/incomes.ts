@@ -1,0 +1,204 @@
+/**
+ * Serviço de Receitas (Incomes)
+ * 
+ * Lógica de negócio para operações de receitas
+ */
+
+import { pool } from '../infra/database';
+import { calculateRemainingMonths } from '../utils/repeatMonths';
+
+export interface Income {
+  id: string;
+  description: string;
+  value: number;
+  tag: string;
+  date: string;
+  repeatAllMonths?: boolean;
+  baseIncomeId?: string;
+}
+
+export interface CreateIncomeInput {
+  description: string;
+  value: number;
+  tag: string;
+  date: string;
+  repeatAllMonths?: boolean;
+}
+
+export interface UpdateIncomeInput {
+  description?: string;
+  value?: number;
+  tag?: string;
+  repeatAllMonths?: boolean;
+}
+
+/**
+ * Busca receitas de um mês específico
+ */
+export async function getIncomes(userId: string, yearMonth: string): Promise<Income[]> {
+  const result = await pool.query(
+    `SELECT id, description, value, tag, date, repeat_all_months, base_income_id
+     FROM incomes
+     WHERE user_id = $1 AND year_month = $2
+     ORDER BY display_order`,
+    [userId, yearMonth]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    description: row.description,
+    value: Number(row.value),
+    tag: row.tag,
+    date: row.date,
+    repeatAllMonths: row.repeat_all_months,
+    baseIncomeId: row.base_income_id || undefined,
+  }));
+}
+
+/**
+ * Cria uma nova receita
+ */
+export async function createIncome(
+  userId: string,
+  yearMonth: string,
+  data: CreateIncomeInput
+): Promise<Income> {
+  // Busca próximo display_order
+  const countResult = await pool.query(
+    'SELECT COUNT(*)::int as count FROM incomes WHERE user_id = $1 AND year_month = $2',
+    [userId, yearMonth]
+  );
+  const displayOrder = countResult.rows[0].count;
+
+  // Insere receita principal
+  const result = await pool.query(
+    `INSERT INTO incomes (user_id, year_month, description, value, tag, date, repeat_all_months, display_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id, description, value, tag, date, repeat_all_months, base_income_id`,
+    [
+      userId,
+      yearMonth,
+      data.description,
+      data.value,
+      data.tag,
+      data.date,
+      data.repeatAllMonths || false,
+      displayOrder,
+    ]
+  );
+
+  const createdIncome = {
+    id: result.rows[0].id,
+    description: result.rows[0].description,
+    value: Number(result.rows[0].value),
+    tag: result.rows[0].tag,
+    date: result.rows[0].date,
+    repeatAllMonths: result.rows[0].repeat_all_months,
+    baseIncomeId: result.rows[0].base_income_id || undefined,
+  };
+
+  // Se deve repetir para todos os meses, cria as repetições
+  if (data.repeatAllMonths) {
+    const remainingMonths = calculateRemainingMonths(yearMonth);
+
+    for (const month of remainingMonths) {
+      await pool.query(
+        `INSERT INTO incomes (user_id, year_month, description, value, tag, date, repeat_all_months, base_income_id, display_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          userId,
+          month,
+          data.description,
+          data.value,
+          data.tag,
+          data.date,
+          true, // repeat_all_months
+          createdIncome.id, // base_income_id
+          0, // display_order
+        ]
+      );
+    }
+  }
+
+  return createdIncome;
+}
+
+/**
+ * Atualiza uma receita existente
+ */
+export async function updateIncome(
+  userId: string,
+  id: string,
+  data: UpdateIncomeInput
+): Promise<void> {
+  const updates: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (data.description !== undefined) {
+    updates.push(`description = $${paramIndex++}`);
+    values.push(data.description);
+  }
+  if (data.value !== undefined) {
+    updates.push(`value = $${paramIndex++}`);
+    values.push(data.value);
+  }
+  if (data.tag !== undefined) {
+    updates.push(`tag = $${paramIndex++}`);
+    values.push(data.tag);
+  }
+  if (data.repeatAllMonths !== undefined) {
+    updates.push(`repeat_all_months = $${paramIndex++}`);
+    values.push(data.repeatAllMonths);
+  }
+
+  if (updates.length === 0) {
+    return; // Nada para atualizar
+  }
+
+  values.push(id, userId);
+  const idParam = paramIndex;
+  const userIdParam = paramIndex + 1;
+
+  await pool.query(
+    `UPDATE incomes
+     SET ${updates.join(', ')}, updated_at = NOW()
+     WHERE id = $${idParam} AND user_id = $${userIdParam}`,
+    values
+  );
+}
+
+/**
+ * Deleta uma receita
+ */
+export async function deleteIncome(userId: string, id: string): Promise<void> {
+  await pool.query('DELETE FROM incomes WHERE id = $1 AND user_id = $2', [id, userId]);
+}
+
+/**
+ * Reordena receitas
+ */
+export async function reorderIncomes(
+  userId: string,
+  yearMonth: string,
+  incomeIds: string[]
+): Promise<void> {
+  // Valida que todas as receitas pertencem ao mês especificado
+  // (opcional, mas garante integridade)
+  const checkResult = await pool.query(
+    'SELECT COUNT(*)::int as count FROM incomes WHERE user_id = $1 AND year_month = $2 AND id = ANY($3::uuid[])',
+    [userId, yearMonth, incomeIds]
+  );
+
+  if (checkResult.rows[0].count !== incomeIds.length) {
+    throw new Error('Algumas receitas não pertencem ao mês especificado');
+  }
+
+  // Atualiza display_order para cada receita
+  for (let i = 0; i < incomeIds.length; i++) {
+    await pool.query(
+      'UPDATE incomes SET display_order = $1 WHERE id = $2 AND user_id = $3',
+      [i, incomeIds[i], userId]
+    );
+  }
+}
