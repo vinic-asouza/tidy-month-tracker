@@ -37,3 +37,51 @@ export async function updateInvestmentTagInInvestments(
     newTag,
   });
 }
+
+/**
+ * Atualiza as categorias de entradas (incomeTags)
+ */
+export async function updateIncomeTags(
+  _userId: string,
+  tags: string[]
+): Promise<void> {
+  await apiClient.put('/api/settings/income-tags', { tags });
+}
+
+/**
+ * Atualiza todas as entradas que usam uma categoria antiga para a nova
+ */
+export async function updateIncomeTagInIncomes(
+  _userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  await apiClient.put('/api/settings/income-tags/update', {
+    oldTag,
+    newTag,
+  });
+}
+
+/**
+ * Atualiza as categorias de gastos (expenseCategories)
+ */
+export async function updateExpenseCategories(
+  _userId: string,
+  categories: string[]
+): Promise<void> {
+  await apiClient.put('/api/settings/expense-categories', { categories });
+}
+
+/**
+ * Atualiza todas as despesas que usam uma categoria antiga para a nova
+ */
+export async function updateExpenseCategoryInExpenses(
+  _userId: string,
+  oldCategory: string,
+  newCategory: string
+): Promise<void> {
+  await apiClient.put('/api/settings/expense-categories/update', {
+    oldCategory,
+    newCategory,
+  });
+}

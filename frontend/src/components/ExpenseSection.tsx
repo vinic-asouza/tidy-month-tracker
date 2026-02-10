@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
+import { useState, useMemo, ReactNode } from 'react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
@@ -52,6 +53,9 @@ interface ExpenseSectionProps {
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onDeleteInstallment: (expense: Expense) => void;
   getCardPaidStatus?: (cardId: string) => boolean;
+  onAddCategory: (category: string) => Promise<void> | void;
+  onUpdateCategory: (oldCategory: string, newCategory: string) => Promise<void> | void;
+  onDeleteCategory: (category: string) => Promise<void> | void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -87,6 +91,7 @@ const ExpenseForm = ({
   creditCards,
   onSubmit,
   initialData,
+  categoryManagerSlot,
 }: {
   type: Expense['type'];
   categories: string[];
@@ -94,6 +99,7 @@ const ExpenseForm = ({
   creditCards: CreditCardType[];
   onSubmit: (data: Omit<Expense, 'id'>) => void;
   initialData?: Expense;
+  categoryManagerSlot?: ReactNode;
 }) => {
   const [category, setCategory] = useState(initialData?.category || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -162,18 +168,27 @@ const ExpenseForm = ({
       {/* Category */}
       <div>
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Categoria</label>
-        <Select value={category} onValueChange={(v) => { setCategory(v); setCategoryError(null); }}>
-          <SelectTrigger className={`rounded-xl h-11 ${categoryError ? 'border-destructive' : ''}`}>
-            <SelectValue placeholder="Selecione..." />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl max-h-64">
-            {categories.map((cat) => (
-              <SelectItem key={cat} value={cat} className="rounded-lg">
-                {cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Select value={category} onValueChange={(v) => { setCategory(v); setCategoryError(null); }}>
+              <SelectTrigger className={`rounded-xl h-11 ${categoryError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}>
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl max-h-64">
+                {categories.map((cat) => (
+                  <SelectItem
+                    key={cat}
+                    value={cat}
+                    className="rounded-lg focus:bg-expense-light focus:text-expense hover:bg-expense-light/50"
+                  >
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {categoryManagerSlot}
+        </div>
         {categoryError && <p className="text-destructive text-sm mt-1">{categoryError}</p>}
       </div>
 
@@ -185,7 +200,7 @@ const ExpenseForm = ({
             value={description}
             onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
             placeholder="Ex: Conta de luz"
-            className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
+            className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
           />
           {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
         </div>
@@ -196,7 +211,7 @@ const ExpenseForm = ({
           <CurrencyInput
             value={value}
             onValueChange={(v) => { setValue(v); setValueError(null); }}
-            className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
+            className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
           />
           {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
         </div>
@@ -206,7 +221,9 @@ const ExpenseForm = ({
       <div>
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Forma de Pagamento</label>
         <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); setPaymentError(null); }}>
-          <SelectTrigger className={`rounded-xl h-11 ${paymentError ? 'border-destructive' : ''}`}>
+          <SelectTrigger
+            className={`rounded-xl h-11 ${paymentError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
+          >
             <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
@@ -215,7 +232,11 @@ const ExpenseForm = ({
               const value = isCard ? method.value : method;
               const label = isCard ? method.label : method;
               return (
-                <SelectItem key={value} value={value} className="rounded-lg">
+                <SelectItem
+                  key={value}
+                  value={value}
+                  className="rounded-lg focus:bg-expense-light focus:text-expense hover:bg-expense-light/50"
+                >
                   {label}
                 </SelectItem>
               );
@@ -274,6 +295,7 @@ const ExpenseForm = ({
             id="repeat-months-expense"
             checked={repeatAllMonths}
             onCheckedChange={setRepeatAllMonths}
+            className="data-[state=checked]:bg-expense focus-visible:ring-expense"
           />
         </div>
       )}
@@ -293,41 +315,41 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
   // Check if it's a credit card payment
   const creditCard = creditCards.find(c => c.name === paymentMethod);
   if (creditCard) {
-    // Get card color from CARD_COLORS - use solid color with white text
-    const colorMap: Record<string, string> = {
-      'violet': 'bg-violet-600 text-white',
-      'orange': 'bg-orange-500 text-white',
-      'emerald': 'bg-emerald-600 text-white',
-      'blue': 'bg-blue-600 text-white',
-      'pink': 'bg-pink-500 text-white',
-      'yellow': 'bg-yellow-500 text-white',
-      'slate': 'bg-slate-600 text-white',
-      'cyan': 'bg-cyan-600 text-white',
-      'red': 'bg-red-600 text-white',
+    // Get card color from CARD_COLORS - use gradient background matching the card with white text
+    const gradientMap: Record<string, string> = {
+      'violet': 'bg-gradient-to-br from-violet-500 to-purple-600 text-white',
+      'orange': 'bg-gradient-to-br from-orange-500 to-red-500 text-white',
+      'emerald': 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white',
+      'blue': 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white',
+      'pink': 'bg-gradient-to-br from-pink-500 to-rose-600 text-white',
+      'yellow': 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white',
+      'slate': 'bg-gradient-to-br from-slate-600 to-slate-800 text-white',
+      'cyan': 'bg-gradient-to-br from-cyan-500 to-blue-500 text-white',
+      'red': 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
     };
     return {
-      className: colorMap[creditCard.color] || 'bg-muted text-muted-foreground',
+      className: gradientMap[creditCard.color] || 'bg-muted text-muted-foreground',
       isCard: true,
     };
   }
 
-  // Standard payment methods
+  // Standard payment methods - lighter background with stronger text color
   switch (paymentMethod.toLowerCase()) {
     case 'dinheiro':
       return {
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+        className: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
       };
     case 'pix':
       return {
-        className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400',
+        className: 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300',
       };
     case 'débito':
       return {
-        className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400',
+        className: 'bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
       };
     case 'boleto':
       return {
-        className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+        className: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300',
       };
     default:
       return {
@@ -367,8 +389,8 @@ const ExpenseItem = ({
   return (
     <div
       className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${isPaid
-          ? 'bg-expense-light'
-          : 'bg-muted/30 hover:bg-muted/50'
+        ? 'bg-expense-light'
+        : 'bg-muted/30 hover:bg-muted/50'
         }`}
     >
       {/* Paid Checkbox */}
@@ -393,7 +415,7 @@ const ExpenseItem = ({
       {/* Category */}
       <Badge
         variant="secondary"
-        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default"
+        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-expense-light"
       >
         {expense.category}
       </Badge>
@@ -406,9 +428,12 @@ const ExpenseItem = ({
       {/* Payment Method Badge */}
       <Badge
         variant="secondary"
-        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 cursor-default ${style.className}`}
+        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 cursor-default hover:opacity-100 ${style.className}`}
       >
-        {expense.paymentMethod}
+        {style.isCard && (
+          <CreditCard className="h-3 w-3 mr-1" />
+        )}
+        <span>{expense.paymentMethod}</span>
       </Badge>
 
       {/* Installment */}
@@ -548,6 +573,9 @@ export const ExpenseSection = ({
   onDelete,
   onDeleteInstallment,
   getCardPaidStatus,
+  onAddCategory,
+  onUpdateCategory,
+  onDeleteCategory,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
@@ -559,6 +587,64 @@ export const ExpenseSection = ({
   const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
+
+  // Category management state (similar to Income/Investment)
+  const [isCategoryManagerOpenInModal, setIsCategoryManagerOpenInModal] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategoryValue, setEditingCategoryValue] = useState('');
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+
+  // Category management handlers
+  const handleAddCategory = async () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed || categories.includes(trimmed) || isCategoryLoading) return;
+
+    setIsCategoryLoading(true);
+    try {
+      await onAddCategory(trimmed);
+      setNewCategory('');
+    } finally {
+      setIsCategoryLoading(false);
+    }
+  };
+
+  const handleSaveCategoryEdit = async () => {
+    if (!editingCategory) {
+      setEditingCategory(null);
+      setEditingCategoryValue('');
+      return;
+    }
+
+    const trimmed = editingCategoryValue.trim();
+    if (!trimmed || trimmed === editingCategory || isCategoryLoading) {
+      setEditingCategory(null);
+      setEditingCategoryValue('');
+      return;
+    }
+
+    setIsCategoryLoading(true);
+    try {
+      await onUpdateCategory(editingCategory, trimmed);
+    } finally {
+      setIsCategoryLoading(false);
+      setEditingCategory(null);
+      setEditingCategoryValue('');
+    }
+  };
+
+  const handleDeleteCategory = async (category: string) => {
+    // Não permitir excluir categoria em uso
+    const hasExpenses = expenses.some((expense) => expense.category === category);
+    if (hasExpenses || isCategoryLoading) return;
+
+    setIsCategoryLoading(true);
+    try {
+      await onDeleteCategory(category);
+    } finally {
+      setIsCategoryLoading(false);
+    }
+  };
 
   const fixedExpenses = expenses.filter((e) => e.type === 'fixed');
   const variableExpenses = expenses.filter((e) => e.type === 'variable');
@@ -844,49 +930,168 @@ export const ExpenseSection = ({
             </div>
           </div>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditingExpense(null); }}>
-          <DialogTrigger asChild>
-            <Button
-              size="sm"
-              className="rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-2xl max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">
-                {editingExpense ? 'Editar Gasto' : 'Novo Gasto'}
-              </DialogTitle>
-            </DialogHeader>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Expense['type'])}>
-              <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted p-1">
-                <TabsTrigger value="fixed" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  Fixo
-                </TabsTrigger>
-                <TabsTrigger value="variable" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  Variável
-                </TabsTrigger>
-                <TabsTrigger value="installment" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  Parcelado
-                </TabsTrigger>
-              </TabsList>
-              {(['fixed', 'variable', 'installment'] as const).map((type) => (
-                <TabsContent key={type} value={type}>
-                  <ExpenseForm
-                    type={type}
-                    categories={categories}
-                    paymentMethods={paymentMethods}
-                    creditCards={creditCards}
-                    onSubmit={handleSubmit}
-                    initialData={editingExpense?.type === type ? editingExpense : undefined}
-                  />
-                </TabsContent>
-              ))}
-            </Tabs>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditingExpense(null); }}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                className="rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-semibold">
+                  {editingExpense ? 'Editar Gasto' : 'Novo Gasto'}
+                </DialogTitle>
+              </DialogHeader>
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Expense['type'])}>
+                <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted p-1">
+                  <TabsTrigger value="fixed" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                    Fixo
+                  </TabsTrigger>
+                  <TabsTrigger value="variable" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                    Variável
+                  </TabsTrigger>
+                  <TabsTrigger value="installment" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                    Parcelado
+                  </TabsTrigger>
+                </TabsList>
+                {(['fixed', 'variable', 'installment'] as const).map((type) => (
+                  <TabsContent key={type} value={type}>
+                    <ExpenseForm
+                      type={type}
+                      categories={categories}
+                      paymentMethods={paymentMethods}
+                      creditCards={creditCards}
+                      onSubmit={handleSubmit}
+                      initialData={editingExpense?.type === type ? editingExpense : undefined}
+                      categoryManagerSlot={
+                        <Popover
+                          open={isCategoryManagerOpenInModal}
+                          onOpenChange={setIsCategoryManagerOpenInModal}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="rounded-xl h-11 w-11 text-expense hover:bg-expense-light hover:text-expense focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                            <h4 className="font-semibold mb-3 text-sm">Gerenciar Categorias</h4>
+
+                            {/* Add new category */}
+                            <div className="flex gap-2 mb-3">
+                              <Input
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                                placeholder="Nova categoria..."
+                                className="rounded-lg h-9 text-sm focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                                disabled={isCategoryLoading}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={handleAddCategory}
+                                className="rounded-lg h-9 px-3 bg-expense hover:bg-expense/90 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+                                disabled={isCategoryLoading || !newCategory.trim() || categories.includes(newCategory.trim())}
+                              >
+                                {isCategoryLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Plus className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+
+                            {/* List of categories */}
+                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                              {categories.map((category) => {
+                                const isUsed = expenses.some((e) => e.category === category);
+                                const isEditing = editingCategory === category;
+
+                                return (
+                                  <div
+                                    key={category}
+                                    className="flex items-center gap-2 p-2 rounded-lg bg-expense-light/40 hover:bg-expense-light"
+                                  >
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1 flex-1">
+                                        <Input
+                                          value={editingCategoryValue}
+                                          onChange={(e) => setEditingCategoryValue(e.target.value)}
+                                          className="h-7 text-sm rounded-md flex-1 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+                                          onKeyDown={(e) => e.key === 'Enter' && handleSaveCategoryEdit()}
+                                          autoFocus
+                                          disabled={isCategoryLoading}
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 rounded-md text-expense hover:bg-expense-light flex-shrink-0"
+                                          onClick={handleSaveCategoryEdit}
+                                          title="Confirmar edição"
+                                          disabled={isCategoryLoading}
+                                        >
+                                          {isCategoryLoading ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3.5 w-3.5" />
+                                          )}
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <span className="flex-1 text-sm truncate">{category}</span>
+                                    )}
+
+                                    {!isEditing && (
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 rounded-md text-expense hover:bg-expense-light"
+                                          onClick={() => {
+                                            setEditingCategory(category);
+                                            setEditingCategoryValue(category);
+                                          }}
+                                          disabled={isCategoryLoading}
+                                        >
+                                          <Pencil className="h-3 w-3 text-expense" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 rounded-md hover:bg-expense-light"
+                                          onClick={() => handleDeleteCategory(category)}
+                                          disabled={isUsed || isCategoryLoading}
+                                          title={isUsed ? 'Esta categoria está em uso' : 'Excluir'}
+                                        >
+                                          <Trash2
+                                            className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/40' : 'text-expense'}`}
+                                          />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      }
+                    />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* View Controls */}
@@ -1050,7 +1255,7 @@ export const ExpenseSection = ({
           <AlertDialogFooter>
             <AlertDialogAction
               onClick={() => setCardWarningOpen(false)}
-              className="rounded-xl"
+              className="rounded-xl bg-expense text-white hover:bg-expense/90 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
             >
               Entendi
             </AlertDialogAction>

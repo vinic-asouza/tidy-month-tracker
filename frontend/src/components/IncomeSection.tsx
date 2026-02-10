@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -39,6 +44,9 @@ interface IncomeSectionProps {
   onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
   onUpdate: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => void;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
+  onAddTag: (tag: string) => void;
+  onUpdateTag: (oldTag: string, newTag: string) => void;
+  onDeleteTag: (tag: string) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -140,6 +148,9 @@ export const IncomeSection = ({
   onAdd,
   onUpdate,
   onDelete,
+  onAddTag,
+  onUpdateTag,
+  onDeleteTag,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -155,6 +166,13 @@ export const IncomeSection = ({
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('default');
   
+  // Tag management
+  const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editingTagValue, setEditingTagValue] = useState('');
+  const [isTagLoading, setIsTagLoading] = useState(false);
+
   // Error states
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
@@ -163,6 +181,61 @@ export const IncomeSection = ({
   // Apply sorting and grouping
   const sortedIncomes = useMemo(() => sortIncomes(incomes, sortOption), [incomes, sortOption]);
   const groupedByCategory = useMemo(() => groupByCategory(incomes, sortOption), [incomes, sortOption]);
+
+  // Tag management handlers
+  const handleAddTag = async () => {
+    const trimmed = newTag.trim();
+    if (!trimmed || tags.includes(trimmed) || isTagLoading) return;
+
+    setIsTagLoading(true);
+    try {
+      await onAddTag(trimmed);
+      // Se a tag foi adicionada no modal, seleciona automaticamente
+      if (isTagsOpenInModal) {
+        setSelectedTag(trimmed);
+      }
+      setNewTag('');
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
+
+  const handleSaveTagEdit = async () => {
+    if (!editingTag) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
+    }
+
+    const trimmed = editingTagValue.trim();
+    if (!trimmed || trimmed === editingTag || isTagLoading) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
+    }
+
+    setIsTagLoading(true);
+    try {
+      await onUpdateTag(editingTag, trimmed);
+    } finally {
+      setIsTagLoading(false);
+      setEditingTag(null);
+      setEditingTagValue('');
+    }
+  };
+
+  const handleDeleteTag = async (tag: string) => {
+    // Não permitir excluir categoria em uso
+    const hasIncomes = incomes.some((income) => income.tag === tag);
+    if (hasIncomes || isTagLoading) return;
+
+    setIsTagLoading(true);
+    try {
+      await onDeleteTag(tag);
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setDescription('');
@@ -334,94 +407,221 @@ export const IncomeSection = ({
             </div>
           </div>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button 
-              size="sm" 
-              className="rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">
-                {editingId ? 'Editar Entrada' : 'Nova Entrada'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-5 pt-4">
-              {/* Tag Selection */}
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Categoria
-                </label>
-                <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
-                  <SelectTrigger className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''}`}>
-                    <SelectValue placeholder="Selecione uma categoria..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {tags.map((tag) => (
-                      <SelectItem key={tag} value={tag} className="rounded-lg">
-                        {tag}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {tagError && <p className="text-destructive text-sm mt-1">{tagError}</p>}
-              </div>
-
-              {/* Description and Value on same line */}
-              <div className="grid grid-cols-5 gap-3">
-                <div className="col-span-3">
-                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                    Descrição
-                  </label>
-                  <Input
-                    value={description}
-                    onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
-                    placeholder="Ex: Salário janeiro"
-                    className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
-                  />
-                  {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                    Valor
-                  </label>
-                  <CurrencyInput
-                    value={value}
-                    onValueChange={(v) => { setValue(v); setValueError(null); }}
-                    className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
-                  />
-                  {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
-                </div>
-              </div>
-
-              {/* Repeat All Months */}
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <Repeat className="h-4 w-4 text-muted-foreground" />
-                  <Label htmlFor="repeat-months" className="text-sm font-medium cursor-pointer">
-                    Repetir todos os meses
-                  </Label>
-                </div>
-                <Switch
-                  id="repeat-months"
-                  checked={repeatAllMonths}
-                  onCheckedChange={setRepeatAllMonths}
-                />
-              </div>
-
+        <div className="flex gap-2">
+          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
               <Button 
-                onClick={handleSubmit} 
-                className="w-full h-11 rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
+                size="sm" 
+                className="rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
               >
-                {editingId ? 'Salvar Alterações' : 'Adicionar Entrada'}
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar
               </Button>
-            </div>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-semibold">
+                  {editingId ? 'Editar Entrada' : 'Nova Entrada'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5 pt-4">
+                {/* Tag Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Categoria
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
+                        <SelectTrigger
+                          className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-income focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                        >
+                          <SelectValue placeholder="Selecione uma categoria..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {tags.map((tag) => (
+                            <SelectItem
+                              key={tag}
+                              value={tag}
+                              className="rounded-lg focus:bg-income-light focus:text-income hover:bg-income-light/50"
+                            >
+                              {tag}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Popover open={isTagsOpenInModal} onOpenChange={setIsTagsOpenInModal}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-xl h-11 w-11 text-income hover:bg-income-light hover:text-income focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                        <h4 className="font-semibold mb-3 text-sm">Gerenciar Categorias</h4>
+
+                        {/* Add new category */}
+                        <div className="flex gap-2 mb-3">
+                        <Input
+                          value={newTag}
+                          onChange={(e) => setNewTag(e.target.value)}
+                          placeholder="Nova categoria..."
+                          className="rounded-lg h-9 text-sm focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                          disabled={isTagLoading}
+                        />
+                          <Button
+                            size="sm"
+                            onClick={handleAddTag}
+                          className="rounded-lg h-9 px-3 bg-income hover:bg-income/90 focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
+                          disabled={isTagLoading || !newTag.trim() || tags.includes(newTag.trim())}
+                          >
+                          {isTagLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                          </Button>
+                        </div>
+
+                        {/* List of categories */}
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {tags.map((tag) => {
+                            const isUsed = incomes.some((i) => i.tag === tag);
+                            const isEditing = editingTag === tag;
+
+                            return (
+                              <div
+                                key={tag}
+                                className="flex items-center gap-2 p-2 rounded-lg bg-income-light/40 hover:bg-income-light"
+                              >
+                              {isEditing ? (
+                                <div className="flex items-center gap-1 flex-1">
+                                  <Input
+                                    value={editingTagValue}
+                                    onChange={(e) => setEditingTagValue(e.target.value)}
+                                    className="h-7 text-sm rounded-md flex-1 focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
+                                    autoFocus
+                                    disabled={isTagLoading}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-md text-income hover:bg-income-light flex-shrink-0"
+                                    onClick={handleSaveTagEdit}
+                                    title="Confirmar edição"
+                                    disabled={isTagLoading}
+                                  >
+                                    {isTagLoading ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="flex-1 text-sm truncate">{tag}</span>
+                              )}
+
+                              {!isEditing && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md text-income hover:bg-income-light"
+                                      onClick={() => {
+                                        setEditingTag(tag);
+                                        setEditingTagValue(tag);
+                                    }}
+                                    disabled={isTagLoading}
+                                    >
+                                      <Pencil className="h-3 w-3 text-income" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md hover:bg-income-light"
+                                      onClick={() => handleDeleteTag(tag)}
+                                    disabled={isUsed || isTagLoading}
+                                      title={isUsed ? 'Esta categoria está em uso' : 'Excluir'}
+                                    >
+                                      <Trash2
+                                        className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/40' : 'text-income'}`}
+                                      />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {tagError && (
+                    <p className="text-destructive text-sm mt-1">{tagError}</p>
+                  )}
+                </div>
+
+                {/* Description and Value on same line */}
+                <div className="grid grid-cols-5 gap-3">
+                  <div className="col-span-3">
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      Descrição
+                    </label>
+                    <Input
+                      value={description}
+                      onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
+                      placeholder="Ex: Salário janeiro"
+                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                    />
+                    {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      Valor
+                    </label>
+                    <CurrencyInput
+                      value={value}
+                      onValueChange={(v) => { setValue(v); setValueError(null); }}
+                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                    />
+                    {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
+                  </div>
+                </div>
+
+                {/* Repeat All Months */}
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="repeat-months" className="text-sm font-medium cursor-pointer">
+                      Repetir todos os meses
+                    </Label>
+                  </div>
+                  <Switch
+                    id="repeat-months"
+                    checked={repeatAllMonths}
+                    onCheckedChange={setRepeatAllMonths}
+                    className="data-[state=checked]:bg-income focus-visible:ring-income"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleSubmit} 
+                  className="w-full h-11 rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
+                >
+                  {editingId ? 'Salvar Alterações' : 'Adicionar Entrada'}
+                </Button>
+              </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* View Controls */}
@@ -509,7 +709,7 @@ export const IncomeSection = ({
                 {/* Tag */}
                 <Badge 
                   variant="secondary" 
-                  className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default"
+                  className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light"
                 >
                   {income.tag}
                 </Badge>

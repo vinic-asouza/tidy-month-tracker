@@ -50,6 +50,12 @@ const Index = () => {
     addInvestmentTag,
     updateInvestmentTag,
     deleteInvestmentTag,
+    addExpenseCategory,
+    updateExpenseCategory,
+    deleteExpenseCategory,
+    addIncomeTag,
+    updateIncomeTag,
+    deleteIncomeTag,
     getYearData,
   } = useSupabaseFinance();
 
@@ -219,6 +225,9 @@ const Index = () => {
                   onAdd={addIncome}
                   onUpdate={updateIncome}
                   onDelete={deleteIncome}
+                  onAddTag={addIncomeTag}
+                  onUpdateTag={updateIncomeTag}
+                  onDeleteTag={deleteIncomeTag}
                 />
                 <ExpenseSection
                   expenses={monthData.expenses}
@@ -230,6 +239,9 @@ const Index = () => {
                   onDelete={deleteExpense}
                   onDeleteInstallment={deleteInstallmentExpense}
                   getCardPaidStatus={getCardPaidStatus}
+                  onAddCategory={addExpenseCategory}
+                  onUpdateCategory={updateExpenseCategory}
+                  onDeleteCategory={deleteExpenseCategory}
                 />
               </div>
 

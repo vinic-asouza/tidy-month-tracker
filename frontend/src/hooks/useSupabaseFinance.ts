@@ -613,15 +613,22 @@ export const useSupabaseFinance = () => {
     const newTags = settings.investmentTags.map((t) => (t === oldTag ? newTag : t));
 
     try {
+      // Atualiza no backend
       await settingsService.updateInvestmentTags(user.id, newTags);
       await settingsService.updateInvestmentTagInInvestments(user.id, oldTag, newTag);
+
+      // Atualiza estado local imediatamente (sem reload global)
       setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-      await fetchMonthData(currentMonth);
+      setInvestments((prev) =>
+        prev.map((investment) =>
+          investment.tag === oldTag ? { ...investment, tag: newTag } : investment
+        )
+      );
     } catch (error) {
       toast.error('Erro ao atualizar tag');
       console.error(error);
     }
-  }, [user, settings.investmentTags, currentMonth, fetchMonthData]);
+  }, [user, settings.investmentTags]);
 
   const deleteInvestmentTag = useCallback(async (tag: string) => {
     if (!user) return;
@@ -636,6 +643,110 @@ export const useSupabaseFinance = () => {
       console.error(error);
     }
   }, [user, settings.investmentTags]);
+
+  // Income tags management
+  const addIncomeTag = useCallback(async (tag: string) => {
+    if (!user) return;
+
+    const newTags = [...settings.incomeTags, tag];
+
+    try {
+      await settingsService.updateIncomeTags(user.id, newTags);
+      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+    } catch (error) {
+      toast.error('Erro ao adicionar categoria');
+      console.error(error);
+    }
+  }, [user, settings.incomeTags]);
+
+  const updateIncomeTag = useCallback(async (oldTag: string, newTag: string) => {
+    if (!user) return;
+
+    const newTags = settings.incomeTags.map((t) => (t === oldTag ? newTag : t));
+
+    try {
+      // Atualiza no backend
+      await settingsService.updateIncomeTags(user.id, newTags);
+      await settingsService.updateIncomeTagInIncomes(user.id, oldTag, newTag);
+
+      // Atualiza estado local imediatamente (sem reload global)
+      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+      setIncomes((prev) =>
+        prev.map((income) =>
+          income.tag === oldTag ? { ...income, tag: newTag } : income
+        )
+      );
+    } catch (error) {
+      toast.error('Erro ao atualizar categoria');
+      console.error(error);
+    }
+  }, [user, settings.incomeTags]);
+
+  const deleteIncomeTag = useCallback(async (tag: string) => {
+    if (!user) return;
+
+    const newTags = settings.incomeTags.filter((t) => t !== tag);
+
+    try {
+      await settingsService.updateIncomeTags(user.id, newTags);
+      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+    } catch (error) {
+      toast.error('Erro ao excluir categoria');
+      console.error(error);
+    }
+  }, [user, settings.incomeTags]);
+
+  // Expense categories management
+  const addExpenseCategory = useCallback(async (category: string) => {
+    if (!user) return;
+
+    const newCategories = [...settings.expenseCategories, category];
+
+    try {
+      await settingsService.updateExpenseCategories(user.id, newCategories);
+      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+    } catch (error) {
+      toast.error('Erro ao adicionar categoria de gasto');
+      console.error(error);
+    }
+  }, [user, settings.expenseCategories]);
+
+  const updateExpenseCategory = useCallback(async (oldCategory: string, newCategory: string) => {
+    if (!user) return;
+
+    const newCategories = settings.expenseCategories.map((c) => (c === oldCategory ? newCategory : c));
+
+    try {
+      // Atualiza no backend
+      await settingsService.updateExpenseCategories(user.id, newCategories);
+      await settingsService.updateExpenseCategoryInExpenses(user.id, oldCategory, newCategory);
+
+      // Atualiza estado local imediatamente (sem reload global)
+      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+      setExpenses((prev) =>
+        prev.map((expense) =>
+          expense.category === oldCategory ? { ...expense, category: newCategory } : expense
+        )
+      );
+    } catch (error) {
+      toast.error('Erro ao atualizar categoria de gasto');
+      console.error(error);
+    }
+  }, [user, settings.expenseCategories]);
+
+  const deleteExpenseCategory = useCallback(async (category: string) => {
+    if (!user) return;
+
+    const newCategories = settings.expenseCategories.filter((c) => c !== category);
+
+    try {
+      await settingsService.updateExpenseCategories(user.id, newCategories);
+      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+    } catch (error) {
+      toast.error('Erro ao excluir categoria de gasto');
+      console.error(error);
+    }
+  }, [user, settings.expenseCategories]);
 
   // Get year data for statistics
   const getYearData = useCallback(async (year: number): Promise<MonthData[]> => {
@@ -709,6 +820,14 @@ export const useSupabaseFinance = () => {
     addInvestmentTag,
     updateInvestmentTag,
     deleteInvestmentTag,
+    // Expense categories
+    addExpenseCategory,
+    updateExpenseCategory,
+    deleteExpenseCategory,
+    // Income tags
+    addIncomeTag,
+    updateIncomeTag,
+    deleteIncomeTag,
     // Stats
     getYearData,
     // Refresh

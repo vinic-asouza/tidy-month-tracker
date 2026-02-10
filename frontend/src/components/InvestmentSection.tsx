@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -168,9 +168,11 @@ export const InvestmentSection = ({
   
   // Tag management
   const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editingTagValue, setEditingTagValue] = useState('');
+  const [isTagLoading, setIsTagLoading] = useState(false);
   
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
@@ -321,28 +323,60 @@ export const InvestmentSection = ({
   };
   
   // Tag management handlers
-  const handleAddTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      onAddTag(newTag.trim());
+  const handleAddTag = async () => {
+    const trimmed = newTag.trim();
+    if (!trimmed || tags.includes(trimmed) || isTagLoading) return;
+
+    setIsTagLoading(true);
+    try {
+      await onAddTag(trimmed);
       setNewTag('');
+      // Se a tag foi adicionada no modal, seleciona ela automaticamente
+      if (isTagsOpenInModal) {
+        setSelectedTag(trimmed);
+      }
+    } finally {
+      setIsTagLoading(false);
     }
   };
   
-  const handleSaveTagEdit = () => {
-    if (editingTag && editingTagValue.trim() && editingTagValue !== editingTag) {
-      onUpdateTag(editingTag, editingTagValue.trim());
+  const handleSaveTagEdit = async () => {
+    if (!editingTag) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
     }
-    setEditingTag(null);
-    setEditingTagValue('');
+
+    const trimmed = editingTagValue.trim();
+    if (!trimmed || trimmed === editingTag || isTagLoading) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
+    }
+
+    setIsTagLoading(true);
+    try {
+      await onUpdateTag(editingTag, trimmed);
+    } finally {
+      setIsTagLoading(false);
+      setEditingTag(null);
+      setEditingTagValue('');
+    }
   };
   
-  const handleDeleteTag = (tag: string) => {
+  const handleDeleteTag = async (tag: string) => {
     // Check if any investment uses this tag
     const hasInvestments = investments.some(i => i.tag === tag);
-    if (hasInvestments) {
+    if (hasInvestments || isTagLoading) {
       return; // Don't delete if in use
     }
-    onDeleteTag(tag);
+
+    setIsTagLoading(true);
+    try {
+      await onDeleteTag(tag);
+    } finally {
+      setIsTagLoading(false);
+    }
   };
 
   const total = investments.reduce((sum, i) => sum + i.value, 0);
@@ -376,95 +410,6 @@ export const InvestmentSection = ({
           </div>
         </div>
         <div className="flex gap-2">
-          {/* Tag Management Popover */}
-          <Popover open={isTagsOpen} onOpenChange={setIsTagsOpen}>
-            <PopoverTrigger asChild>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="rounded-xl"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 rounded-xl p-4" align="end">
-              <h4 className="font-semibold mb-3 text-sm">Gerenciar Instituições</h4>
-              
-              {/* Add new tag */}
-              <div className="flex gap-2 mb-3">
-                <Input
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  placeholder="Nova instituição..."
-                  className="rounded-lg h-9 text-sm"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                />
-                <Button 
-                  size="sm" 
-                  onClick={handleAddTag}
-                  className="rounded-lg h-9 px-3 bg-investment hover:bg-investment/90"
-                  disabled={!newTag.trim() || tags.includes(newTag.trim())}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* List of tags */}
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {tags.map((tag) => {
-                  const isUsed = investments.some(i => i.tag === tag);
-                  const isEditing = editingTag === tag;
-                  
-                  return (
-                    <div 
-                      key={tag} 
-                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted"
-                    >
-                      {isEditing ? (
-                        <Input
-                          value={editingTagValue}
-                          onChange={(e) => setEditingTagValue(e.target.value)}
-                          className="h-7 text-sm rounded-md flex-1"
-                          onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
-                          onBlur={handleSaveTagEdit}
-                          autoFocus
-                        />
-                      ) : (
-                        <span className="flex-1 text-sm truncate">{tag}</span>
-                      )}
-                      
-                      {!isEditing && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 rounded-md"
-                            onClick={() => {
-                              setEditingTag(tag);
-                              setEditingTagValue(tag);
-                            }}
-                          >
-                            <Pencil className="h-3 w-3 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 rounded-md"
-                            onClick={() => handleDeleteTag(tag)}
-                            disabled={isUsed}
-                            title={isUsed ? 'Esta instituição está em uso' : 'Excluir'}
-                          >
-                            <Trash2 className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
-          
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
               <Button 
@@ -487,18 +432,137 @@ export const InvestmentSection = ({
                   <label className="text-sm font-medium mb-2 block text-muted-foreground">
                     Instituição
                   </label>
-                  <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
-                    <SelectTrigger className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''}`}>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {tags.map((tag) => (
-                        <SelectItem key={tag} value={tag} className="rounded-lg">
-                          {tag}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
+                        <SelectTrigger
+                          className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                        >
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {tags.map((tag) => (
+                            <SelectItem
+                              key={tag}
+                              value={tag}
+                              className="rounded-lg focus:bg-investment-light focus:text-investment hover:bg-investment-light/50"
+                            >
+                              {tag}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Popover open={isTagsOpenInModal} onOpenChange={setIsTagsOpenInModal}>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          type="button"
+                          size="sm" 
+                          variant="ghost"
+                          className="rounded-xl h-11 w-11 text-investment hover:bg-investment-light hover:text-investment focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                        <h4 className="font-semibold mb-3 text-sm">Gerenciar Instituições</h4>
+                        
+                        {/* Add new tag */}
+                        <div className="flex gap-2 mb-3">
+                          <Input
+                            value={newTag}
+                            onChange={(e) => setNewTag(e.target.value)}
+                            placeholder="Nova instituição..."
+                            className="rounded-lg h-9 text-sm focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                            disabled={isTagLoading}
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={handleAddTag}
+                            className="rounded-lg h-9 px-3 bg-investment hover:bg-investment/90 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                            disabled={isTagLoading || !newTag.trim() || tags.includes(newTag.trim())}
+                          >
+                            {isTagLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* List of tags */}
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {tags.map((tag) => {
+                            const isUsed = investments.some(i => i.tag === tag);
+                            const isEditing = editingTag === tag;
+                            
+                            return (
+                              <div 
+                                key={tag} 
+                                className="flex items-center gap-2 p-2 rounded-lg bg-investment-light/40 hover:bg-investment-light"
+                              >
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1 flex-1">
+                                    <Input
+                                      value={editingTagValue}
+                                      onChange={(e) => setEditingTagValue(e.target.value)}
+                                      className="h-7 text-sm rounded-md flex-1 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
+                                      autoFocus
+                                      disabled={isTagLoading}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-md text-investment hover:bg-investment-light flex-shrink-0"
+                                      onClick={handleSaveTagEdit}
+                                      title="Confirmar edição"
+                                      disabled={isTagLoading}
+                                    >
+                                      {isTagLoading ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Check className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="flex-1 text-sm truncate">{tag}</span>
+                                )}
+                                
+                                {!isEditing && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md text-investment hover:bg-investment-light"
+                                      onClick={() => {
+                                        setEditingTag(tag);
+                                        setEditingTagValue(tag);
+                                      }}
+                                    >
+                                      <Pencil className="h-3 w-3 text-investment" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md hover:bg-investment-light"
+                                      onClick={() => handleDeleteTag(tag)}
+                                      disabled={isUsed}
+                                      title={isUsed ? 'Esta instituição está em uso' : 'Excluir'}
+                                    >
+                                      <Trash2 className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/40' : 'text-investment'}`} />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   {tagError && (
                     <p className="text-destructive text-sm mt-1">{tagError}</p>
                   )}
@@ -514,7 +578,7 @@ export const InvestmentSection = ({
                       value={description}
                       onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
                       placeholder="Ex: Tesouro Direto, CDB..."
-                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''}`}
+                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
                     />
                     {descriptionError && (
                       <p className="text-destructive text-sm mt-1">{descriptionError}</p>
@@ -527,7 +591,7 @@ export const InvestmentSection = ({
                     <CurrencyInput
                       value={value}
                       onValueChange={(v) => { setValue(v); setValueError(null); }}
-                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''}`}
+                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
                     />
                     {valueError && (
                       <p className="text-destructive text-sm mt-1">{valueError}</p>
@@ -547,6 +611,7 @@ export const InvestmentSection = ({
                     id="repeat-all-months"
                     checked={repeatAllMonths}
                     onCheckedChange={setRepeatAllMonths}
+                    className="data-[state=checked]:bg-investment focus-visible:ring-investment"
                   />
                 </div>
 
@@ -563,7 +628,7 @@ export const InvestmentSection = ({
       </div>
 
       {/* View Controls */}
-      <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center justify-between mb-4 gap-2">
         {/* View Mode Toggle */}
         <ToggleGroup
           type="single"
@@ -591,8 +656,8 @@ export const InvestmentSection = ({
 
         {/* Sort Dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
+        <DropdownMenuTrigger asChild>
+        <Button
               variant="ghost"
               size="sm"
               className="rounded-lg h-7 px-2.5 text-xs gap-1 text-investment hover:text-investment hover:bg-investment-light"
@@ -647,7 +712,7 @@ export const InvestmentSection = ({
                 {/* Tag */}
                 <Badge 
                   variant="secondary" 
-                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default"
+                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light"
                 >
                   {investment.tag}
                 </Badge>
