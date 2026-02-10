@@ -58,8 +58,9 @@ export const useSupabaseFinance = () => {
     try {
       const data = await settingsService.getSettings(user.id);
       setSettings(data);
-    } catch (error) {
-      console.error('Error fetching settings:', error);
+    } catch (_error) {
+      // Erro de carregamento de configurações será perceptível no uso,
+      // não precisamos logar em produção para o MVP.
     }
   }, [user]);
 
@@ -70,8 +71,8 @@ export const useSupabaseFinance = () => {
     try {
       const data = await creditCardsService.getCreditCards(user.id);
       setCreditCards(data);
-    } catch (error) {
-      console.error('Error fetching credit cards:', error);
+    } catch (_error) {
+      // Erro de carregamento de cartões será visível na UI (lista vazia).
     }
   }, [user]);
 
@@ -111,8 +112,8 @@ export const useSupabaseFinance = () => {
     try {
       const statusMap = await creditCardsService.getAllCardMonthlyStatuses(user.id, yearMonth, creditCards);
       setCardMonthlyStatus(statusMap);
-    } catch (error) {
-      console.error('Error fetching card monthly status:', error);
+    } catch (_error) {
+      // Falha em status mensal não bloqueia uso básico para o MVP.
     }
   }, [user, creditCards]);
 
@@ -171,9 +172,8 @@ export const useSupabaseFinance = () => {
       // Silently refresh to get actual data
       await fetchMonthData(currentMonth, false);
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar entrada');
-      console.error(error);
       // Rollback
       setIncomes((prev) => prev.filter((i) => i.id !== tempId));
       return false;
@@ -201,9 +201,8 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao atualizar entrada');
-      console.error(error);
       // Rollback
       setIncomes(previousIncomes);
       return false;
@@ -224,9 +223,8 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir entrada');
-      console.error(error);
       // Rollback
       setIncomes(previousIncomes);
       return false;
@@ -240,8 +238,7 @@ export const useSupabaseFinance = () => {
 
     try {
       await incomesService.reorderIncomes(newIncomes, user.id, currentMonth);
-    } catch (error) {
-      console.error('Error reordering incomes:', error);
+    } catch (_error) {
       toast.error('Erro ao reordenar entradas');
     }
   }, [user, currentMonth]);
@@ -269,9 +266,8 @@ export const useSupabaseFinance = () => {
       // Silently refresh to get actual data
       await fetchMonthData(currentMonth, false);
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar gasto');
-      console.error(error);
       // Rollback
       setExpenses((prev) => prev.filter((e) => e.id !== tempId));
       return false;
@@ -299,9 +295,8 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao atualizar gasto');
-      console.error(error);
       // Rollback
       setExpenses(previousExpenses);
       return false;
@@ -322,9 +317,8 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir gasto');
-      console.error(error);
       // Rollback
       setExpenses(previousExpenses);
       return false;
@@ -341,27 +335,28 @@ export const useSupabaseFinance = () => {
     try {
       await expensesService.deleteInstallmentExpense(expense, user.id);
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir parcelas');
-      console.error(error);
       // Rollback
       setExpenses(previousExpenses);
       return false;
     }
   }, [user, expenses]);
 
-  const reorderExpenses = useCallback(async (newExpenses: Expense[]) => {
-    if (!user) return;
+  const reorderExpenses = useCallback(
+    async (newExpenses: Expense[]) => {
+      if (!user) return;
 
-    setExpenses(newExpenses);
+      setExpenses(newExpenses);
 
-    try {
-      await expensesService.reorderExpenses(newExpenses, user.id);
-    } catch (error) {
-      console.error('Error reordering expenses:', error);
-      toast.error('Erro ao reordenar gastos');
-    }
-  }, [user]);
+      try {
+        await expensesService.reorderExpenses(newExpenses, user.id);
+      } catch (_error) {
+        toast.error('Erro ao reordenar gastos');
+      }
+    },
+    [user]
+  );
 
   // Credit Card operations
   const addCreditCard = useCallback(async (card: Omit<CreditCard, 'id'>): Promise<boolean> => {
@@ -385,9 +380,8 @@ export const useSupabaseFinance = () => {
       // Silently refresh to get actual ID
       await fetchCreditCards();
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar cartão');
-      console.error(error);
       // Rollback
       setCreditCards((prev) => prev.filter((c) => c.id !== tempId));
       return false;
@@ -418,7 +412,6 @@ export const useSupabaseFinance = () => {
       // Mostra mensagem específica do backend se disponível
       const errorMessage = error?.message || 'Erro ao atualizar cartão';
       toast.error(errorMessage);
-      console.error(error);
       // Rollback
       setCreditCards(previousCards);
       return false;
@@ -435,9 +428,8 @@ export const useSupabaseFinance = () => {
     try {
       await creditCardsService.deleteCreditCard(id, user.id);
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir cartão');
-      console.error(error);
       // Rollback
       setCreditCards(previousCards);
       return false;
@@ -455,8 +447,7 @@ export const useSupabaseFinance = () => {
 
     try {
       return await creditCardsService.canDeleteCreditCard(cardName, user.id);
-    } catch (error) {
-      console.error(error);
+    } catch (_error) {
       return false;
     }
   }, [user]);
@@ -486,8 +477,7 @@ export const useSupabaseFinance = () => {
         paid
       );
       return true;
-    } catch (error) {
-      console.error('Error updating card paid status:', error);
+    } catch (_error) {
       // Rollback
       setCardMonthlyStatus(prev => ({ ...prev, [cardId]: !paid }));
       return false;
@@ -517,9 +507,8 @@ export const useSupabaseFinance = () => {
       // Silently refresh to get actual ID
       await fetchMonthData(currentMonth, false);
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar investimento');
-      console.error(error);
       // Rollback
       setInvestments((prev) => prev.filter((i) => i.id !== tempId));
       return false;
@@ -547,9 +536,8 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao atualizar investimento');
-      console.error(error);
       // Rollback
       setInvestments(previousInvestments);
       return false;
@@ -570,27 +558,28 @@ export const useSupabaseFinance = () => {
         await fetchMonthData(currentMonth, false);
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir investimento');
-      console.error(error);
       // Rollback
       setInvestments(previousInvestments);
       return false;
     }
   }, [user, investments, currentMonth, fetchMonthData]);
 
-  const reorderInvestments = useCallback(async (newInvestments: Investment[]) => {
-    if (!user) return;
+  const reorderInvestments = useCallback(
+    async (newInvestments: Investment[]) => {
+      if (!user) return;
 
-    setInvestments(newInvestments);
+      setInvestments(newInvestments);
 
-    try {
-      await investmentsService.reorderInvestments(newInvestments, user.id);
-    } catch (error) {
-      console.error('Error reordering investments:', error);
-      toast.error('Erro ao reordenar investimentos');
-    }
-  }, [user]);
+      try {
+        await investmentsService.reorderInvestments(newInvestments, user.id);
+      } catch (_error) {
+        toast.error('Erro ao reordenar investimentos');
+      }
+    },
+    [user]
+  );
 
   // Investment tags management
   const addInvestmentTag = useCallback(async (tag: string) => {
@@ -601,9 +590,8 @@ export const useSupabaseFinance = () => {
     try {
       await settingsService.updateInvestmentTags(user.id, newTags);
       setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar tag');
-      console.error(error);
     }
   }, [user, settings.investmentTags]);
 
@@ -624,9 +612,8 @@ export const useSupabaseFinance = () => {
           investment.tag === oldTag ? { ...investment, tag: newTag } : investment
         )
       );
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao atualizar tag');
-      console.error(error);
     }
   }, [user, settings.investmentTags]);
 
@@ -638,9 +625,8 @@ export const useSupabaseFinance = () => {
     try {
       await settingsService.updateInvestmentTags(user.id, newTags);
       setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir tag');
-      console.error(error);
     }
   }, [user, settings.investmentTags]);
 
@@ -653,9 +639,8 @@ export const useSupabaseFinance = () => {
     try {
       await settingsService.updateIncomeTags(user.id, newTags);
       setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao adicionar categoria');
-      console.error(error);
     }
   }, [user, settings.incomeTags]);
 
@@ -676,9 +661,8 @@ export const useSupabaseFinance = () => {
           income.tag === oldTag ? { ...income, tag: newTag } : income
         )
       );
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao atualizar categoria');
-      console.error(error);
     }
   }, [user, settings.incomeTags]);
 
@@ -690,9 +674,8 @@ export const useSupabaseFinance = () => {
     try {
       await settingsService.updateIncomeTags(user.id, newTags);
       setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao excluir categoria');
-      console.error(error);
     }
   }, [user, settings.incomeTags]);
 

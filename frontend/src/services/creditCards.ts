@@ -103,8 +103,8 @@ export async function getAllCardMonthlyStatuses(
       if (status) {
         statusMap[card.id] = status.paid;
       }
-    } catch (error) {
-      console.error(`Error fetching status for card ${card.id}:`, error);
+    } catch (_error) {
+      // Em caso de erro ao buscar status de um cartão, assumimos \"não pago\" para o MVP.
       statusMap[card.id] = false;
     }
   }
