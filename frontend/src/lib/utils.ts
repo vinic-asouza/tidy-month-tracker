@@ -33,3 +33,13 @@ export function formatDateToYYYYMMDD(date: Date | string): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Formata um valor numérico como moeda brasileira (BRL)
+ */
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+}

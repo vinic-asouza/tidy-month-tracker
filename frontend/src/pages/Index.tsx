@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
@@ -8,6 +8,7 @@ import { ExpenseSection } from '@/components/ExpenseSection';
 import { CreditCardSection } from '@/components/CreditCardSection';
 import { InvestmentSection } from '@/components/InvestmentSection';
 import { Statistics } from '@/components/Statistics';
+import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -19,6 +20,11 @@ const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [yearData, setYearData] = useState<ReturnType<typeof useSupabaseFinance>['monthData'][]>([]);
   const [loadingYearData, setLoadingYearData] = useState(false);
+  
+  // Selection state for items
+  const [selectedIncomeIds, setSelectedIncomeIds] = useState<Set<string>>(new Set());
+  const [selectedInvestmentIds, setSelectedInvestmentIds] = useState<Set<string>>(new Set());
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
   
   const { signOut } = useAuth();
   
@@ -84,6 +90,46 @@ const Index = () => {
     return !monthData.expenses.some(e => e.paymentMethod === cardName);
   };
 
+  // Selection handlers
+  const handleIncomeSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedIncomeIds(ids);
+  }, []);
+
+  const handleInvestmentSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedInvestmentIds(ids);
+  }, []);
+
+  const handleExpenseSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedExpenseIds(ids);
+  }, []);
+
+  const handleClearAllSelections = useCallback(() => {
+    setSelectedIncomeIds(new Set());
+    setSelectedInvestmentIds(new Set());
+    setSelectedExpenseIds(new Set());
+  }, []);
+
+  // Calculate selection summary
+  const selectionSummary = useMemo(() => {
+    const incomesTotal = monthData.incomes
+      .filter(income => selectedIncomeIds.has(income.id))
+      .reduce((sum, income) => sum + income.value, 0);
+    
+    const investmentsTotal = monthData.investments
+      .filter(investment => selectedInvestmentIds.has(investment.id))
+      .reduce((sum, investment) => sum + investment.value, 0);
+    
+    const expensesTotal = monthData.expenses
+      .filter(expense => selectedExpenseIds.has(expense.id))
+      .reduce((sum, expense) => sum + expense.value, 0);
+
+    return {
+      incomes: incomesTotal,
+      investments: investmentsTotal,
+      expenses: expensesTotal,
+    };
+  }, [monthData.incomes, monthData.investments, monthData.expenses, selectedIncomeIds, selectedInvestmentIds, selectedExpenseIds]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background gradient-subtle flex items-center justify-center">
@@ -92,8 +138,10 @@ const Index = () => {
     );
   }
 
+  const hasSelections = selectionSummary.incomes > 0 || selectionSummary.investments > 0 || selectionSummary.expenses > 0;
+
   return (
-    <div className="min-h-screen bg-background gradient-subtle">
+    <div className={`min-h-screen bg-background gradient-subtle ${hasSelections ? 'pb-24' : ''}`}>
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b border-border/50" style={{ '--header-height': '64px' } as React.CSSProperties}>
         <div className="container mx-auto px-4 py-3">
@@ -228,6 +276,8 @@ const Index = () => {
                   onAddTag={addIncomeTag}
                   onUpdateTag={updateIncomeTag}
                   onDeleteTag={deleteIncomeTag}
+                  selectedIds={selectedIncomeIds}
+                  onSelectionChange={handleIncomeSelectionChange}
                 />
                 <ExpenseSection
                   expenses={monthData.expenses}
@@ -242,6 +292,8 @@ const Index = () => {
                   onAddCategory={addExpenseCategory}
                   onUpdateCategory={updateExpenseCategory}
                   onDeleteCategory={deleteExpenseCategory}
+                  selectedIds={selectedExpenseIds}
+                  onSelectionChange={handleExpenseSelectionChange}
                 />
               </div>
 
@@ -256,6 +308,8 @@ const Index = () => {
                 onAddTag={addInvestmentTag}
                 onUpdateTag={updateInvestmentTag}
                 onDeleteTag={deleteInvestmentTag}
+                selectedIds={selectedInvestmentIds}
+                onSelectionChange={handleInvestmentSelectionChange}
               />
               <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+1.5rem)]">
                 <CreditCardSection
@@ -302,6 +356,12 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Selection Bottom Bar */}
+      <SelectionBottomBar 
+        summary={selectionSummary} 
+        onClearAll={handleClearAllSelections}
+      />
     </div>
   );
 };

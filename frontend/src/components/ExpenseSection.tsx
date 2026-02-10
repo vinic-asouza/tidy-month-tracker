@@ -56,6 +56,8 @@ interface ExpenseSectionProps {
   onAddCategory: (category: string) => Promise<void> | void;
   onUpdateCategory: (oldCategory: string, newCategory: string) => Promise<void> | void;
   onDeleteCategory: (category: string) => Promise<void> | void;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -368,6 +370,8 @@ const ExpenseItem = ({
   onDelete,
   onEdit,
   onCardItemClick,
+  isSelected,
+  onItemClick,
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
@@ -378,6 +382,8 @@ const ExpenseItem = ({
   onDelete: (expense: Expense) => void;
   onEdit: (expense: Expense) => void;
   onCardItemClick: () => void;
+  isSelected?: boolean;
+  onItemClick?: (e: React.MouseEvent) => void;
 }) => {
   const installmentText = expense.currentInstallment && expense.totalInstallments
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
@@ -388,29 +394,35 @@ const ExpenseItem = ({
 
   return (
     <div
-      className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default select-none ${isPaid
-        ? 'bg-expense-light'
-        : 'bg-muted/30 hover:bg-muted/50'
-        }`}
+      onClick={onItemClick}
+      className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 select-none ${
+        isSelected 
+          ? 'bg-muted/70 cursor-pointer' 
+          : isPaid
+            ? 'bg-expense-light cursor-pointer hover:bg-expense-light/80'
+            : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
+      }`}
     >
       {/* Paid Checkbox */}
-      {isLinkedToCard ? (
-        <div
-          onClick={onCardItemClick}
-          className="cursor-pointer"
-        >
+      <div onClick={(e) => e.stopPropagation()}>
+        {isLinkedToCard ? (
+          <div
+            onClick={onCardItemClick}
+            className="cursor-pointer"
+          >
+            <Checkbox
+              checked={isCardPaid}
+              className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+            />
+          </div>
+        ) : (
           <Checkbox
-            checked={isCardPaid}
-            className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+            checked={expense.paid}
+            onCheckedChange={onTogglePaid}
+            className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
           />
-        </div>
-      ) : (
-        <Checkbox
-          checked={expense.paid}
-          onCheckedChange={onTogglePaid}
-          className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
-        />
-      )}
+        )}
+      </div>
 
       {/* Category */}
       <Badge
@@ -457,7 +469,10 @@ const ExpenseItem = ({
       </span>
 
       {/* Actions */}
-      <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+      <div 
+        className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -601,6 +616,8 @@ export const ExpenseSection = ({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
@@ -856,39 +873,66 @@ export const ExpenseSection = ({
     emptyMessage: string;
     groupTotal: number;
     groupCreditCards: CreditCardType[];
-  }) => (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+  }) => {
+    const handleItemClick = (expense: Expense) => (e: React.MouseEvent) => {
+      // Don't trigger selection if clicking on checkbox or action buttons
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('button') ||
+        target.closest('[role="checkbox"]') ||
+        target.closest('.group-hover\\:w-16')
+      ) {
+        return;
+      }
+      
+      if (onSelectionChange) {
+        const isSelected = selectedIds.has(expense.id);
+        const newSelection = new Set(selectedIds);
+        if (isSelected) {
+          newSelection.delete(expense.id);
+        } else {
+          newSelection.add(expense.id);
+        }
+        onSelectionChange(newSelection);
+      }
+    };
+
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+          </div>
+          <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
         </div>
-        <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
+        {list.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-xl">
+            {emptyMessage}
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {list.map((expense) => (
+              <ExpenseItem
+                key={expense.id}
+                expense={expense}
+                creditCards={groupCreditCards}
+                isLinkedToCard={isExpenseLinkedToCard(expense)}
+                isCardPaid={isExpenseCardPaid(expense)}
+                onTogglePaid={() => handleTogglePaid(expense)}
+                onUpdate={onUpdate}
+                onDelete={handleDeleteRequest}
+                onEdit={handleEdit}
+                onCardItemClick={() => setCardWarningOpen(true)}
+                isSelected={selectedIds.has(expense.id)}
+                onItemClick={handleItemClick(expense)}
+              />
+            ))}
+          </div>
+        )}
       </div>
-      {list.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-xl">
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="space-y-1">
-          {list.map((expense) => (
-            <ExpenseItem
-              key={expense.id}
-              expense={expense}
-              creditCards={groupCreditCards}
-              isLinkedToCard={isExpenseLinkedToCard(expense)}
-              isCardPaid={isExpenseCardPaid(expense)}
-              onTogglePaid={() => handleTogglePaid(expense)}
-              onUpdate={onUpdate}
-              onDelete={handleDeleteRequest}
-              onEdit={handleEdit}
-              onCardItemClick={() => setCardWarningOpen(true)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const SummaryGroup = ({
     title,

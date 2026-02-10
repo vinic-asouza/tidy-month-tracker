@@ -47,6 +47,8 @@ interface IncomeSectionProps {
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
   onDeleteTag: (tag: string) => void;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -176,6 +178,8 @@ export const IncomeSection = ({
   onAddTag,
   onUpdateTag,
   onDeleteTag,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -733,19 +737,50 @@ export const IncomeSection = ({
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
           {sortedIncomes.map((income) => {
+            const isSelected = selectedIds.has(income.id);
+            
+            const handleItemClick = (e: React.MouseEvent) => {
+              // Don't trigger selection if clicking on checkbox or action buttons
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[role="checkbox"]') ||
+                target.closest('.group-hover\\:w-16')
+              ) {
+                return;
+              }
+              
+              if (onSelectionChange) {
+                const newSelection = new Set(selectedIds);
+                if (isSelected) {
+                  newSelection.delete(income.id);
+                } else {
+                  newSelection.add(income.id);
+                }
+                onSelectionChange(newSelection);
+              }
+            };
+
             return (
               <div
                 key={income.id}
-                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
-                  income.received ? 'bg-income-light' : 'bg-muted/30 hover:bg-muted/50'
+                onClick={handleItemClick}
+                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 ${
+                  isSelected 
+                    ? 'bg-muted/70 cursor-pointer' 
+                    : income.received 
+                      ? 'bg-income-light cursor-pointer hover:bg-income-light/80' 
+                      : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 }`}
               >
                 {/* Checkbox */}
-                <Checkbox
-                  checked={income.received}
-                  onCheckedChange={() => handleToggleReceived(income)}
-                  className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0"
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={income.received}
+                    onCheckedChange={() => handleToggleReceived(income)}
+                    className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0"
+                  />
+                </div>
 
                 {/* Tag */}
                 <Badge 
@@ -771,7 +806,10 @@ export const IncomeSection = ({
                 </span>
 
                 {/* Actions - slide in from right */}
-                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+                <div 
+                  className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Button
                     variant="ghost"
                     size="icon"

@@ -47,6 +47,8 @@ interface InvestmentSectionProps {
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
   onDeleteTag: (tag: string) => void;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -176,6 +178,8 @@ export const InvestmentSection = ({
   onAddTag,
   onUpdateTag,
   onDeleteTag,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -736,19 +740,50 @@ export const InvestmentSection = ({
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
           {sortedInvestments.map((investment) => {
+            const isSelected = selectedIds.has(investment.id);
+            
+            const handleItemClick = (e: React.MouseEvent) => {
+              // Don't trigger selection if clicking on checkbox or action buttons
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[role="checkbox"]') ||
+                target.closest('.group-hover\\:w-16')
+              ) {
+                return;
+              }
+              
+              if (onSelectionChange) {
+                const newSelection = new Set(selectedIds);
+                if (isSelected) {
+                  newSelection.delete(investment.id);
+                } else {
+                  newSelection.add(investment.id);
+                }
+                onSelectionChange(newSelection);
+              }
+            };
+
             return (
               <div
                 key={investment.id}
-                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-default ${
-                  investment.invested ? 'bg-investment-light' : 'bg-muted/30 hover:bg-muted/50'
+                onClick={handleItemClick}
+                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 ${
+                  isSelected 
+                    ? 'bg-muted/70 cursor-pointer' 
+                    : investment.invested 
+                      ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' 
+                      : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 }`}
               >
                 {/* Checkbox */}
-                <Checkbox
-                  checked={investment.invested}
-                  onCheckedChange={() => handleToggleInvested(investment)}
-                  className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0"
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={investment.invested}
+                    onCheckedChange={() => handleToggleInvested(investment)}
+                    className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0"
+                  />
+                </div>
 
                 {/* Tag */}
                 <Badge 
@@ -774,7 +809,10 @@ export const InvestmentSection = ({
                 </span>
 
                 {/* Actions */}
-                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0">
+                <div 
+                  className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Button
                     variant="ghost"
                     size="icon"
