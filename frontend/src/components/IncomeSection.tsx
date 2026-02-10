@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,21 +123,46 @@ const groupByCategory = (incomes: IncomeEntry[], sortOption: SortOption): { cate
 const CategorySummaryItem = ({
   category,
   total,
+  groupTotal,
+  shouldAnimate,
 }: {
   category: string;
   total: number;
+  groupTotal: number;
+  shouldAnimate: boolean;
 }) => {
+  const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
+  
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
-      <Badge 
-        variant="secondary" 
-        className="text-xs rounded-md px-2 py-0.5 bg-income-light text-income border-0 cursor-default"
-      >
-        {category}
-      </Badge>
-      <span className="font-bold whitespace-nowrap text-sm text-income">
-        {formatCurrency(total)}
-      </span>
+    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+      {/* Progress bar background */}
+      <div
+        className={`absolute inset-y-0 left-0 bg-income-light rounded-xl ${
+          shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
+        }`}
+        style={{ 
+          width: shouldAnimate ? undefined : `${percentage}%`,
+          '--progress-width': `${percentage}%`
+        } as React.CSSProperties & { '--progress-width'?: string }}
+      />
+      
+      {/* Content */}
+      <div className="relative flex items-center justify-between w-full z-10">
+        <Badge 
+          variant="secondary" 
+          className="text-xs rounded-md px-2 py-0.5 bg-income-light text-income border-0 cursor-default"
+        >
+          {category}
+        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">
+            {percentage.toFixed(1)}%
+          </span>
+          <span className="font-bold whitespace-nowrap text-sm text-income">
+            {formatCurrency(total)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
@@ -181,6 +206,22 @@ export const IncomeSection = ({
   // Apply sorting and grouping
   const sortedIncomes = useMemo(() => sortIncomes(incomes, sortOption), [incomes, sortOption]);
   const groupedByCategory = useMemo(() => groupByCategory(incomes, sortOption), [incomes, sortOption]);
+  
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  // Trigger animation when switching to summary view
+  useEffect(() => {
+    if (viewMode === 'summary') {
+      setShouldAnimate(false);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        setShouldAnimate(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldAnimate(false);
+    }
+  }, [viewMode]);
 
   // Tag management handlers
   const handleAddTag = async () => {
@@ -754,11 +795,13 @@ export const IncomeSection = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {groupedByCategory.map(({ category, total }) => (
+          {groupedByCategory.map(({ category, total: categoryTotal }) => (
             <CategorySummaryItem
               key={category}
               category={category}
-              total={total}
+              total={categoryTotal}
+              groupTotal={total}
+              shouldAnimate={shouldAnimate}
             />
           ))}
         </div>

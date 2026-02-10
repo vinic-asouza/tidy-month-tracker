@@ -346,3 +346,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* Progress bar fill animation */
+@keyframes progress-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width, 0%);
+  }
+}
+
+.progress-bar-animate {
+  animation: progress-fill 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  width: 0%;
+}

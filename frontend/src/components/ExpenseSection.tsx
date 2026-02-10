@@ -1,4 +1,4 @@
-import { useState, useMemo, ReactNode } from 'react';
+import { useState, useMemo, ReactNode, useEffect } from 'react';
 import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -483,21 +483,46 @@ const ExpenseItem = ({
 const CategorySummaryItem = ({
   category,
   total,
+  groupTotal,
+  shouldAnimate,
 }: {
   category: string;
   total: number;
+  groupTotal: number;
+  shouldAnimate: boolean;
 }) => {
+  const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
+  
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
-      <Badge
-        variant="secondary"
-        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 cursor-default"
-      >
-        {category}
-      </Badge>
-      <span className="font-bold whitespace-nowrap text-sm text-expense">
-        {formatCurrency(total)}
-      </span>
+    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+      {/* Progress bar background */}
+      <div
+        className={`absolute inset-y-0 left-0 bg-expense-light rounded-xl ${
+          shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
+        }`}
+        style={{ 
+          width: shouldAnimate ? undefined : `${percentage}%`,
+          '--progress-width': `${percentage}%`
+        } as React.CSSProperties & { '--progress-width'?: string }}
+      />
+      
+      {/* Content */}
+      <div className="relative flex items-center justify-between w-full z-10">
+        <Badge
+          variant="secondary"
+          className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 cursor-default"
+        >
+          {category}
+        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">
+            {percentage.toFixed(1)}%
+          </span>
+          <span className="font-bold whitespace-nowrap text-sm text-expense">
+            {formatCurrency(total)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
@@ -594,6 +619,7 @@ export const ExpenseSection = ({
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
   const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
 
   // Category management handlers
   const handleAddCategory = async () => {
@@ -664,10 +690,22 @@ export const ExpenseSection = ({
     [installmentExpenses, sortOption, creditCards]
   );
 
-  // Group by category for summary view
-  const fixedByCategory = useMemo(() => groupByCategory(fixedExpenses, sortOption), [fixedExpenses, sortOption]);
-  const variableByCategory = useMemo(() => groupByCategory(variableExpenses, sortOption), [variableExpenses, sortOption]);
-  const installmentByCategory = useMemo(() => groupByCategory(installmentExpenses, sortOption), [installmentExpenses, sortOption]);
+  // Group by category for summary view - combine all expense types
+  const allExpensesByCategory = useMemo(() => groupByCategory(expenses, sortOption), [expenses, sortOption]);
+
+  // Trigger animation when switching to summary view
+  useEffect(() => {
+    if (viewMode === 'summary') {
+      setShouldAnimate(false);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        setShouldAnimate(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldAnimate(false);
+    }
+  }, [viewMode]);
 
   // Check if expense is linked to a credit card
   const isExpenseLinkedToCard = (expense: Expense): boolean => {
@@ -884,6 +922,8 @@ export const ExpenseSection = ({
               key={category}
               category={category}
               total={total}
+              groupTotal={groupTotal}
+              shouldAnimate={shouldAnimate}
             />
           ))}
         </div>
@@ -1191,29 +1231,13 @@ export const ExpenseSection = ({
             />
           </>
         ) : (
-          <>
-            <SummaryGroup
-              title="Gastos Fixos"
-              icon={Receipt}
-              categoryData={fixedByCategory}
-              emptyMessage="Nenhum gasto fixo"
-              groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
-            />
-            <SummaryGroup
-              title="Gastos Variáveis"
-              icon={Repeat}
-              categoryData={variableByCategory}
-              emptyMessage="Nenhum gasto variável"
-              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
-            />
-            <SummaryGroup
-              title="Gastos Parcelados"
-              icon={CreditCard}
-              categoryData={installmentByCategory}
-              emptyMessage="Nenhum gasto parcelado"
-              groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
-            />
-          </>
+          <SummaryGroup
+            title="Gastos"
+            icon={TrendingDown}
+            categoryData={allExpensesByCategory}
+            emptyMessage="Nenhum gasto registrado"
+            groupTotal={total}
+          />
         )}
       </div>
 

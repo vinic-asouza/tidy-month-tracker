@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,21 +123,46 @@ const groupByInstitution = (investments: Investment[], sortOption: SortOption): 
 const InstitutionSummaryItem = ({
   institution,
   total,
+  groupTotal,
+  shouldAnimate,
 }: {
   institution: string;
   total: number;
+  groupTotal: number;
+  shouldAnimate: boolean;
 }) => {
+  const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
+  
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30">
-      <Badge 
-        variant="secondary" 
-        className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0 cursor-default"
-      >
-        {institution}
-      </Badge>
-      <span className="font-bold whitespace-nowrap text-sm text-investment">
-        {formatCurrency(total)}
-      </span>
+    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+      {/* Progress bar background */}
+      <div
+        className={`absolute inset-y-0 left-0 bg-investment-light rounded-xl ${
+          shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
+        }`}
+        style={{ 
+          width: shouldAnimate ? undefined : `${percentage}%`,
+          '--progress-width': `${percentage}%`
+        } as React.CSSProperties & { '--progress-width'?: string }}
+      />
+      
+      {/* Content */}
+      <div className="relative flex items-center justify-between w-full z-10">
+        <Badge 
+          variant="secondary" 
+          className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0 cursor-default"
+        >
+          {institution}
+        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">
+            {percentage.toFixed(1)}%
+          </span>
+          <span className="font-bold whitespace-nowrap text-sm text-investment">
+            {formatCurrency(total)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
@@ -181,6 +206,22 @@ export const InvestmentSection = ({
   // Apply sorting and grouping
   const sortedInvestments = useMemo(() => sortInvestments(investments, sortOption), [investments, sortOption]);
   const groupedByInstitution = useMemo(() => groupByInstitution(investments, sortOption), [investments, sortOption]);
+  
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  // Trigger animation when switching to summary view
+  useEffect(() => {
+    if (viewMode === 'summary') {
+      setShouldAnimate(false);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        setShouldAnimate(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldAnimate(false);
+    }
+  }, [viewMode]);
 
   const resetForm = () => {
     setDescription('');
@@ -757,11 +798,13 @@ export const InvestmentSection = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {groupedByInstitution.map(({ institution, total }) => (
+          {groupedByInstitution.map(({ institution, total: institutionTotal }) => (
             <InstitutionSummaryItem
               key={institution}
               institution={institution}
-              total={total}
+              total={institutionTotal}
+              groupTotal={total}
+              shouldAnimate={shouldAnimate}
             />
           ))}
         </div>
