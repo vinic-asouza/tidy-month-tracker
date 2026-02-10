@@ -52,6 +52,12 @@
     --investment-light: 220 80% 96%;
     --investment-muted: 220 50% 90%;
 
+    /* Credit Cards (orange theme) */
+    --credit: 28 90% 58%;
+    --credit-foreground: 0 0% 100%;
+    --credit-light: 28 100% 96%;
+    --credit-muted: 28 80% 90%;
+
     /* Chart colors */
     --chart-1: 252 85% 60%;
     --chart-2: 160 84% 39%;
@@ -115,6 +121,12 @@
     --investment-foreground: 0 0% 100%;
     --investment-light: 220 40% 14%;
     --investment-muted: 220 30% 20%;
+
+    /* Credit Cards (orange theme - dark) */
+    --credit: 28 90% 60%;
+    --credit-foreground: 0 0% 100%;
+    --credit-light: 28 40% 16%;
+    --credit-muted: 28 35% 24%;
 
     --sidebar-background: 225 25% 8%;
     --sidebar-foreground: 225 15% 95%;
@@ -190,6 +202,10 @@
   
   .gradient-investment {
     background: linear-gradient(135deg, hsl(var(--investment)) 0%, hsl(220 92% 70%) 100%);
+  }
+
+  .gradient-credit {
+    background: linear-gradient(135deg, hsl(var(--credit)) 0%, hsl(28 95% 68%) 100%);
   }
 
   .gradient-subtle {

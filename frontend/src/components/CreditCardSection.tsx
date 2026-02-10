@@ -253,8 +253,8 @@ export const CreditCardSection = ({
           allPaid ? 'opacity-70' : ''
         }`}
       >
-        {/* Purple gradient background (section color) */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-purple-600 opacity-90" />
+        {/* Credit section gradient background */}
+        <div className="absolute inset-0 gradient-credit opacity-95" />
         <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-12 translate-x-12" />
         <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-white/5 translate-y-10 -translate-x-10" />
         <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full bg-white/5 -translate-x-1/2 -translate-y-1/2" />
@@ -294,12 +294,12 @@ export const CreditCardSection = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl gradient-primary shadow-glow">
+          <div className="p-2.5 rounded-xl gradient-credit shadow-glow-credit">
             <CreditCardIcon className="h-4 w-4 text-white" />
           </div>
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Cartões de Crédito</h3>
-            <p className="text-base font-bold text-primary">
+            <p className="text-base font-bold text-credit">
               {formatCurrency(totalInvoices)}
             </p>
           </div>
@@ -308,7 +308,7 @@ export const CreditCardSection = ({
           <DialogTrigger asChild>
             <Button 
               size="sm" 
-              className="rounded-xl gradient-primary shadow-glow hover:opacity-90 transition-opacity text-white border-0"
+              className="rounded-xl gradient-credit shadow-glow-credit hover:opacity-90 transition-opacity text-white border-0"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               Adicionar
@@ -329,7 +329,7 @@ export const CreditCardSection = ({
                   value={name}
                   onChange={(e) => { setName(e.target.value); setNameError(null); }}
                   placeholder="Ex: Nubank, Inter, C6..."
-                  className={`rounded-xl h-11 ${nameError ? 'border-destructive' : ''}`}
+                  className={`rounded-xl h-11 focus-visible:ring-2 focus-visible:ring-credit focus-visible:ring-offset-2 ${nameError ? 'border-destructive' : ''}`}
                 />
                 {nameError && (
                   <p className="text-destructive text-sm mt-1">{nameError}</p>
@@ -340,7 +340,7 @@ export const CreditCardSection = ({
                   Cor do Cartão
                 </label>
                 <Select value={selectedColor} onValueChange={setSelectedColor}>
-                  <SelectTrigger className="rounded-xl h-11">
+                  <SelectTrigger className="rounded-xl h-11 focus-visible:ring-2 focus-visible:ring-credit focus-visible:ring-offset-2 focus:ring-2 focus:ring-credit focus:ring-offset-2">
                     <SelectValue>
                       <div className="flex items-center gap-2">
                         <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${getColorClass(selectedColor)}`} />
@@ -350,7 +350,11 @@ export const CreditCardSection = ({
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
                     {CARD_COLORS.map((color) => (
-                      <SelectItem key={color.id} value={color.id} className="rounded-lg">
+                      <SelectItem
+                        key={color.id}
+                        value={color.id}
+                        className="rounded-lg focus:bg-credit-light focus:text-credit hover:bg-credit-light/50"
+                      >
                         <div className="flex items-center gap-2">
                           <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${color.class}`} />
                           <span>{color.name}</span>
@@ -362,7 +366,7 @@ export const CreditCardSection = ({
               </div>
               <Button 
                 onClick={handleSubmit} 
-                className="w-full h-11 rounded-xl gradient-primary shadow-glow hover:opacity-90 transition-opacity text-white border-0"
+                className="w-full h-11 rounded-xl gradient-credit shadow-glow-credit hover:opacity-90 transition-opacity text-white border-0 focus-visible:ring-2 focus-visible:ring-credit focus-visible:ring-offset-2"
               >
                 {editingId ? 'Salvar Alterações' : 'Adicionar Cartão'}
               </Button>
@@ -379,12 +383,12 @@ export const CreditCardSection = ({
             type="single"
             value={viewMode}
             onValueChange={(value) => value && setViewMode(value as ViewMode)}
-            className="bg-violet-100 dark:bg-violet-950 rounded-lg p-0.5"
+            className="bg-credit-light rounded-lg p-0.5"
           >
             <ToggleGroupItem
               value="general"
               aria-label="Visualização geral"
-              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white data-[state=on]:shadow-sm text-violet-600 hover:bg-violet-200 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900"
+              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-credit data-[state=on]:text-white data-[state=on]:shadow-sm text-credit hover:bg-credit/15 hover:text-credit"
             >
               <List className="h-3 w-3 mr-1" />
               Geral
@@ -392,7 +396,7 @@ export const CreditCardSection = ({
             <ToggleGroupItem
               value="summary"
               aria-label="Visualização resumida"
-              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white data-[state=on]:shadow-sm text-violet-600 hover:bg-violet-200 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900"
+              className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-credit data-[state=on]:text-white data-[state=on]:shadow-sm text-credit hover:bg-credit/15 hover:text-credit"
             >
               <LayoutGrid className="h-3 w-3 mr-1" />
               Resumo
@@ -403,38 +407,38 @@ export const CreditCardSection = ({
           {viewMode === 'general' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-lg h-7 px-2.5 text-xs gap-1 text-violet-600 hover:text-violet-600 hover:bg-violet-100 dark:text-violet-400 dark:hover:bg-violet-950"
-              >
-                <ArrowUpDown className="h-3 w-3" />
-                <span className="hidden sm:inline">
-                  {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl">
-              {SORT_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => setSortOption(option.value)}
-                  className={`rounded-lg cursor-pointer hover:bg-violet-100 hover:text-violet-600 dark:hover:bg-violet-950 dark:hover:text-violet-400 ${sortOption === option.value ? 'bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400' : ''}`}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-lg h-7 px-2.5 text-xs gap-1 text-credit hover:text-credit hover:bg-credit-light"
                 >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                  <ArrowUpDown className="h-3 w-3" />
+                  <span className="hidden sm:inline">
+                    {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-xl">
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setSortOption(option.value)}
+                    className={`rounded-lg cursor-pointer hover:bg-credit-light hover:text-credit ${sortOption === option.value ? 'bg-credit-light text-credit' : ''}`}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       )}
 
       {/* Cards Grid / Summary */}
       {creditCards.length === 0 ? (
         <div className="text-center py-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent mb-3">
-            <CreditCardIcon className="h-6 w-6 text-primary" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-credit-light mb-3">
+            <CreditCardIcon className="h-6 w-6 text-credit" />
           </div>
           <p className="text-muted-foreground text-sm">
             Nenhum cartão cadastrado
@@ -470,7 +474,7 @@ export const CreditCardSection = ({
           <AlertDialogFooter>
             <AlertDialogAction
               onClick={() => setDeleteError(null)}
-              className="rounded-xl"
+              className="rounded-xl bg-credit text-white hover:bg-credit/90 focus-visible:ring-2 focus-visible:ring-credit focus-visible:ring-offset-2"
             >
               Entendi
             </AlertDialogAction>

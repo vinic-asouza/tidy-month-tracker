@@ -71,6 +71,12 @@ export default {
           light: "hsl(var(--investment-light))",
           muted: "hsl(var(--investment-muted))",
         },
+        credit: {
+          DEFAULT: "hsl(var(--credit))",
+          foreground: "hsl(var(--credit-foreground))",
+          light: "hsl(var(--credit-light))",
+          muted: "hsl(var(--credit-muted))",
+        },
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",
@@ -104,6 +110,7 @@ export default {
         'glow-income': '0 0 20px -5px hsl(var(--income) / 0.3)',
         'glow-expense': '0 0 20px -5px hsl(var(--expense) / 0.3)',
         'glow-investment': '0 0 20px -5px hsl(var(--investment) / 0.3)',
+        'glow-credit': '0 0 20px -5px hsl(var(--credit) / 0.35)',
       },
       keyframes: {
         "accordion-down": {

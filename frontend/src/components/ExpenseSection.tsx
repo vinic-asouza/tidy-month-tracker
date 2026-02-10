@@ -948,17 +948,26 @@ export const ExpenseSection = ({
                 </DialogTitle>
               </DialogHeader>
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Expense['type'])}>
-                <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted p-1">
-                  <TabsTrigger value="fixed" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                    Fixo
-                  </TabsTrigger>
-                  <TabsTrigger value="variable" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                    Variável
-                  </TabsTrigger>
-                  <TabsTrigger value="installment" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                    Parcelado
-                  </TabsTrigger>
-                </TabsList>
+            <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted p-1">
+              <TabsTrigger
+                value="fixed"
+                className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-expense data-[state=active]:text-white data-[state=active]:shadow-sm"
+              >
+                Fixo
+              </TabsTrigger>
+              <TabsTrigger
+                value="variable"
+                className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-expense data-[state=active]:text-white data-[state=active]:shadow-sm"
+              >
+                Variável
+              </TabsTrigger>
+              <TabsTrigger
+                value="installment"
+                className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-expense data-[state=active]:text-white data-[state=active]:shadow-sm"
+              >
+                Parcelado
+              </TabsTrigger>
+            </TabsList>
                 {(['fixed', 'variable', 'installment'] as const).map((type) => (
                   <TabsContent key={type} value={type}>
                     <ExpenseForm
