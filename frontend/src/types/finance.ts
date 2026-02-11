@@ -93,4 +93,5 @@ export const getEmptyMonthData = (): MonthData => ({
   incomes: [],
   expenses: [],
   investments: [],
+  cardMonthlyStatuses: {},
 });

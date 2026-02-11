@@ -37,33 +37,33 @@ export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorPr
   };
 
   return (
-    <div className="bg-card rounded-2xl p-4 card-shadow">
-      <div className="flex items-center justify-between">
+    <div className="bg-muted/50 rounded-xl p-2">
+      <div className="flex items-center justify-between gap-2">
         <Button
           variant="ghost"
           size="icon"
           onClick={goToPrevMonth}
-          className="h-11 w-11 rounded-xl hover:bg-muted transition-colors"
+          className="h-8 w-8 rounded-lg hover:bg-muted/50 transition-colors"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
         
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+        <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+          <div className="text-center min-w-0">
+            <h2 className="text-base font-semibold tracking-tight text-foreground truncate">
               {MONTH_NAMES[month - 1]}
             </h2>
-            <p className="text-sm font-medium text-muted-foreground">{year}</p>
+            <p className="text-xs font-medium text-muted-foreground">{year}</p>
           </div>
           {!isCurrentMonth() && (
             <Button
               variant="outline"
               size="sm"
               onClick={goToCurrentMonth}
-              className="flex items-center gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground transition-all"
+              className="h-6 px-1.5 text-xs rounded-lg border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground transition-all flex-shrink-0"
             >
-              <Calendar className="h-4 w-4" />
-              <span className="hidden sm:inline">Hoje</span>
+              <Calendar className="h-3 w-3" />
+              <span className="hidden sm:inline ml-1">Hoje</span>
             </Button>
           )}
         </div>
@@ -72,9 +72,9 @@ export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorPr
           variant="ghost"
           size="icon"
           onClick={goToNextMonth}
-          className="h-11 w-11 rounded-xl hover:bg-muted transition-colors"
+          className="h-8 w-8 rounded-lg hover:bg-muted/50 transition-colors"
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>

@@ -32,6 +32,7 @@ import * as settingsService from '@/services/settings';
 export const useSupabaseFinance = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [monthLoading, setMonthLoading] = useState(false); // Loading específico para mudanças de mês
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -139,10 +140,12 @@ export const useSupabaseFinance = () => {
     if (!user || !initialLoadDone) return;
 
     const loadMonthData = async () => {
+      setMonthLoading(true); // Ativa loading específico para mudança de mês
       await Promise.all([
-        fetchMonthData(currentMonth, false),
+        fetchMonthData(currentMonth, false), // Não usa loading global
         fetchCardMonthlyStatus(currentMonth),
       ]);
+      setMonthLoading(false);
     };
 
     loadMonthData();
@@ -731,35 +734,42 @@ export const useSupabaseFinance = () => {
     }
   }, [user, settings.expenseCategories]);
 
-  // Get year data for statistics
+  // Get year data for statistics - carrega todos os meses em paralelo para melhor performance
   const getYearData = useCallback(async (year: number): Promise<MonthData[]> => {
     if (!user) return Array(12).fill(getEmptyMonthData());
 
-    const monthsData: MonthData[] = [];
-
-    for (let m = 1; m <= 12; m++) {
+    // Carrega todos os meses em paralelo
+    const monthPromises = Array.from({ length: 12 }, async (_, index) => {
+      const m = index + 1;
       const yearMonth = `${year}-${String(m).padStart(2, '0')}`;
 
       try {
-        const [incomesData, expensesData, investmentsData] = await Promise.all([
+        const [incomesData, expensesData, investmentsData, cardStatuses] = await Promise.all([
           incomesService.getIncomes(user.id, yearMonth),
           expensesService.getExpenses(user.id, yearMonth),
           investmentsService.getInvestments(user.id, yearMonth),
+          creditCardsService.getAllCardMonthlyStatuses(user.id, yearMonth, creditCards),
         ]);
 
-        monthsData.push({
+        return {
           incomes: incomesData,
           expenses: expensesData,
           investments: investmentsData,
-        });
+          cardMonthlyStatuses: cardStatuses,
+        };
       } catch (error) {
         console.error(`Error fetching data for ${yearMonth}:`, error);
-        monthsData.push(getEmptyMonthData());
+        return {
+          ...getEmptyMonthData(),
+          cardMonthlyStatuses: {},
+        };
       }
-    }
+    });
 
+    // Aguarda todos os meses serem carregados em paralelo
+    const monthsData = await Promise.all(monthPromises);
     return monthsData;
-  }, [user]);
+  }, [user, creditCards]);
 
   const monthData: MonthData = {
     incomes,
@@ -769,6 +779,7 @@ export const useSupabaseFinance = () => {
 
   return {
     loading,
+    monthLoading, // Loading específico para mudanças de mês
     currentMonth,
     setCurrentMonth,
     monthData,

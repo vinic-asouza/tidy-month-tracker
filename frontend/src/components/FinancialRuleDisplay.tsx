@@ -1,19 +1,15 @@
 /**
  * Componente de Exibição da Regra Financeira
  * 
- * Exibe 3 blocos:
- * 1. Comparação Percentual
- * 2. Baseado na Renda
- * 3. Modo Projeção
+ * Exibe comparação percentual e valores monetários baseados na renda
  */
 
 import { useMemo } from 'react';
-import { Receipt, ShoppingBag, PiggyBank, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Receipt, ShoppingBag, PiggyBank } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { FinancialRule, MonthData, FinancialRuleStats } from '@/types/domain';
-import { calculateFinancialRuleStats, calculateProjection } from '@/utils/financialRuleCalculations';
+import { calculateFinancialRuleStats } from '@/utils/financialRuleCalculations';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 interface FinancialRuleDisplayProps {
   rule: FinancialRule;
@@ -22,7 +18,6 @@ interface FinancialRuleDisplayProps {
 
 export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayProps) => {
   const stats = useMemo(() => calculateFinancialRuleStats(rule, monthData), [rule, monthData]);
-  const projection = useMemo(() => calculateProjection(rule, monthData), [rule, monthData]);
 
   // Calcular renda total
   const totalIncome = monthData.incomes.reduce((sum, income) => sum + income.value, 0);
@@ -307,69 +302,6 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
           </div>
         </div>
       </div>
-
-      {/* BLOCO 3: Modo Projeção */}
-      {/* {projection && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Projeção</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Se você continuar nesse ritmo, terminará o mês com:
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl p-4 border bg-muted/30 relative">
-              <div className="flex items-center gap-2 mb-2">
-                <Receipt className="h-5 w-5" />
-                <h4 className="font-semibold">Essenciais</h4>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className={cn(
-                  'text-2xl font-bold',
-                  projection.essentials <= rule.essentialsPercentage ? 'text-income' : 'text-expense'
-                )}>
-                  {projection.essentials.toFixed(1)}%
-                </p>
-                {projection.essentials > 100 && (
-                  <Badge variant="destructive" className="text-xs flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Crítico
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="rounded-xl p-4 border bg-muted/30 relative">
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag className="h-5 w-5" />
-                <h4 className="font-semibold">Estilo de Vida</h4>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className={cn(
-                  'text-2xl font-bold',
-                  projection.lifestyle <= rule.lifestylePercentage ? 'text-income' : 'text-expense'
-                )}>
-                  {projection.lifestyle.toFixed(1)}%
-                </p>
-                {projection.lifestyle > 100 && (
-                  <Badge variant="destructive" className="text-xs flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Crítico
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="rounded-xl p-4 border bg-muted/30 relative">
-              <div className="flex items-center gap-2 mb-2">
-                <PiggyBank className="h-5 w-5" />
-                <h4 className="font-semibold">Investimentos</h4>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-investment">
-                  {projection.investments.toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )} */}
     </div>
   );
 };

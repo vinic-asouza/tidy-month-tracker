@@ -96,18 +96,24 @@ export async function getAllCardMonthlyStatuses(
 ): Promise<Record<string, boolean>> {
   const statusMap: Record<string, boolean> = {};
 
-  // Busca status de cada cartão
-  for (const card of creditCards) {
+  // Busca status de todos os cartões em paralelo para melhor performance
+  const statusPromises = creditCards.map(async (card) => {
     try {
       const status = await getCardMonthlyStatus(_userId, card.id, yearMonth);
-      if (status) {
-        statusMap[card.id] = status.paid;
-      }
+      return { cardId: card.id, paid: status?.paid || false };
     } catch (_error) {
-      // Em caso de erro ao buscar status de um cartão, assumimos \"não pago\" para o MVP.
-      statusMap[card.id] = false;
+      // Em caso de erro ao buscar status de um cartão, assumimos "não pago" para o MVP.
+      return { cardId: card.id, paid: false };
     }
-  }
+  });
+
+  // Aguarda todas as requisições em paralelo
+  const results = await Promise.all(statusPromises);
+  
+  // Preenche o mapa de status
+  results.forEach(({ cardId, paid }) => {
+    statusMap[cardId] = paid;
+  });
 
   return statusMap;
 }

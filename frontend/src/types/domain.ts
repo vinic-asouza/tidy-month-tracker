@@ -56,6 +56,7 @@ export interface MonthData {
   incomes: Income[];
   expenses: Expense[];
   investments: Investment[];
+  cardMonthlyStatuses?: Record<string, boolean>; // Map de cardId -> paid status para o mês
 }
 
 export interface FinanceSettings {
