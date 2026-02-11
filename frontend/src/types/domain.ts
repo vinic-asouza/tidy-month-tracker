@@ -65,6 +65,66 @@ export interface FinanceSettings {
   paymentMethods: string[];
 }
 
+export interface FinancialRule {
+  id: string;
+  userId: string;
+  essentialsPercentage: number;
+  lifestylePercentage: number;
+  investmentsPercentage: number;
+  categoryMapping: Record<string, 'essentials' | 'lifestyle'>;
+  isCustom: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFinancialRuleInput {
+  essentialsPercentage: number;
+  lifestylePercentage: number;
+  investmentsPercentage: number;
+  categoryMapping: Record<string, 'essentials' | 'lifestyle'>;
+  isCustom: boolean;
+}
+
+export interface UpdateFinancialRuleInput {
+  essentialsPercentage?: number;
+  lifestylePercentage?: number;
+  investmentsPercentage?: number;
+  categoryMapping?: Record<string, 'essentials' | 'lifestyle'>;
+  isCustom?: boolean;
+}
+
+export interface FinancialRuleStats {
+  essentials: {
+    target: number; // percentual
+    current: number; // percentual
+    targetValue: number; // valor em R$
+    currentValue: number; // valor em R$
+    difference: number; // diferença percentual
+    differenceValue: number; // diferença em R$
+  };
+  lifestyle: {
+    target: number;
+    current: number;
+    targetValue: number;
+    currentValue: number;
+    difference: number;
+    differenceValue: number;
+  };
+  investments: {
+    target: number;
+    current: number;
+    targetValue: number;
+    currentValue: number;
+    difference: number;
+    differenceValue: number;
+  };
+  projection?: {
+    essentials: number;
+    lifestyle: number;
+    investments: number;
+  };
+}
+
 export interface CreditCardMonthlyStatus {
   creditCardId: string;
   yearMonth: string;

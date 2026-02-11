@@ -336,9 +336,10 @@ const Index = () => {
               </div>
             ) : (
               <Statistics
-                monthData={monthData}
                 yearData={yearData}
                 currentYear={currentYear}
+                monthData={monthData}
+                settings={settings}
               />
             )}
           </div>

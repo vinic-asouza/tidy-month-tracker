@@ -21,6 +21,7 @@ import { expensesRouter } from './routes/expenses';
 import { investmentsRouter } from './routes/investments';
 import { creditCardsRouter } from './routes/creditCards';
 import { settingsRouter } from './routes/settings';
+import { financialRuleRouter } from './routes/financialRule';
 import { errorHandler } from './infra/errorHandler';
 import { logger } from './utils/logger';
 
@@ -46,6 +47,7 @@ app.use('/api/expenses', expensesRouter);
 app.use('/api/investments', investmentsRouter);
 app.use('/api/credit-cards', creditCardsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/financial-rule', financialRuleRouter);
 
 // Tratamento de erros (deve ser o último middleware)
 app.use(errorHandler);

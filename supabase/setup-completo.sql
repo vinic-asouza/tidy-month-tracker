@@ -126,6 +126,32 @@ CREATE TABLE IF NOT EXISTS public.credit_card_monthly_status (
   UNIQUE(user_id, credit_card_id, year_month)
 );
 
+-- Tabela de regra financeira do usuário
+CREATE TABLE IF NOT EXISTS public.financial_rule (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Configuração da regra (percentuais)
+  essentials_percentage DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+  lifestyle_percentage DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+  investments_percentage DECIMAL(5,2) NOT NULL DEFAULT 20.00,
+  
+  -- Mapeamento de categorias (JSONB)
+  -- Formato: {"Moradia": "essentials", "Roupas": "lifestyle", ...}
+  category_mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
+  
+  -- Flag para indicar se está usando regra padrão ou personalizada
+  is_custom BOOLEAN NOT NULL DEFAULT false,
+  
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  
+  -- Validação: soma dos percentuais deve ser 100
+  CONSTRAINT check_percentages_sum CHECK (
+    essentials_percentage + lifestyle_percentage + investments_percentage = 100.00
+  )
+);
+
 -- ============================================================================
 -- 2. HABILITAR ROW LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -137,6 +163,7 @@ ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_card_monthly_status ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financial_rule ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- 3. POLÍTICAS RLS (ROW LEVEL SECURITY)
@@ -287,6 +314,23 @@ CREATE POLICY "Users can delete their own card status"
   ON public.credit_card_monthly_status FOR DELETE
   USING (auth.uid() = user_id);
 
+-- Políticas para financial_rule
+CREATE POLICY "Users can view own financial rule"
+  ON public.financial_rule FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own financial rule"
+  ON public.financial_rule FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own financial rule"
+  ON public.financial_rule FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own financial rule"
+  ON public.financial_rule FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- ============================================================================
 -- 4. ÍNDICES PARA PERFORMANCE
 -- ============================================================================
@@ -299,6 +343,7 @@ CREATE INDEX IF NOT EXISTS idx_expenses_user_id_payment_method ON public.expense
 CREATE INDEX IF NOT EXISTS idx_investments_user_id_year_month ON public.investments(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_finance_settings_user_id ON public.finance_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_card_monthly_status_user_card_month ON public.credit_card_monthly_status(user_id, credit_card_id, year_month);
+CREATE INDEX IF NOT EXISTS idx_financial_rule_user_id ON public.financial_rule(user_id);
 
 -- ============================================================================
 -- 5. FUNÇÕES E TRIGGERS
@@ -361,6 +406,11 @@ CREATE TRIGGER update_finance_settings_updated_at
 DROP TRIGGER IF EXISTS update_credit_card_monthly_status_updated_at ON public.credit_card_monthly_status;
 CREATE TRIGGER update_credit_card_monthly_status_updated_at
   BEFORE UPDATE ON public.credit_card_monthly_status
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_financial_rule_updated_at ON public.financial_rule;
+CREATE TRIGGER update_financial_rule_updated_at
+  BEFORE UPDATE ON public.financial_rule
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Trigger para criar perfil e configurações ao criar usuário
