@@ -36,7 +36,10 @@ import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { IncomeEntry } from '@/types/finance';
-import { formatDateToYYYYMMDD } from '@/lib/utils';
+import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface IncomeSectionProps {
   incomes: IncomeEntry[];
@@ -52,7 +55,7 @@ interface IncomeSectionProps {
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'default' | 'alphabetic' | 'category' | 'highest' | 'lowest';
+type SortOption = 'date' | 'alphabetic' | 'category' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -69,7 +72,7 @@ const formatValueForInput = (value: number): string => {
 };
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'default', label: 'Padrão' },
+  { value: 'date', label: 'Data' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'category', label: 'Categoria' },
   { value: 'highest', label: 'Maior Valor' },
@@ -78,22 +81,22 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 // Sorting function
 const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntry[] => {
-  if (sortOption === 'default') return incomes;
-  
   const sorted = [...incomes];
-  
+  const getSortDate = (i: IncomeEntry) => i.date ?? (i.createdAt ? i.createdAt.split('T')[0] : '');
+
   switch (sortOption) {
     case 'alphabetic':
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
     case 'category':
       return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
+    case 'date':
+      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
       return sorted.sort((a, b) => a.value - b.value);
-    default:
-      return sorted;
   }
+  return sorted;
 };
 
 // Group incomes by category and calculate totals
@@ -111,14 +114,14 @@ const groupByCategory = (incomes: IncomeEntry[], sortOption: SortOption): { cate
   switch (sortOption) {
     case 'alphabetic':
     case 'category':
+    case 'date':
       return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
     case 'lowest':
       return result.sort((a, b) => a.total - b.total);
-    default:
-      return result;
   }
+  return result;
 };
 
 // Summary item component
@@ -186,6 +189,7 @@ export const IncomeSection = ({
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [itemDate, setItemDate] = useState(() => formatDateToYYYYMMDD(new Date()));
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
@@ -193,7 +197,7 @@ export const IncomeSection = ({
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
-  const [sortOption, setSortOption] = useState<SortOption>('default');
+  const [sortOption, setSortOption] = useState<SortOption>('date');
   
   // Tag management
   const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
@@ -286,6 +290,7 @@ export const IncomeSection = ({
     setDescription('');
     setValue('');
     setSelectedTag('');
+    setItemDate(formatDateToYYYYMMDD(new Date()));
     setRepeatAllMonths(false);
     setEditingId(null);
     setDescriptionError(null);
@@ -313,14 +318,14 @@ export const IncomeSection = ({
     if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths }, applyToAllMonths);
-      setApplyToAllMonths(false); // Reset após uso
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths }, applyToAllMonths);
+      setApplyToAllMonths(false);
     } else {
       onAdd({
         description: description.trim(),
         value: numValue,
         tag: selectedTag,
-        date: formatDateToYYYYMMDD(new Date()),
+        date: itemDate,
         repeatAllMonths,
         received: false
       });
@@ -344,6 +349,7 @@ export const IncomeSection = ({
       setDescription(income.description);
       setValue(formatValueForInput(income.value));
       setSelectedTag(income.tag);
+      setItemDate(income.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(income.repeatAllMonths || false);
       setIsOpen(true);
     }
@@ -355,6 +361,7 @@ export const IncomeSection = ({
       setDescription(editingIncome.description);
       setValue(formatValueForInput(editingIncome.value));
       setSelectedTag(editingIncome.tag);
+      setItemDate(editingIncome.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingIncome.repeatAllMonths || false);
       setIsOpen(true);
       setEditingIncome(null);
@@ -369,8 +376,9 @@ export const IncomeSection = ({
       setDescription(editingIncome.description);
       setValue(formatValueForInput(editingIncome.value));
       setSelectedTag(editingIncome.tag);
+      setItemDate(editingIncome.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingIncome.repeatAllMonths || false);
-      setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
+      setApplyToAllMonths(true);
       setIsOpen(true);
       setEditingIncome(null);
       setPendingAction(null);
@@ -614,6 +622,35 @@ export const IncomeSection = ({
                   )}
                 </div>
 
+                {/* Data do item */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Data
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal rounded-xl h-11',
+                          !itemDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {itemDate ? new Date(itemDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Selecione a data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={itemDate ? new Date(itemDate + 'T12:00:00') : undefined}
+                        onSelect={(d) => d && setItemDate(formatDateToYYYYMMDD(d))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 {/* Description and Value on same line */}
                 <div className="grid grid-cols-5 gap-3">
                   <div className="col-span-3">
@@ -790,7 +827,10 @@ export const IncomeSection = ({
                   {income.tag}
                 </Badge>
 
-                {/* Description */}
+                {/* Data (dia/mês) + Description */}
+                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
+                  {formatItemDayMonth(income.date, income.createdAt)}
+                </span>
                 <span className="flex-1 text-sm font-medium truncate text-foreground">
                   {income.description}
                 </span>

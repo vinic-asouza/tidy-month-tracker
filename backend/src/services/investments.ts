@@ -10,10 +10,11 @@ export interface Investment {
   description: string;
   value: number;
   tag: string;
-  date: string;
+  date: string | null;
   invested: boolean;
   repeatAllMonths?: boolean;
   baseInvestmentId?: string;
+  createdAt?: string;
 }
 
 export interface CreateInvestmentInput {
@@ -28,13 +29,14 @@ export interface UpdateInvestmentInput {
   description?: string;
   value?: number;
   tag?: string;
+  date?: string | null;
   invested?: boolean;
   repeatAllMonths?: boolean;
 }
 
 export async function getInvestments(userId: string, yearMonth: string): Promise<Investment[]> {
   const result = await pool.query(
-    `SELECT id, description, value, tag, date, invested, repeat_all_months, base_investment_id
+    `SELECT id, description, value, tag, date, invested, repeat_all_months, base_investment_id, created_at
      FROM investments
      WHERE user_id = $1 AND year_month = $2
      ORDER BY display_order`,
@@ -50,6 +52,7 @@ export async function getInvestments(userId: string, yearMonth: string): Promise
     invested: row.invested || false,
     repeatAllMonths: row.repeat_all_months,
     baseInvestmentId: row.base_investment_id || undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   }));
 }
 
@@ -64,11 +67,12 @@ export async function createInvestment(
   );
   const displayOrder = countResult.rows[0].count;
 
+  const itemDate = data.date ?? new Date().toISOString().slice(0, 10);
   const result = await pool.query(
     `INSERT INTO investments (user_id, year_month, description, value, tag, date, invested, repeat_all_months, display_order)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id, description, value, tag, date, invested, repeat_all_months, base_investment_id`,
-    [userId, yearMonth, data.description, data.value, data.tag, data.date, false, data.repeatAllMonths || false, displayOrder]
+    [userId, yearMonth, data.description, data.value, data.tag, itemDate, false, data.repeatAllMonths || false, displayOrder]
   );
 
   const createdInvestment = {
@@ -96,8 +100,8 @@ export async function createInvestment(
           data.description,
           data.value,
           data.tag,
-          data.date,
-          false, // invested sempre inicia como false
+          itemDate,
+          false,
           true, // repeat_all_months
           createdInvestment.id, // base_investment_id
           0, // display_order
@@ -195,6 +199,10 @@ export async function updateInvestment(
   if (data.repeatAllMonths !== undefined) {
     updates.push(`repeat_all_months = $${paramIndex++}`);
     values.push(data.repeatAllMonths);
+  }
+  if (data.date !== undefined) {
+    updates.push(`date = $${paramIndex++}`);
+    values.push(data.date);
   }
 
   if (updates.length === 0) {

@@ -36,7 +36,10 @@ import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Investment } from '@/types/finance';
-import { formatDateToYYYYMMDD } from '@/lib/utils';
+import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface InvestmentSectionProps {
   investments: Investment[];
@@ -52,7 +55,7 @@ interface InvestmentSectionProps {
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'default' | 'alphabetic' | 'institution' | 'highest' | 'lowest';
+type SortOption = 'date' | 'alphabetic' | 'institution' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -69,7 +72,7 @@ const formatValueForInput = (value: number): string => {
 };
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'default', label: 'Padrão' },
+  { value: 'date', label: 'Data' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'institution', label: 'Instituição' },
   { value: 'highest', label: 'Maior Valor' },
@@ -78,22 +81,22 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 // Sorting function
 const sortInvestments = (investments: Investment[], sortOption: SortOption): Investment[] => {
-  if (sortOption === 'default') return investments;
-  
   const sorted = [...investments];
-  
+  const getSortDate = (i: Investment) => i.date ?? (i.createdAt ? i.createdAt.split('T')[0] : '');
+
   switch (sortOption) {
     case 'alphabetic':
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
     case 'institution':
       return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
+    case 'date':
+      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
       return sorted.sort((a, b) => a.value - b.value);
-    default:
-      return sorted;
   }
+  return sorted;
 };
 
 // Group investments by institution and calculate totals
@@ -111,14 +114,14 @@ const groupByInstitution = (investments: Investment[], sortOption: SortOption): 
   switch (sortOption) {
     case 'alphabetic':
     case 'institution':
+    case 'date':
       return result.sort((a, b) => a.institution.localeCompare(b.institution, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
     case 'lowest':
       return result.sort((a, b) => a.total - b.total);
-    default:
-      return result;
   }
+  return result;
 };
 
 // Summary item component
@@ -186,6 +189,7 @@ export const InvestmentSection = ({
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [itemDate, setItemDate] = useState(() => formatDateToYYYYMMDD(new Date()));
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
@@ -193,7 +197,7 @@ export const InvestmentSection = ({
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
-  const [sortOption, setSortOption] = useState<SortOption>('default');
+  const [sortOption, setSortOption] = useState<SortOption>('date');
   
   // Tag management
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -231,6 +235,7 @@ export const InvestmentSection = ({
     setDescription('');
     setValue('');
     setSelectedTag('');
+    setItemDate(formatDateToYYYYMMDD(new Date()));
     setRepeatAllMonths(false);
     setEditingId(null);
     setDescriptionError(null);
@@ -258,14 +263,14 @@ export const InvestmentSection = ({
     if (hasError) return;
 
     if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, repeatAllMonths }, applyToAllMonths);
-      setApplyToAllMonths(false); // Reset após uso
+      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths }, applyToAllMonths);
+      setApplyToAllMonths(false);
     } else {
       onAdd({
         description: description.trim(),
         value: numValue,
         tag: selectedTag,
-        date: formatDateToYYYYMMDD(new Date()),
+        date: itemDate,
         repeatAllMonths,
         invested: false
       });
@@ -289,6 +294,7 @@ export const InvestmentSection = ({
       setDescription(investment.description);
       setValue(formatValueForInput(investment.value));
       setSelectedTag(investment.tag);
+      setItemDate(investment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(investment.repeatAllMonths || false);
       setIsOpen(true);
     }
@@ -300,6 +306,7 @@ export const InvestmentSection = ({
       setDescription(editingInvestment.description);
       setValue(formatValueForInput(editingInvestment.value));
       setSelectedTag(editingInvestment.tag);
+      setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
       setIsOpen(true);
       setEditingInvestment(null);
@@ -314,8 +321,9 @@ export const InvestmentSection = ({
       setDescription(editingInvestment.description);
       setValue(formatValueForInput(editingInvestment.value));
       setSelectedTag(editingInvestment.tag);
+      setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
-      setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
+      setApplyToAllMonths(true);
       setIsOpen(true);
       setEditingInvestment(null);
       setPendingAction(null);
@@ -613,6 +621,35 @@ export const InvestmentSection = ({
                   )}
                 </div>
 
+                {/* Data do item */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Data
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal rounded-xl h-11',
+                          !itemDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {itemDate ? new Date(itemDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Selecione a data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={itemDate ? new Date(itemDate + 'T12:00:00') : undefined}
+                        onSelect={(d) => d && setItemDate(formatDateToYYYYMMDD(d))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 {/* Description and Value on same line */}
                 <div className="grid grid-cols-5 gap-3">
                   <div className="col-span-3">
@@ -793,7 +830,10 @@ export const InvestmentSection = ({
                   {investment.tag}
                 </Badge>
 
-                {/* Description */}
+                {/* Data (dia/mês) + Description */}
+                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
+                  {formatItemDayMonth(investment.date, investment.createdAt)}
+                </span>
                 <span className="flex-1 text-sm font-medium truncate text-foreground">
                   {investment.description}
                 </span>

@@ -14,10 +14,11 @@ export interface Income {
   description: string;
   value: number;
   tag: string;
-  date: string;
+  date: string | null;
   received: boolean;
   repeatAllMonths?: boolean;
   baseIncomeId?: string;
+  createdAt?: string;
 }
 
 export interface Expense {
@@ -28,10 +29,12 @@ export interface Expense {
   paymentMethod: string;
   value: number;
   paid: boolean;
+  date?: string | null;
   repeatAllMonths?: boolean;
   baseExpenseId?: string;
   currentInstallment?: number;
   totalInstallments?: number;
+  createdAt?: string;
 }
 
 export interface CreditCard {
@@ -46,10 +49,11 @@ export interface Investment {
   description: string;
   value: number;
   tag: string;
-  date: string;
+  date: string | null;
   invested: boolean;
   repeatAllMonths?: boolean;
   baseInvestmentId?: string;
+  createdAt?: string;
 }
 
 export interface MonthData {

@@ -35,6 +35,20 @@ export function formatDateToYYYYMMDD(date: Date | string): string {
 }
 
 /**
+ * Formata data do item para exibição discreta (dia/mês).
+ * Aceita date (YYYY-MM-DD), ISO string ou created_at; usa created_at quando date for null/undefined.
+ */
+export function formatItemDayMonth(date: string | null | undefined, createdAt?: string | null): string {
+  const raw = date ?? (createdAt ? createdAt.split('T')[0] : null);
+  if (!raw) return '';
+  const [y, m, d] = raw.split(/[-T]/);
+  if (!d) return '';
+  const day = String(parseInt(d, 10)).padStart(2, '0');
+  const month = String(parseInt(m, 10)).padStart(2, '0');
+  return `${day}/${month}`;
+}
+
+/**
  * Formata um valor numérico como moeda brasileira (BRL)
  */
 export function formatCurrency(value: number): string {

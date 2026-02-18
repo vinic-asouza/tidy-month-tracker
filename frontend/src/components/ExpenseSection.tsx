@@ -42,6 +42,10 @@ import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Expense, CreditCard as CreditCardType, CARD_COLORS } from '@/types/finance';
+import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ExpenseSectionProps {
   expenses: Expense[];
@@ -61,7 +65,7 @@ interface ExpenseSectionProps {
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'default' | 'alphabetic' | 'category' | 'payment' | 'highest' | 'lowest';
+type SortOption = 'date' | 'alphabetic' | 'category' | 'payment' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -78,7 +82,7 @@ const formatValueForInput = (value: number): string => {
 };
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'default', label: 'Padrão' },
+  { value: 'date', label: 'Data' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'category', label: 'Categoria' },
   { value: 'payment', label: 'Forma de Pagamento' },
@@ -107,6 +111,9 @@ const ExpenseForm = ({
   const [description, setDescription] = useState(initialData?.description || '');
   const [paymentMethod, setPaymentMethod] = useState(initialData?.paymentMethod || '');
   const [value, setValue] = useState(initialData ? formatValueForInput(initialData.value) : '');
+  const [itemDate, setItemDate] = useState(
+    initialData?.date ?? formatDateToYYYYMMDD(new Date())
+  );
   const [repeatAllMonths, setRepeatAllMonths] = useState(
     initialData?.repeatAllMonths ?? type === 'fixed'
   );
@@ -122,6 +129,10 @@ const ExpenseForm = ({
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItemDate(initialData?.date ?? formatDateToYYYYMMDD(new Date()));
+  }, [initialData]);
 
   // Build payment methods list with active credit cards
   const allPaymentMethods = [
@@ -158,6 +169,7 @@ const ExpenseForm = ({
       description: description.trim(),
       paymentMethod,
       value: numValue,
+      date: itemDate,
       paid: initialData?.paid || false,
       repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
       currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
@@ -192,6 +204,33 @@ const ExpenseForm = ({
           {categoryManagerSlot}
         </div>
         {categoryError && <p className="text-destructive text-sm mt-1">{categoryError}</p>}
+      </div>
+
+      {/* Data do item */}
+      <div>
+        <label className="text-sm font-medium mb-2 block text-muted-foreground">Data</label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                'w-full justify-start text-left font-normal rounded-xl h-11',
+                !itemDate && 'text-muted-foreground'
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {itemDate ? new Date(itemDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Selecione a data'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={itemDate ? new Date(itemDate + 'T12:00:00') : undefined}
+              onSelect={(d) => d && setItemDate(formatDateToYYYYMMDD(d))}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Description and Value on same line */}
@@ -432,7 +471,10 @@ const ExpenseItem = ({
         {expense.category}
       </Badge>
 
-      {/* Description */}
+      {/* Data (dia/mês) + Description */}
+      <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
+        {formatItemDayMonth(expense.date, expense.createdAt)}
+      </span>
       <span className="flex-1 text-sm font-medium truncate text-foreground">
         {expense.description}
       </span>
@@ -544,8 +586,6 @@ const CategorySummaryItem = ({
 
 // Sorting function
 const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: CreditCardType[]): Expense[] => {
-  if (sortOption === 'default') return expenses;
-
   const sorted = [...expenses];
 
   switch (sortOption) {
@@ -573,9 +613,12 @@ const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: 
     case 'lowest':
       return sorted.sort((a, b) => a.value - b.value);
 
-    default:
-      return sorted;
+    case 'date': {
+      const getSortDate = (e: Expense) => e.date ?? (e.createdAt ? e.createdAt.split('T')[0] : '');
+      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
+    }
   }
+  return sorted;
 };
 
 // Group expenses by category and calculate totals
@@ -593,14 +636,14 @@ const groupByCategory = (expenses: Expense[], sortOption: SortOption): { categor
   switch (sortOption) {
     case 'alphabetic':
     case 'category':
+    case 'date':
       return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
     case 'lowest':
       return result.sort((a, b) => a.total - b.total);
-    default:
-      return result;
   }
+  return result;
 };
 
 export const ExpenseSection = ({
@@ -625,7 +668,7 @@ export const ExpenseSection = ({
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
-  const [sortOption, setSortOption] = useState<SortOption>('default');
+  const [sortOption, setSortOption] = useState<SortOption>('date');
   const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);

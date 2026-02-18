@@ -12,10 +12,11 @@ export interface Income {
   description: string;
   value: number;
   tag: string;
-  date: string;
+  date: string | null;
   received: boolean;
   repeatAllMonths?: boolean;
   baseIncomeId?: string;
+  createdAt?: string;
 }
 
 export interface CreateIncomeInput {
@@ -30,6 +31,7 @@ export interface UpdateIncomeInput {
   description?: string;
   value?: number;
   tag?: string;
+  date?: string | null;
   received?: boolean;
   repeatAllMonths?: boolean;
 }
@@ -39,7 +41,7 @@ export interface UpdateIncomeInput {
  */
 export async function getIncomes(userId: string, yearMonth: string): Promise<Income[]> {
   const result = await pool.query(
-    `SELECT id, description, value, tag, date, received, repeat_all_months, base_income_id
+    `SELECT id, description, value, tag, date, received, repeat_all_months, base_income_id, created_at
      FROM incomes
      WHERE user_id = $1 AND year_month = $2
      ORDER BY display_order`,
@@ -55,6 +57,7 @@ export async function getIncomes(userId: string, yearMonth: string): Promise<Inc
     received: row.received || false,
     repeatAllMonths: row.repeat_all_months,
     baseIncomeId: row.base_income_id || undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   }));
 }
 
@@ -73,7 +76,7 @@ export async function createIncome(
   );
   const displayOrder = countResult.rows[0].count;
 
-  // Insere receita principal
+  const itemDate = data.date ?? new Date().toISOString().slice(0, 10);
   const result = await pool.query(
     `INSERT INTO incomes (user_id, year_month, description, value, tag, date, received, repeat_all_months, display_order)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -84,7 +87,7 @@ export async function createIncome(
       data.description,
       data.value,
       data.tag,
-      data.date,
+      itemDate,
       false, // received sempre inicia como false
       data.repeatAllMonths || false,
       displayOrder,
@@ -116,8 +119,8 @@ export async function createIncome(
           data.description,
           data.value,
           data.tag,
-          data.date,
-          false, // received sempre inicia como false
+          itemDate,
+          false,
           true, // repeat_all_months
           createdIncome.id, // base_income_id
           0, // display_order
@@ -218,6 +221,10 @@ export async function updateIncome(
   if (data.repeatAllMonths !== undefined) {
     updates.push(`repeat_all_months = $${paramIndex++}`);
     values.push(data.repeatAllMonths);
+  }
+  if (data.date !== undefined) {
+    updates.push(`date = $${paramIndex++}`);
+    values.push(data.date);
   }
 
   if (updates.length === 0) {

@@ -19,10 +19,12 @@ export interface Expense {
   paymentMethod: string;
   value: number;
   paid: boolean;
+  date?: string | null;
   repeatAllMonths?: boolean;
   baseExpenseId?: string;
   currentInstallment?: number;
   totalInstallments?: number;
+  createdAt?: string;
 }
 
 export interface CreateExpenseInput {
@@ -42,6 +44,7 @@ export interface UpdateExpenseInput {
   description?: string;
   paymentMethod?: string;
   value?: number;
+  date?: string | null;
   paid?: boolean;
   repeatAllMonths?: boolean;
   currentInstallment?: number;
@@ -53,8 +56,8 @@ export interface UpdateExpenseInput {
  */
 export async function getExpenses(userId: string, yearMonth: string): Promise<Expense[]> {
   const result = await pool.query(
-    `SELECT id, type, category, description, payment_method, value, paid,
-            repeat_all_months, base_expense_id, current_installment, total_installments
+    `SELECT id, type, category, description, payment_method, value, paid, date,
+            repeat_all_months, base_expense_id, current_installment, total_installments, created_at
      FROM expenses
      WHERE user_id = $1 AND year_month = $2
      ORDER BY display_order`,
@@ -69,10 +72,12 @@ export async function getExpenses(userId: string, yearMonth: string): Promise<Ex
     paymentMethod: row.payment_method,
     value: Number(row.value),
     paid: row.paid,
+    date: row.date ?? undefined,
     repeatAllMonths: row.repeat_all_months,
     baseExpenseId: row.base_expense_id || undefined,
     currentInstallment: row.current_installment || undefined,
     totalInstallments: row.total_installments || undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   }));
 }
 
@@ -91,12 +96,13 @@ export async function createExpense(
   );
   const displayOrder = countResult.rows[0].count;
 
-  // Insere despesa principal
+  const itemDate = data.date ?? new Date().toISOString().slice(0, 10);
+
   const result = await pool.query(
-    `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid,
+    `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date,
                           repeat_all_months, current_installment, total_installments, display_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-     RETURNING id, type, category, description, payment_method, value, paid,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     RETURNING id, type, category, description, payment_method, value, paid, date,
                repeat_all_months, base_expense_id, current_installment, total_installments`,
     [
       userId,
@@ -107,6 +113,7 @@ export async function createExpense(
       data.paymentMethod,
       data.value,
       data.paid || false,
+      itemDate,
       data.repeatAllMonths || false,
       data.currentInstallment || null,
       data.totalInstallments || null,
@@ -122,6 +129,7 @@ export async function createExpense(
     paymentMethod: result.rows[0].payment_method,
     value: Number(result.rows[0].value),
     paid: result.rows[0].paid,
+    date: result.rows[0].date ?? undefined,
     repeatAllMonths: result.rows[0].repeat_all_months,
     baseExpenseId: result.rows[0].base_expense_id || undefined,
     currentInstallment: result.rows[0].current_installment || undefined,
@@ -134,9 +142,9 @@ export async function createExpense(
 
     for (const month of remainingMonths) {
       await pool.query(
-        `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid,
+        `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date,
                               repeat_all_months, base_expense_id, display_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           userId,
           month,
@@ -145,7 +153,8 @@ export async function createExpense(
           data.description,
           data.paymentMethod,
           data.value,
-          false, // Repetições começam como não pagas
+          false,
+          itemDate,
           true,
           createdExpense.id,
           0,
@@ -164,9 +173,9 @@ export async function createExpense(
 
     for (const inst of installments) {
       await pool.query(
-        `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid,
+        `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date,
                               base_expense_id, current_installment, total_installments, display_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           userId,
           inst.yearMonth,
@@ -175,7 +184,8 @@ export async function createExpense(
           data.description,
           data.paymentMethod,
           data.value,
-          false, // Parcelas futuras começam como não pagas
+          false,
+          itemDate,
           createdExpense.id,
           inst.installmentNumber,
           data.totalInstallments,
@@ -199,7 +209,7 @@ export async function updateExpense(
 ): Promise<void> {
   // Busca o item atual para verificar estado anterior
   const expenseResult = await pool.query(
-    'SELECT id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, value FROM expenses WHERE id = $1 AND user_id = $2',
+    'SELECT id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, value, date FROM expenses WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
 
@@ -219,10 +229,11 @@ export async function updateExpense(
       // É um item original que está sendo marcado como recorrente
       const remainingMonths = calculateRemainingMonths(currentExpense.year_month);
       
+      const currentDate = currentExpense.date ?? new Date().toISOString().slice(0, 10);
       for (const month of remainingMonths) {
         await pool.query(
-          `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, repeat_all_months, base_expense_id, display_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date, repeat_all_months, base_expense_id, display_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             userId,
             month,
@@ -231,10 +242,11 @@ export async function updateExpense(
             data.description !== undefined ? data.description : currentExpense.description,
             data.paymentMethod !== undefined ? data.paymentMethod : currentExpense.payment_method,
             data.value !== undefined ? data.value : Number(currentExpense.value),
-            false, // Repetições começam como não pagas
-            true, // repeat_all_months
-            id, // base_expense_id aponta para o original
-            0, // display_order
+            false,
+            data.date !== undefined ? data.date : currentDate,
+            true,
+            id,
+            0,
           ]
         );
       }
@@ -285,6 +297,10 @@ export async function updateExpense(
   if (data.repeatAllMonths !== undefined) {
     updates.push(`repeat_all_months = $${paramIndex++}`);
     values.push(data.repeatAllMonths);
+  }
+  if (data.date !== undefined) {
+    updates.push(`date = $${paramIndex++}`);
+    values.push(data.date);
   }
   if (data.currentInstallment !== undefined) {
     updates.push(`current_installment = $${paramIndex++}`);
