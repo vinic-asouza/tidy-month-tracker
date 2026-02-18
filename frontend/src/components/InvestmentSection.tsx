@@ -152,7 +152,7 @@ const InstitutionSummaryItem = ({
       <div className="relative flex items-center justify-between w-full z-10">
         <Badge 
           variant="secondary" 
-          className="text-xs rounded-md px-2 py-0.5 bg-investment-light text-investment border-0 cursor-default"
+          className="text-xs rounded-md px-2 py-0.5 bg-transparent text-investment border-0 cursor-default"
         >
           {institution}
         </Badge>

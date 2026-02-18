@@ -525,7 +525,7 @@ const CategorySummaryItem = ({
       <div className="relative flex items-center justify-between w-full z-10">
         <Badge
           variant="secondary"
-          className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 cursor-default"
+          className="text-xs rounded-md px-2 py-0.5 bg-transparent text-expense border-0 cursor-default"
         >
           {category}
         </Badge>
