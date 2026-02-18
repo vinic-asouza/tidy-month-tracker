@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2 } from 'lucide-react';
+import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
 import { SummaryCards } from '@/components/SummaryCards';
@@ -29,6 +30,26 @@ const Index = () => {
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
   
   const { signOut } = useAuth();
+  const { setTheme, resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const [isThemeTransitioning, setIsThemeTransitioning] = useState(false);
+  const themeTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleThemeToggle = useCallback(() => {
+    if (themeTransitionTimerRef.current) clearTimeout(themeTransitionTimerRef.current);
+    setIsThemeTransitioning(true);
+    setTheme(isDark ? 'light' : 'dark');
+    themeTransitionTimerRef.current = setTimeout(() => {
+      themeTransitionTimerRef.current = null;
+      setIsThemeTransitioning(false);
+    }, 400);
+  }, [isDark, setTheme]);
+
+  useEffect(() => {
+    return () => {
+      if (themeTransitionTimerRef.current) clearTimeout(themeTransitionTimerRef.current);
+    };
+  }, []);
   
   const {
     loading,
@@ -195,6 +216,15 @@ const Index = () => {
 
   return (
     <div className={`min-h-screen bg-background gradient-subtle ${hasSelections ? 'pb-24' : ''}`}>
+      {/* Overlay de loading na troca de tema */}
+      {isThemeTransitioning && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+          aria-hidden="true"
+        >
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      )}
       {/* Header Flutuante */}
       <header 
         className="sticky top-4 z-50 mx-4 mt-4 rounded-2xl glass border border-border/50 card-shadow"
@@ -258,6 +288,20 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={handleThemeToggle}
+                  className="h-10 w-10 rounded-xl hover:bg-muted"
+                  title={isDark ? 'Modo claro' : 'Modo escuro'}
+                  disabled={isThemeTransitioning}
+                >
+                  {isDark ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={handleSignOut}
                   className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive"
                 >
@@ -265,8 +309,22 @@ const Index = () => {
                 </Button>
               </nav>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile: Theme + Logout + Menu */}
               <div className="flex md:hidden items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleThemeToggle}
+                  className="h-10 w-10 rounded-xl hover:bg-muted"
+                  title={isDark ? 'Modo claro' : 'Modo escuro'}
+                  disabled={isThemeTransitioning}
+                >
+                  {isDark ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )}
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
