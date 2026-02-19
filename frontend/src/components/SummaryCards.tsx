@@ -1,10 +1,8 @@
 import { TrendingUp, TrendingDown, PiggyBank, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { MonthData, CreditCard } from '@/types/finance';
+import { MonthData } from '@/types/finance';
 
 interface SummaryCardsProps {
   monthData: MonthData;
-  creditCards?: CreditCard[];
-  getCardPaidStatus?: (cardId: string) => boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -14,35 +12,11 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export const SummaryCards = ({ 
-  monthData, 
-  creditCards = [],
-  getCardPaidStatus,
-}: SummaryCardsProps) => {
-  // Calculate totals based on marked items only (using fields from database)
-  const totalIncome = monthData.incomes
-    .filter(i => i.received)
-    .reduce((sum, i) => sum + i.value, 0);
-  
-  // For expenses, consider both manually paid and card-paid items
-  const calculatePaidExpenses = () => {
-    return monthData.expenses.reduce((sum, e) => {
-      // Check if expense is linked to a card
-      const linkedCard = creditCards.find(c => c.name === e.paymentMethod);
-      if (linkedCard && getCardPaidStatus) {
-        // If linked to a card, use the card's paid status
-        return getCardPaidStatus(linkedCard.id) ? sum + e.value : sum;
-      }
-      // Otherwise, use the expense's own paid status
-      return e.paid ? sum + e.value : sum;
-    }, 0);
-  };
-
-  const totalExpenses = calculatePaidExpenses();
-  
-  const totalInvestments = monthData.investments
-    .filter(i => i.invested)
-    .reduce((sum, i) => sum + i.value, 0);
+export const SummaryCards = ({ monthData }: SummaryCardsProps) => {
+  // Totais consideram todas as inserções do mês (não apenas itens marcados como pago/recebido/investido)
+  const totalIncome = monthData.incomes.reduce((sum, i) => sum + i.value, 0);
+  const totalExpenses = monthData.expenses.reduce((sum, e) => sum + e.value, 0);
+  const totalInvestments = monthData.investments.reduce((sum, i) => sum + i.value, 0);
   
   const balance = totalIncome - totalExpenses - totalInvestments;
 
@@ -90,39 +64,35 @@ export const SummaryCards = ({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {cards.map((card, index) => (
         <div
           key={card.title}
-          className={`group relative overflow-hidden rounded-2xl p-5 card-shadow hover:card-shadow-hover transition-all duration-300 hover-lift ${card.lightBg}`}
+          className={`group relative overflow-hidden rounded-xl p-3 card-shadow hover:card-shadow-hover transition-all duration-300 hover-lift ${card.lightBg}`}
           style={{ animationDelay: `${index * 50}ms` }}
         >
-          {/* Background decoration */}
-          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-gradient-to-br from-current to-transparent opacity-10" />
-          
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <div className={`p-2.5 rounded-xl ${card.gradient} ${card.shadowClass}`}>
-                <card.icon className="h-4 w-4 text-white" />
-              </div>
-              {card.value !== 0 && (
-                <div className={`flex items-center gap-0.5 text-xs font-medium ${card.textColor}`}>
-                  {balance >= 0 && card.title === 'Saldo' ? (
-                    <ArrowUpRight className="h-3 w-3" />
-                  ) : card.title === 'Saldo' ? (
-                    <ArrowDownRight className="h-3 w-3" />
-                  ) : null}
-                </div>
-              )}
+          <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-gradient-to-br from-current to-transparent opacity-10" />
+          <div className="relative flex items-center gap-3">
+            <div className={`flex-shrink-0 p-2 rounded-lg ${card.gradient} ${card.shadowClass}`}>
+              <card.icon className="h-4 w-4 text-white" />
             </div>
-            
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-              {card.title}
-            </p>
-            
-            <p className={`text-xl lg:text-2xl font-bold tracking-tight ${card.textColor}`}>
-              {formatCurrency(Math.abs(card.value))}
-            </p>
+            <div className="min-w-0 flex flex-col justify-center gap-0.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide leading-tight">
+                {card.title}
+              </p>
+              <p className={`text-base font-bold tracking-tight leading-tight ${card.textColor}`}>
+                {formatCurrency(Math.abs(card.value))}
+              </p>
+            </div>
+            {card.value !== 0 && card.title === 'Saldo' && (
+              <div className={`flex-shrink-0 ml-auto ${card.textColor}`}>
+                {balance >= 0 ? (
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDownRight className="h-3.5 w-3.5" />
+                )}
+              </div>
+            )}
           </div>
         </div>
       ))}

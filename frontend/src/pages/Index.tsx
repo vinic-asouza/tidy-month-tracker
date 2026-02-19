@@ -230,8 +230,8 @@ const Index = () => {
         className="sticky top-4 z-50 mx-4 mt-4 rounded-2xl glass border border-border/50 card-shadow"
         style={{ '--header-height': '64px' } as React.CSSProperties}
       >
-        <div className="container mx-auto px-4 py-3">
-          {/* Layout: Logo | Seletor de Mês (centro) | Navegação + Logout */}
+        <div className="container mx-auto px-4 py-3 relative">
+          {/* Layout: Logo (esq) | Seletor de Mês (centro absoluto) | Navegação + Logout (dir) */}
           <div className="flex items-center justify-between gap-4">
             {/* Esquerda: Logo + Nome */}
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -247,8 +247,8 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Centro: Seletor de Mês */}
-            <div className="flex-1 flex justify-center min-w-0">
+            {/* Centro: Seletor de Mês (centralizado no centro absoluto do header) */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <MonthNavigator
                 currentMonth={currentMonth}
                 onMonthChange={setCurrentMonth}
@@ -383,11 +383,7 @@ const Index = () => {
           ) : (
             <div className="animate-fade-in space-y-6">
               {/* Summary Cards */}
-              <SummaryCards 
-                monthData={monthData}
-                creditCards={creditCards}
-                getCardPaidStatus={getCardPaidStatus}
-              />
+              <SummaryCards monthData={monthData} />
 
               {/* Main Grid */}
               <div className="grid lg:grid-cols-2 gap-6">

@@ -98,7 +98,7 @@ export const FinancialRuleSection = ({ monthData, settings }: FinancialRuleSecti
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl gradient-primary shadow-glow">
-              <Target className="h-4 w-4 text-white" />
+              <Target className="h-4 w-4 text-white dark:text-black" />
             </div>
             <div className="text-left">
               <h3 className="text-lg font-semibold tracking-tight">Regra Financeira</h3>

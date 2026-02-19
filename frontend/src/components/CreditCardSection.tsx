@@ -233,7 +233,6 @@ export const CreditCardSection = ({
               htmlFor={`card-paid-${card.id}`}
               className="text-xs text-white/80 cursor-pointer flex items-center gap-1"
             >
-              {isPaid && <CheckCircle2 className="h-3 w-3" />}
               Fatura paga
             </label>
           </div>
