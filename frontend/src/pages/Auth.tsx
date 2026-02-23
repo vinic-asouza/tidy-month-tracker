@@ -116,7 +116,7 @@ const Auth = () => {
             <div className="absolute -top-1 -right-1 h-3 w-3 bg-income rounded-full border-2 border-background animate-pulse-soft" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Minhas Finanças</h1>
+            <h1 className="text-lg font-bold tracking-tight">Tidy Month Tracker</h1>
             <p className="text-xs text-muted-foreground">Controle financeiro pessoal</p>
           </div>
         </div>

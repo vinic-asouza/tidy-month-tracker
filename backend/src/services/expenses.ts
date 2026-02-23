@@ -323,14 +323,12 @@ export async function updateExpense(
       // Para despesas fixas: atualiza o original e todas as cópias em todos os meses
       if (expense.base_expense_id) {
         targetIds = [expense.base_expense_id];
-        // Busca todas as cópias (incluindo esta)
         const copiesResult = await pool.query(
           'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
           [expense.base_expense_id, userId]
         );
         targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
       } else if (expense.repeat_all_months) {
-        // Se é o original (repeat_all_months = true), atualiza todas as cópias também
         const copiesResult = await pool.query(
           'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
           [id, userId]
@@ -338,24 +336,78 @@ export async function updateExpense(
         targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
       }
     } else if (expense.type === 'installment') {
-      // Para parcelas: atualiza todas as parcelas relacionadas (mesmo base_expense_id)
+      // Parcelas: current_installment/total_installments só na linha editada;
+      // nas demais, só campos compartilhados (description, value, etc.)
       const baseIdResult = await pool.query(
         'SELECT base_expense_id FROM expenses WHERE id = $1 AND user_id = $2',
         [id, userId]
       );
-      
-      if (baseIdResult.rows.length > 0) {
-        const baseId = baseIdResult.rows[0].base_expense_id || id;
-        // Busca todas as parcelas relacionadas (incluindo esta)
-        const installmentsResult = await pool.query(
-          'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2)',
-          [userId, baseId]
-        );
-        targetIds = installmentsResult.rows.map((row: { id: string }) => row.id);
+      const baseId = baseIdResult.rows.length > 0 ? (baseIdResult.rows[0].base_expense_id || id) : id;
+      const installmentsResult = await pool.query(
+        'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2)',
+        [userId, baseId]
+      );
+      targetIds = installmentsResult.rows.map((row: { id: string }) => row.id);
+
+      const sharedUpdates: string[] = [];
+      const sharedValues: any[] = [];
+      let p = 1;
+      if (data.category !== undefined) {
+        sharedUpdates.push(`category = $${p++}`);
+        sharedValues.push(data.category);
       }
+      if (data.description !== undefined) {
+        sharedUpdates.push(`description = $${p++}`);
+        sharedValues.push(data.description);
+      }
+      if (data.paymentMethod !== undefined) {
+        sharedUpdates.push(`payment_method = $${p++}`);
+        sharedValues.push(data.paymentMethod);
+      }
+      if (data.value !== undefined) {
+        sharedUpdates.push(`value = $${p++}`);
+        sharedValues.push(data.value);
+      }
+      if (data.paid !== undefined) {
+        sharedUpdates.push(`paid = $${p++}`);
+        sharedValues.push(data.paid);
+      }
+      if (data.date !== undefined) {
+        sharedUpdates.push(`date = $${p++}`);
+        sharedValues.push(data.date);
+      }
+      if (sharedUpdates.length > 0 && targetIds.length > 0) {
+        await pool.query(
+          `UPDATE expenses SET ${sharedUpdates.join(', ')}, updated_at = NOW()
+           WHERE id = ANY($${p}::uuid[]) AND user_id = $${p + 1}`,
+          [...sharedValues, targetIds, userId]
+        );
+      }
+      // Atualiza só a linha editada com current_installment e total_installments
+      const instUpdates: string[] = [];
+      const instValues: any[] = [];
+      let pi = 1;
+      if (data.currentInstallment !== undefined) {
+        instUpdates.push(`current_installment = $${pi++}`);
+        instValues.push(data.currentInstallment);
+      }
+      if (data.totalInstallments !== undefined) {
+        instUpdates.push(`total_installments = $${pi++}`);
+        instValues.push(data.totalInstallments);
+      }
+      if (instUpdates.length > 0) {
+        instValues.push(id, userId);
+        await pool.query(
+          `UPDATE expenses SET ${instUpdates.join(', ')}, updated_at = NOW()
+           WHERE id = $${pi++} AND user_id = $${pi}`,
+          instValues
+        );
+      }
+      await ensureRemainingInstallmentsExist(userId, id);
+      return;
     }
 
-    // Atualiza todos os itens relacionados
+    // Atualiza todos os itens relacionados (fixo ou outro)
     values.push(userId);
     const userIdParam = paramIndex;
     await pool.query(
@@ -375,6 +427,61 @@ export async function updateExpense(
        SET ${updates.join(', ')}, updated_at = NOW()
        WHERE id = $${idParam} AND user_id = $${userIdParam}`,
       values
+    );
+
+    // Se for parcelado e alterou parcela/total, garantir parcelas futuras
+    if (currentExpense.type === 'installment' && (data.currentInstallment !== undefined || data.totalInstallments !== undefined)) {
+      await ensureRemainingInstallmentsExist(userId, id);
+    }
+  }
+}
+
+/**
+ * Após atualizar uma despesa parcelada, cria no banco as parcelas futuras que ainda não existem
+ * (ex.: ao mudar 6/6 para 5/6, cria a linha 6/6 no mês seguinte).
+ */
+async function ensureRemainingInstallmentsExist(userId: string, expenseId: string): Promise<void> {
+  const row = await pool.query(
+    `SELECT id, base_expense_id, year_month, type, category, description, payment_method, value, date,
+            current_installment, total_installments
+     FROM expenses WHERE id = $1 AND user_id = $2`,
+    [expenseId, userId]
+  );
+  if (row.rows.length === 0) return;
+  const e = row.rows[0];
+  const baseId = e.base_expense_id || e.id;
+  const cur = e.current_installment != null ? Number(e.current_installment) : null;
+  const tot = e.total_installments != null ? Number(e.total_installments) : null;
+  if (e.type !== 'installment' || cur == null || tot == null || cur >= tot) return;
+
+  const remaining = calculateRemainingInstallments(e.year_month, cur, tot);
+  const itemDate = e.date ?? new Date().toISOString().slice(0, 10);
+
+  for (const inst of remaining) {
+    const exists = await pool.query(
+      `SELECT 1 FROM expenses
+       WHERE user_id = $1 AND year_month = $2 AND (id = $3 OR base_expense_id = $3) AND current_installment = $4`,
+      [userId, inst.yearMonth, baseId, inst.installmentNumber]
+    );
+    if (exists.rows.length > 0) continue;
+
+    await pool.query(
+      `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date,
+                             base_expense_id, current_installment, total_installments, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false, $8, $9, $10, $11, 0)`,
+      [
+        userId,
+        inst.yearMonth,
+        e.type,
+        e.category,
+        e.description,
+        e.payment_method,
+        Number(e.value),
+        itemDate,
+        baseId,
+        inst.installmentNumber,
+        tot,
+      ]
     );
   }
 }
