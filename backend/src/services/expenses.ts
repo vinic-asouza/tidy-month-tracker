@@ -320,21 +320,15 @@ export async function updateExpense(
     let targetIds: string[] = [id];
 
     if (expense.type === 'fixed') {
-      // Para despesas fixas: atualiza o original e todas as cópias em todos os meses
-      if (expense.base_expense_id) {
-        targetIds = [expense.base_expense_id];
-        const copiesResult = await pool.query(
-          'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
-          [expense.base_expense_id, userId]
-        );
-        targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-      } else if (expense.repeat_all_months) {
-        const copiesResult = await pool.query(
-          'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
-          [id, userId]
-        );
-        targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-      }
+      // Para despesas fixas: apenas mês atual e meses seguintes
+      const baseId = expense.base_expense_id || id;
+      const currentYearMonth = expense.year_month;
+      const targetResult = await pool.query(
+        'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2) AND year_month >= $3',
+        [userId, baseId, currentYearMonth]
+      );
+      targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+      if (targetIds.length === 0) return;
     } else if (expense.type === 'installment') {
       // Parcelas: current_installment/total_installments só na linha editada;
       // nas demais, só campos compartilhados (description, value, etc.)
@@ -491,9 +485,8 @@ async function ensureRemainingInstallmentsExist(userId: string, expenseId: strin
  */
 export async function deleteExpense(userId: string, id: string, applyToAllMonths = false): Promise<void> {
   if (applyToAllMonths) {
-    // Busca o item para verificar se é fixo
     const expenseResult = await pool.query(
-      'SELECT id, base_expense_id, repeat_all_months, type FROM expenses WHERE id = $1 AND user_id = $2',
+      'SELECT id, base_expense_id, repeat_all_months, type, year_month FROM expenses WHERE id = $1 AND user_id = $2',
       [id, userId]
     );
 
@@ -504,28 +497,19 @@ export async function deleteExpense(userId: string, id: string, applyToAllMonths
     const expense = expenseResult.rows[0];
     let targetIds: string[] = [id];
 
-    // Só aplica em todos os meses se for despesa fixa
     if (expense.type === 'fixed') {
-      // Se é uma cópia (tem base_expense_id), deleta o original e todas as cópias (incluindo esta)
-      if (expense.base_expense_id) {
-        targetIds = [expense.base_expense_id];
-        // Busca todas as cópias (incluindo esta)
-        const copiesResult = await pool.query(
-          'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
-          [expense.base_expense_id, userId]
-        );
-        targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-      } else if (expense.repeat_all_months) {
-        // Se é o original (repeat_all_months = true), deleta todas as cópias também
-        const copiesResult = await pool.query(
-          'SELECT id FROM expenses WHERE base_expense_id = $1 AND user_id = $2',
-          [id, userId]
-        );
-        targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-      }
+      // Para despesa fixa: apenas mês atual e meses seguintes
+      const baseId = expense.base_expense_id || id;
+      const currentYearMonth = expense.year_month;
+      const targetResult = await pool.query(
+        'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2) AND year_month >= $3',
+        [userId, baseId, currentYearMonth]
+      );
+      targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+      if (targetIds.length === 0) return;
     }
 
-    // Deleta todos os itens relacionados
+    // Deleta os itens (fixo: mês atual e seguintes; parcelado: todas as parcelas)
     await pool.query(
       'DELETE FROM expenses WHERE id = ANY($1::uuid[]) AND user_id = $2',
       [targetIds, userId]

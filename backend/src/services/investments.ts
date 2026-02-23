@@ -211,27 +211,18 @@ export async function updateInvestment(
 
   if (applyToAllMonths) {
     const investment = investmentResult.rows[0];
-    let targetIds: string[] = [id];
+    const baseId = investment.base_investment_id || id;
+    const currentYearMonth = investment.year_month;
 
-    // Se é uma cópia (tem base_investment_id), atualiza o original e todas as cópias
-    if (investment.base_investment_id) {
-      targetIds = [investment.base_investment_id];
-      // Busca todas as cópias (incluindo esta)
-      const copiesResult = await pool.query(
-        'SELECT id FROM investments WHERE base_investment_id = $1 AND user_id = $2',
-        [investment.base_investment_id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    } else if (investment.repeat_all_months) {
-      // Se é o original (repeat_all_months = true), atualiza todas as cópias também
-      const copiesResult = await pool.query(
-        'SELECT id FROM investments WHERE base_investment_id = $1 AND user_id = $2',
-        [id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    }
+    // Apenas mês atual e meses seguintes: original + cópias com year_month >= atual
+    const targetResult = await pool.query(
+      'SELECT id FROM investments WHERE user_id = $1 AND (id = $2 OR base_investment_id = $2) AND year_month >= $3',
+      [userId, baseId, currentYearMonth]
+    );
+    const targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+    if (targetIds.length === 0) return;
 
-    // Atualiza todos os itens relacionados
+    // Atualiza todos os itens relacionados (mês atual e seguintes)
     values.push(userId);
     const userIdParam = paramIndex;
     await pool.query(
@@ -257,9 +248,8 @@ export async function updateInvestment(
 
 export async function deleteInvestment(userId: string, id: string, applyToAllMonths = false): Promise<void> {
   if (applyToAllMonths) {
-    // Busca o item para verificar se é fixo
     const investmentResult = await pool.query(
-      'SELECT id, base_investment_id, repeat_all_months FROM investments WHERE id = $1 AND user_id = $2',
+      'SELECT id, base_investment_id, repeat_all_months, year_month FROM investments WHERE id = $1 AND user_id = $2',
       [id, userId]
     );
 
@@ -268,27 +258,18 @@ export async function deleteInvestment(userId: string, id: string, applyToAllMon
     }
 
     const investment = investmentResult.rows[0];
-    let targetIds: string[] = [id];
+    const baseId = investment.base_investment_id || id;
+    const currentYearMonth = investment.year_month;
 
-    // Se é uma cópia (tem base_investment_id), deleta o original e todas as cópias (incluindo esta)
-    if (investment.base_investment_id) {
-      targetIds = [investment.base_investment_id];
-      // Busca todas as cópias (incluindo esta)
-      const copiesResult = await pool.query(
-        'SELECT id FROM investments WHERE base_investment_id = $1 AND user_id = $2',
-        [investment.base_investment_id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    } else if (investment.repeat_all_months) {
-      // Se é o original (repeat_all_months = true), deleta todas as cópias também
-      const copiesResult = await pool.query(
-        'SELECT id FROM investments WHERE base_investment_id = $1 AND user_id = $2',
-        [id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    }
+    // Apenas mês atual e meses seguintes
+    const targetResult = await pool.query(
+      'SELECT id FROM investments WHERE user_id = $1 AND (id = $2 OR base_investment_id = $2) AND year_month >= $3',
+      [userId, baseId, currentYearMonth]
+    );
+    const targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+    if (targetIds.length === 0) return;
 
-    // Deleta todos os itens relacionados
+    // Deleta os itens do mês atual e seguintes
     await pool.query(
       'DELETE FROM investments WHERE id = ANY($1::uuid[]) AND user_id = $2',
       [targetIds, userId]

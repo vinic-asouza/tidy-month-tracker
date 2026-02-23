@@ -130,8 +130,12 @@ const ExpenseForm = ({
   const [valueError, setValueError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Sincroniza a data do formulário apenas ao editar (initialData definido). Em modo "adicionar",
+  // não sobrescreve itemDate para evitar resetar a data que o usuário acabou de selecionar.
   useEffect(() => {
-    setItemDate(initialData?.date ?? formatDateToYYYYMMDD(new Date()));
+    if (initialData !== undefined) {
+      setItemDate(initialData?.date ?? formatDateToYYYYMMDD(new Date()));
+    }
   }, [initialData]);
 
   // Build payment methods list with active credit cards
@@ -1352,12 +1356,13 @@ export const ExpenseSection = ({
           pendingAction === 'edit'
             ? editingExpense?.type === 'installment'
               ? 'Este gasto é parcelado. Deseja editar apenas esta parcela ou todas as parcelas?'
-              : 'Este gasto se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
+              : 'Este gasto se repete nos meses. Deseja editar apenas este mês ou em todos os meses seguintes?'
             : editingExpense?.type === 'installment'
               ? 'Este gasto é parcelado. Deseja excluir apenas esta parcela ou todas as parcelas?'
-              : 'Este gasto se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+              : 'Este gasto se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        applyToAllButtonLabel={editingExpense?.type === 'installment' ? undefined : (pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes')}
       />
 
       {/* Card Item Warning Dialog */}

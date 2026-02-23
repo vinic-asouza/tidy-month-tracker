@@ -233,27 +233,18 @@ export async function updateIncome(
 
   if (applyToAllMonths) {
     const income = incomeResult.rows[0];
-    let targetIds: string[] = [id];
+    const baseId = income.base_income_id || id;
+    const currentYearMonth = income.year_month;
 
-    // Se é uma cópia (tem base_income_id), atualiza o original e todas as cópias (incluindo esta)
-    if (income.base_income_id) {
-      targetIds = [income.base_income_id];
-      // Busca todas as cópias (incluindo esta)
-      const copiesResult = await pool.query(
-        'SELECT id FROM incomes WHERE base_income_id = $1 AND user_id = $2',
-        [income.base_income_id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    } else if (income.repeat_all_months) {
-      // Se é o original (repeat_all_months = true), atualiza todas as cópias também
-      const copiesResult = await pool.query(
-        'SELECT id FROM incomes WHERE base_income_id = $1 AND user_id = $2',
-        [id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    }
+    // Apenas mês atual e meses seguintes: original + cópias com year_month >= atual
+    const targetResult = await pool.query(
+      'SELECT id FROM incomes WHERE user_id = $1 AND (id = $2 OR base_income_id = $2) AND year_month >= $3',
+      [userId, baseId, currentYearMonth]
+    );
+    const targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+    if (targetIds.length === 0) return;
 
-    // Atualiza todos os itens relacionados
+    // Atualiza todos os itens relacionados (mês atual e seguintes)
     values.push(userId);
     const userIdParam = paramIndex;
     await pool.query(
@@ -282,9 +273,8 @@ export async function updateIncome(
  */
 export async function deleteIncome(userId: string, id: string, applyToAllMonths = false): Promise<void> {
   if (applyToAllMonths) {
-    // Busca o item para verificar se é fixo
     const incomeResult = await pool.query(
-      'SELECT id, base_income_id, repeat_all_months FROM incomes WHERE id = $1 AND user_id = $2',
+      'SELECT id, base_income_id, repeat_all_months, year_month FROM incomes WHERE id = $1 AND user_id = $2',
       [id, userId]
     );
 
@@ -293,27 +283,18 @@ export async function deleteIncome(userId: string, id: string, applyToAllMonths 
     }
 
     const income = incomeResult.rows[0];
-    let targetIds: string[] = [id];
+    const baseId = income.base_income_id || id;
+    const currentYearMonth = income.year_month;
 
-    // Se é uma cópia (tem base_income_id), deleta o original e todas as cópias (incluindo esta)
-    if (income.base_income_id) {
-      targetIds = [income.base_income_id];
-      // Busca todas as cópias (incluindo esta)
-      const copiesResult = await pool.query(
-        'SELECT id FROM incomes WHERE base_income_id = $1 AND user_id = $2',
-        [income.base_income_id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    } else if (income.repeat_all_months) {
-      // Se é o original (repeat_all_months = true), deleta todas as cópias também
-      const copiesResult = await pool.query(
-        'SELECT id FROM incomes WHERE base_income_id = $1 AND user_id = $2',
-        [id, userId]
-      );
-      targetIds.push(...copiesResult.rows.map((row: { id: string }) => row.id));
-    }
+    // Apenas mês atual e meses seguintes
+    const targetResult = await pool.query(
+      'SELECT id FROM incomes WHERE user_id = $1 AND (id = $2 OR base_income_id = $2) AND year_month >= $3',
+      [userId, baseId, currentYearMonth]
+    );
+    const targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+    if (targetIds.length === 0) return;
 
-    // Deleta todos os itens relacionados
+    // Deleta os itens do mês atual e seguintes
     await pool.query(
       'DELETE FROM incomes WHERE id = ANY($1::uuid[]) AND user_id = $2',
       [targetIds, userId]

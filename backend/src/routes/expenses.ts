@@ -9,12 +9,15 @@ import * as expensesService from '../services/expenses';
 
 const router = Router();
 
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD');
+
 const createExpenseSchema = z.object({
   type: z.enum(['fixed', 'variable', 'installment']),
   category: z.string().min(1, 'Categoria é obrigatória'),
   description: z.string().min(1, 'Descrição é obrigatória'),
   paymentMethod: z.string().min(1, 'Método de pagamento é obrigatório'),
   value: z.number().positive('Valor deve ser positivo'),
+  date: dateSchema.optional(),
   paid: z.boolean().optional(),
   repeatAllMonths: z.boolean().optional(),
   currentInstallment: z.number().int().positive().optional(),
@@ -26,6 +29,7 @@ const updateExpenseSchema = z.object({
   description: z.string().min(1).optional(),
   paymentMethod: z.string().min(1).optional(),
   value: z.number().positive().optional(),
+  date: dateSchema.optional().nullable(),
   paid: z.boolean().optional(),
   repeatAllMonths: z.boolean().optional(),
   currentInstallment: z.number().int().positive().optional(),

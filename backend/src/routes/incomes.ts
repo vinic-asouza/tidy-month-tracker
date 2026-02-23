@@ -22,6 +22,7 @@ const updateIncomeSchema = z.object({
   description: z.string().min(1).optional(),
   value: z.number().positive().optional(),
   tag: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD').optional().nullable(),
   received: z.boolean().optional(),
   repeatAllMonths: z.boolean().optional(),
 });

@@ -906,10 +906,11 @@ export const InvestmentSection = ({
         title={pendingAction === 'edit' ? 'Editar investimento fixo' : 'Excluir investimento fixo'}
         description={
           pendingAction === 'edit'
-            ? 'Este investimento se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
-            : 'Este investimento se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+            ? 'Este investimento se repete nos meses. Deseja editar apenas este mês ou em todos os meses seguintes?'
+            : 'Este investimento se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
       />
     </div>
   );

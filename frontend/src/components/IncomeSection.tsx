@@ -903,10 +903,11 @@ export const IncomeSection = ({
         title={pendingAction === 'edit' ? 'Editar entrada fixa' : 'Excluir entrada fixa'}
         description={
           pendingAction === 'edit'
-            ? 'Esta entrada se repete em todos os meses. Deseja editar apenas este mês ou em todos os meses?'
-            : 'Esta entrada se repete em todos os meses. Deseja excluir apenas este mês ou em todos os meses?'
+            ? 'Esta entrada se repete nos meses. Deseja editar apenas este mês ou em todos os meses seguintes?'
+            : 'Esta entrada se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
       />
     </div>
   );

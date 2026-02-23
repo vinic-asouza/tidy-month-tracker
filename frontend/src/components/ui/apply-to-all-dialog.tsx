@@ -17,6 +17,8 @@ interface ApplyToAllDialogProps {
   title: string;
   description: string;
   actionLabel: string; // Ex: "Editar" ou "Excluir"
+  /** Texto do botão que aplica em todos os meses seguintes. Ex: "Alterar todos os meses seguintes" ou "Excluir todos os meses seguintes" */
+  applyToAllButtonLabel?: string;
 }
 
 export const ApplyToAllDialog = ({
@@ -27,6 +29,7 @@ export const ApplyToAllDialog = ({
   title,
   description,
   actionLabel,
+  applyToAllButtonLabel,
 }: ApplyToAllDialogProps) => {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -48,7 +51,7 @@ export const ApplyToAllDialog = ({
             onClick={onApplyToAllMonths}
             className="rounded-xl w-full sm:w-auto sm:flex-shrink-0"
           >
-            {actionLabel} em todos os meses
+            {applyToAllButtonLabel ?? `${actionLabel} em todos os meses`}
           </AlertDialogAction>
         </div>
       </AlertDialogContent>
