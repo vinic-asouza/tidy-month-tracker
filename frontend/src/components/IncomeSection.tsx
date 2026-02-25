@@ -52,6 +52,8 @@ interface IncomeSectionProps {
   onDeleteTag: (tag: string) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
+  openAddDialog?: boolean;
+  onAddDialogClose?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -183,8 +185,14 @@ export const IncomeSection = ({
   onDeleteTag,
   selectedIds = new Set(),
   onSelectionChange,
+  openAddDialog,
+  onAddDialogClose,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (openAddDialog) setIsOpen(true);
+  }, [openAddDialog]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
@@ -460,18 +468,18 @@ export const IncomeSection = ({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm" 
-                className="rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Adicionar
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl">
+      </div>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            resetForm();
+            onAddDialogClose?.();
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingId ? 'Editar Entrada' : 'Nova Entrada'}
@@ -703,8 +711,6 @@ export const IncomeSection = ({
               </div>
           </DialogContent>
         </Dialog>
-        </div>
-      </div>
 
       {/* View Controls */}
       <div className="flex items-center justify-between mb-4 gap-2">
@@ -819,31 +825,27 @@ export const IncomeSection = ({
                   />
                 </div>
 
-                {/* Tag */}
+                {/* Esquerda: categoria, data, descrição */}
                 <Badge 
                   variant="secondary" 
                   className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light"
                 >
                   {income.tag}
                 </Badge>
-
-                {/* Data (dia/mês) + Description */}
                 <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
                   {formatItemDayMonth(income.date, income.createdAt)}
                 </span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground">
+                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
                   {income.description}
                 </span>
 
-                {/* Repeat indicator */}
-                {income.repeatAllMonths && (
-                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                )}
-
-                {/* Value */}
+                {/* Direita: valor, ícone recorrência */}
                 <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">
                   {formatCurrency(income.value)}
                 </span>
+                {income.repeatAllMonths && (
+                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                )}
 
                 {/* Actions - slide in from right */}
                 <div 

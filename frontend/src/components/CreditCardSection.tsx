@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2, AlertTriangle, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -47,6 +46,10 @@ interface CreditCardSectionProps {
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
   setCardPaidStatus: (cardId: string, paid: boolean) => Promise<boolean>;
+  /** Abre o dialog de novo cartão (controlado pelo FAB global) */
+  openAddDialog?: boolean;
+  /** Chamado quando o dialog de adicionar é fechado */
+  onAddDialogClose?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -78,8 +81,15 @@ export const CreditCardSection = ({
   cardNameExists,
   getCardPaidStatus,
   setCardPaidStatus,
+  openAddDialog,
+  onAddDialogClose,
 }: CreditCardSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (openAddDialog) setIsOpen(true);
+  }, [openAddDialog]);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0].id);
@@ -179,107 +189,98 @@ export const CreditCardSection = ({
     return (
       <div
         key={card.id}
-        className={`group relative overflow-hidden rounded-xl p-3 transition-all duration-300 hover-lift ${
+        className={`group relative overflow-hidden rounded-xl p-2.5 transition-all duration-300 hover-lift ${
           isPaid ? 'opacity-70' : ''
         }`}
       >
         {/* Card Background */}
         <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-90`} />
-        <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-white/10 -translate-y-10 translate-x-10" />
-        <div className="absolute bottom-0 left-0 w-16 h-16 rounded-full bg-white/5 translate-y-8 -translate-x-8" />
+
         
         {/* Content */}
         <div className="relative z-10">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <CreditCardIcon className="h-4 w-4 text-white/80" />
-              <span className="font-semibold text-white text-sm">{card.name}</span>
+          {/* Linha superior: nome à esquerda; checkbox "Fatura paga" + ações à direita */}
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <CreditCardIcon className="h-3.5 w-3.5 flex-shrink-0 text-white/80" />
+              <span className="font-semibold text-white text-sm truncate">{card.name}</span>
             </div>
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
-                onClick={() => handleEdit(card)}
+            <div className="flex items-center gap-2 flex-shrink-0 min-w-0 h-5">
+              <label
+                htmlFor={`card-paid-${card.id}`}
+                className="text-xs text-white/80 cursor-pointer flex items-center gap-1.5 whitespace-nowrap h-5"
               >
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-lg text-white/80 hover:text-white hover:bg-white/20"
-                onClick={() => handleDeleteAttempt(card)}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+                <Checkbox
+                  id={`card-paid-${card.id}`}
+                  checked={isPaid}
+                  onCheckedChange={(checked) => setCardPaidStatus(card.id, !!checked)}
+                  className="h-4 w-4 rounded-full border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900 flex-shrink-0"
+                />
+                Fatura paga
+              </label>
+              <div className="flex gap-0.5 w-0 overflow-hidden group-hover:w-12 transition-[width] duration-200 flex-shrink-0 h-5 items-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 rounded-md text-white/80 hover:text-white hover:bg-white/20 flex-shrink-0"
+                  onClick={() => handleEdit(card)}
+                >
+                  <Pencil className="h-2.5 w-2.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 rounded-md text-white/80 hover:text-white hover:bg-white/20 flex-shrink-0"
+                  onClick={() => handleDeleteAttempt(card)}
+                >
+                  <Trash2 className="h-2.5 w-2.5" />
+                </Button>
+              </div>
             </div>
           </div>
           
-          <div className="mb-2">
-            <p className="text-white/60 text-xs uppercase tracking-wider mb-0.5">Fatura</p>
-            <p className="text-lg font-bold text-white">
-              {formatCurrency(total)}
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2 pt-2 border-t border-white/20">
-            <Checkbox
-              id={`card-paid-${card.id}`}
-              checked={isPaid}
-              onCheckedChange={(checked) => setCardPaidStatus(card.id, !!checked)}
-              className="h-4 w-4 rounded-md border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900"
-            />
-            <label
-              htmlFor={`card-paid-${card.id}`}
-              className="text-xs text-white/80 cursor-pointer flex items-center gap-1"
-            >
-              Fatura paga
-            </label>
+          <div>
+            <p className="text-base font-bold text-white">{formatCurrency(total)}</p>
           </div>
         </div>
       </div>
     );
   };
 
-  // Render summary card (all cards combined)
+  // Render summary card (all cards combined) — mesmo estilo visual dos cartões individuais
   const renderSummaryCard = () => {
     const paidCount = creditCards.filter(c => getCardPaidStatus(c.id)).length;
     const allPaid = paidCount === creditCards.length && creditCards.length > 0;
     
     return (
       <div
-        className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${
+        className={`relative overflow-hidden rounded-xl p-2.5 transition-all duration-300 hover-lift ${
           allPaid ? 'opacity-70' : ''
         }`}
       >
-        {/* Credit section gradient background */}
-        <div className="absolute inset-0 gradient-credit opacity-95" />
-        <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-12 translate-x-12" />
-        <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-white/5 translate-y-10 -translate-x-10" />
-        <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full bg-white/5 -translate-x-1/2 -translate-y-1/2" />
+        {/* Card background — mesmo padrão dos individuais (gradient-credit) */}
+        <div className="absolute inset-0 gradient-credit opacity-90" />
         
-        {/* Content */}
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3">
-            <CreditCardIcon className="h-5 w-5 text-white/80" />
-            <span className="font-semibold text-white">Todos os Cartões</span>
+          {/* Linha superior: ícone + título (como nos cartões individuais) */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <CreditCardIcon className="h-3.5 w-3.5 flex-shrink-0 text-white/80" />
+            <span className="font-semibold text-white text-sm truncate">Todos os Cartões</span>
           </div>
           
-          <div className="mb-3">
-            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Total das Faturas</p>
-            <p className="text-2xl font-bold text-white">
-              {formatCurrency(totalInvoices)}
-            </p>
+          {/* Valor total — mesmo bloco Fatura / valor dos individuais */}
+          <div>
+            <p className="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Total das Faturas</p>
+            <p className="text-base font-bold text-white">{formatCurrency(totalInvoices)}</p>
           </div>
           
-          <div className="flex items-center gap-3 pt-3 border-t border-white/20">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-white/70">{creditCards.length} cartões</span>
-            </div>
+          {/* Informações extras: cartões e pagos */}
+          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/20">
+            <span className="text-[10px] text-white/70 uppercase tracking-wider">{creditCards.length} cartões</span>
             {paidCount > 0 && (
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-white/70" />
-                <span className="text-xs text-white/70">{paidCount} pagos</span>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-white/70 flex-shrink-0" />
+                <span className="text-[10px] text-white/70 uppercase tracking-wider">{paidCount} pagos</span>
               </div>
             )}
           </div>
@@ -303,17 +304,18 @@ export const CreditCardSection = ({
             </p>
           </div>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button 
-              size="sm" 
-              className="rounded-xl gradient-credit shadow-glow-credit hover:opacity-90 transition-opacity text-white border-0"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-2xl">
+      </div>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            resetForm();
+            onAddDialogClose?.();
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-semibold">
                 {editingId ? 'Editar Cartão' : 'Novo Cartão'}
@@ -372,7 +374,6 @@ export const CreditCardSection = ({
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* View Controls */}
       {creditCards.length > 0 && (

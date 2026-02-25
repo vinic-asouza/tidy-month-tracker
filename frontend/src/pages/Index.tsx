@@ -1,8 +1,13 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2, Moon, Sun } from 'lucide-react';
+import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { SummaryCards } from '@/components/SummaryCards';
 import { IncomeSection } from '@/components/IncomeSection';
 import { ExpenseSection } from '@/components/ExpenseSection';
@@ -28,6 +33,11 @@ const Index = () => {
   const [selectedIncomeIds, setSelectedIncomeIds] = useState<Set<string>>(new Set());
   const [selectedInvestmentIds, setSelectedInvestmentIds] = useState<Set<string>>(new Set());
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
+
+  // FAB: tipo de registro a adicionar (abre o dialog da seção correspondente)
+  type AddDialogType = 'income' | 'expense' | 'investment' | 'card' | null;
+  const [addDialogType, setAddDialogType] = useState<AddDialogType>(null);
+  const [fabPopoverOpen, setFabPopoverOpen] = useState(false);
   
   const { signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
@@ -400,6 +410,8 @@ const Index = () => {
                     onDeleteTag={deleteIncomeTag}
                     selectedIds={selectedIncomeIds}
                     onSelectionChange={handleIncomeSelectionChange}
+                    openAddDialog={addDialogType === 'income'}
+                    onAddDialogClose={() => setAddDialogType(null)}
                   />
                   <ExpenseSection
                     expenses={monthData.expenses}
@@ -416,6 +428,8 @@ const Index = () => {
                     onDeleteCategory={deleteExpenseCategory}
                     selectedIds={selectedExpenseIds}
                     onSelectionChange={handleExpenseSelectionChange}
+                    openAddDialog={addDialogType === 'expense'}
+                    onAddDialogClose={() => setAddDialogType(null)}
                   />
                 </div>
 
@@ -432,20 +446,24 @@ const Index = () => {
                     onDeleteTag={deleteInvestmentTag}
                     selectedIds={selectedInvestmentIds}
                     onSelectionChange={handleInvestmentSelectionChange}
+                    openAddDialog={addDialogType === 'investment'}
+                    onAddDialogClose={() => setAddDialogType(null)}
                   />
                   <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+3.5rem)]">
-                    <CreditCardSection
-                      creditCards={creditCards}
-                      currentMonth={currentMonth}
-                      onAdd={addCreditCard}
-                      onUpdate={updateCreditCard}
-                      onDelete={deleteCreditCard}
-                      getCardTotal={getCreditCardTotal}
-                      canDeleteCard={canDeleteCardSync}
-                      cardNameExists={cardNameExists}
-                      getCardPaidStatus={getCardPaidStatus}
-                      setCardPaidStatus={setCardPaidStatus}
-                    />
+                  <CreditCardSection
+                    creditCards={creditCards}
+                    currentMonth={currentMonth}
+                    onAdd={addCreditCard}
+                    onUpdate={updateCreditCard}
+                    onDelete={deleteCreditCard}
+                    getCardTotal={getCreditCardTotal}
+                    canDeleteCard={canDeleteCardSync}
+                    cardNameExists={cardNameExists}
+                    getCardPaidStatus={getCardPaidStatus}
+                    setCardPaidStatus={setCardPaidStatus}
+                    openAddDialog={addDialogType === 'card'}
+                    onAddDialogClose={() => setAddDialogType(null)}
+                  />
                   </div>
                 </div>
               </div>
@@ -474,6 +492,84 @@ const Index = () => {
               )}
             </div>
           )
+        )}
+
+        {/* FAB: Adicionar item — centralizado, efeito glass e hover scale */}
+        {view === 'dashboard' && (
+          <div
+            className="fixed left-0 right-0 z-40 flex justify-center pointer-events-none px-4"
+            style={{ bottom: hasSelections ? '5.5rem' : '1.5rem' }}
+          >
+            <Popover open={fabPopoverOpen} onOpenChange={setFabPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  className={`h-12 px-4 gap-2 rounded-2xl shadow-lg transition-all duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 pointer-events-auto ${
+                    isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-black/90'
+                  }`}
+                  aria-label="Adicionar item"
+                >
+                  <Plus className="h-5 w-5" />
+                  Adicionar item
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-56 p-2 rounded-xl glass border border-border/50"
+                align="center"
+                side="top"
+                sideOffset={8}
+              >
+                <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Adicionar
+                </p>
+                <div className="grid gap-0.5">
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 rounded-lg text-income hover:bg-income-light hover:text-income"
+                    onClick={() => {
+                      setAddDialogType('income');
+                      setFabPopoverOpen(false);
+                    }}
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    Entrada
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 rounded-lg text-expense hover:bg-expense-light hover:text-expense"
+                    onClick={() => {
+                      setAddDialogType('expense');
+                      setFabPopoverOpen(false);
+                    }}
+                  >
+                    <TrendingDown className="h-4 w-4" />
+                    Gasto
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 rounded-lg text-investment hover:bg-investment-light hover:text-investment"
+                    onClick={() => {
+                      setAddDialogType('investment');
+                      setFabPopoverOpen(false);
+                    }}
+                  >
+                    <PiggyBank className="h-4 w-4" />
+                    Investimento
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 rounded-lg text-credit hover:bg-credit-light hover:text-credit"
+                    onClick={() => {
+                      setAddDialogType('card');
+                      setFabPopoverOpen(false);
+                    }}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Cartão
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         )}
       </main>
 

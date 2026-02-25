@@ -1,5 +1,5 @@
 import { useState, useMemo, ReactNode, useEffect } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -38,6 +37,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
@@ -62,6 +62,10 @@ interface ExpenseSectionProps {
   onDeleteCategory: (category: string) => Promise<void> | void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
+  /** Abre o dialog de novo gasto (controlado pelo FAB global) */
+  openAddDialog?: boolean;
+  /** Chamado quando o dialog de adicionar é fechado */
+  onAddDialogClose?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -355,12 +359,18 @@ const ExpenseForm = ({
   );
 };
 
-// Payment method color mapping
+// Ícones e cores para formas de pagamento (não-cartão) — tons que se diferem dos cartões
+const PAYMENT_METHOD_ICONS: Record<string, { Icon: React.ComponentType<{ className?: string }>; className: string }> = {
+  dinheiro: { Icon: Banknote, className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200' },
+  pix: { Icon: CircleDollarSign, className: 'bg-amber-100 text-amber-700 dark:bg-amber-800 dark:text-amber-200' },
+  débito: { Icon: Landmark, className: 'bg-orange-100 text-orange-700 dark:bg-orange-800 dark:text-orange-200' },
+  boleto: { Icon: FileText, className: 'bg-sky-100 text-sky-700 dark:bg-sky-800 dark:text-sky-200' },
+};
+
+// Payment method style: cartão (gradiente) ou não-cartão (retorna ícone + classe para badge redonda)
 const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardType[]) => {
-  // Check if it's a credit card payment
   const creditCard = creditCards.find(c => c.name === paymentMethod);
   if (creditCard) {
-    // Get card color from CARD_COLORS - use gradient background matching the card with white text
     const gradientMap: Record<string, string> = {
       'violet': 'bg-gradient-to-br from-violet-500 to-purple-600 text-white',
       'orange': 'bg-gradient-to-br from-orange-500 to-red-500 text-white',
@@ -374,33 +384,17 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
     };
     return {
       className: gradientMap[creditCard.color] || 'bg-muted text-muted-foreground',
-      isCard: true,
+      isCard: true as const,
+      iconConfig: null,
     };
   }
-
-  // Standard payment methods - lighter background with stronger text color
-  switch (paymentMethod.toLowerCase()) {
-    case 'dinheiro':
-      return {
-        className: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-      };
-    case 'pix':
-      return {
-        className: 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300',
-      };
-    case 'débito':
-      return {
-        className: 'bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
-      };
-    case 'boleto':
-      return {
-        className: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300',
-      };
-    default:
-      return {
-        className: 'bg-muted text-muted-foreground',
-      };
-  }
+  const key = paymentMethod.toLowerCase();
+  const iconConfig = PAYMENT_METHOD_ICONS[key] ?? { Icon: Receipt, className: 'bg-muted text-muted-foreground' };
+  return {
+    className: iconConfig.className,
+    isCard: false as const,
+    iconConfig,
+  };
 };
 
 const ExpenseItem = ({
@@ -433,6 +427,7 @@ const ExpenseItem = ({
     : null;
 
   const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
+  const PaymentIcon = !style.isCard && style.iconConfig ? style.iconConfig.Icon : null;
   const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
 
   return (
@@ -467,34 +462,24 @@ const ExpenseItem = ({
         )}
       </div>
 
-      {/* Category */}
+      {/* Esquerda: categoria, data, descrição */}
       <Badge
         variant="secondary"
         className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-expense-light"
       >
         {expense.category}
       </Badge>
-
-      {/* Data (dia/mês) + Description */}
       <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
         {formatItemDayMonth(expense.date, expense.createdAt)}
       </span>
-      <span className="flex-1 text-sm font-medium truncate text-foreground">
+      <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
         {expense.description}
       </span>
 
-      {/* Payment Method Badge */}
-      <Badge
-        variant="secondary"
-        className={`text-xs rounded-md px-2 py-0.5 flex-shrink-0 hidden sm:inline-flex border-0 cursor-default hover:opacity-100 ${style.className}`}
-      >
-        {style.isCard && (
-          <CreditCard className="h-3 w-3 mr-1" />
-        )}
-        <span>{expense.paymentMethod}</span>
-      </Badge>
-
-      {/* Installment */}
+      {/* Direita: valor, parcela (só se houver), ícone cartão (só se for cartão), ícone recorrência (só se houver) */}
+      <span className="font-bold whitespace-nowrap text-sm flex-shrink-0 text-expense">
+        {formatCurrency(expense.value)}
+      </span>
       {installmentText && (
         <Badge
           variant="secondary"
@@ -503,16 +488,33 @@ const ExpenseItem = ({
           {installmentText}
         </Badge>
       )}
-
-      {/* Repeat indicator */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="hidden sm:inline-flex flex-shrink-0">
+            {style.isCard ? (
+              <Badge
+                variant="secondary"
+                className={`text-xs rounded-full flex-shrink-0 border-0 cursor-default hover:opacity-100 p-1 ${style.className}`}
+              >
+                <CreditCard className="h-3 w-3" />
+              </Badge>
+            ) : PaymentIcon ? (
+              <Badge
+                variant="secondary"
+                className={`text-xs rounded-full flex-shrink-0 border-0 cursor-default hover:opacity-100 p-1 ${style.className}`}
+              >
+                <PaymentIcon className="h-3 w-3" />
+              </Badge>
+            ) : null}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {expense.paymentMethod}
+        </TooltipContent>
+      </Tooltip>
       {expense.repeatAllMonths && (
         <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
       )}
-
-      {/* Value */}
-      <span className="font-bold whitespace-nowrap text-sm flex-shrink-0 text-expense">
-        {formatCurrency(expense.value)}
-      </span>
 
       {/* Actions */}
       <div 
@@ -665,8 +667,14 @@ export const ExpenseSection = ({
   onDeleteCategory,
   selectedIds = new Set(),
   onSelectionChange,
+  openAddDialog,
+  onAddDialogClose,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (openAddDialog) setIsOpen(true);
+  }, [openAddDialog]);
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
@@ -1061,18 +1069,18 @@ export const ExpenseSection = ({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditingExpense(null); }}>
-            <DialogTrigger asChild>
-              <Button
-                size="sm"
-                className="rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Adicionar
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl max-w-md">
+      </div>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setEditingExpense(null);
+            onAddDialogClose?.();
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingExpense ? 'Editar Gasto' : 'Novo Gasto'}
@@ -1230,9 +1238,7 @@ export const ExpenseSection = ({
                 ))}
               </Tabs>
             </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      </Dialog>
 
       {/* View Controls */}
       <div className="flex items-center justify-between mb-4 gap-2">

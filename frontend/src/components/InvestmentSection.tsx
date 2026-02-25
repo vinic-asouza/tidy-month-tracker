@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -52,6 +51,10 @@ interface InvestmentSectionProps {
   onDeleteTag: (tag: string) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
+  /** Abre o dialog de novo investimento (controlado pelo FAB global) */
+  openAddDialog?: boolean;
+  /** Chamado quando o dialog de adicionar é fechado */
+  onAddDialogClose?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -183,8 +186,15 @@ export const InvestmentSection = ({
   onDeleteTag,
   selectedIds = new Set(),
   onSelectionChange,
+  openAddDialog,
+  onAddDialogClose,
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (openAddDialog) setIsOpen(true);
+  }, [openAddDialog]);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
@@ -462,18 +472,18 @@ export const InvestmentSection = ({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm" 
-                className="rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Adicionar
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl">
+      </div>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            resetForm();
+            onAddDialogClose?.();
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingId ? 'Editar Investimento' : 'Novo Investimento'}
@@ -706,11 +716,9 @@ export const InvestmentSection = ({
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
 
       {/* View Controls */}
-        <div className="flex items-center justify-between mb-4 gap-2">
+      <div className="flex items-center justify-between mb-4 gap-2">
         {/* View Mode Toggle */}
         <ToggleGroup
           type="single"
@@ -738,8 +746,8 @@ export const InvestmentSection = ({
 
         {/* Sort Dropdown */}
         <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-        <Button
+          <DropdownMenuTrigger asChild>
+            <Button
               variant="ghost"
               size="sm"
               className="rounded-lg h-7 px-2.5 text-xs gap-1 text-investment hover:text-investment hover:bg-investment-light"
@@ -822,31 +830,27 @@ export const InvestmentSection = ({
                   />
                 </div>
 
-                {/* Tag */}
+                {/* Esquerda: categoria, data, descrição */}
                 <Badge 
                   variant="secondary" 
                   className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light"
                 >
                   {investment.tag}
                 </Badge>
-
-                {/* Data (dia/mês) + Description */}
                 <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
                   {formatItemDayMonth(investment.date, investment.createdAt)}
                 </span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground">
+                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
                   {investment.description}
                 </span>
 
-                {/* Repeat indicator */}
-                {investment.repeatAllMonths && (
-                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                )}
-
-                {/* Value */}
+                {/* Direita: valor, ícone recorrência */}
                 <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">
                   {formatCurrency(investment.value)}
                 </span>
+                {investment.repeatAllMonths && (
+                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                )}
 
                 {/* Actions */}
                 <div 
