@@ -1,5 +1,5 @@
 import { useState, useMemo, ReactNode, useEffect } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -693,6 +693,30 @@ export const ExpenseSection = ({
   const [isCategoryLoading, setIsCategoryLoading] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
+  const INITIAL_ITEMS_LIMIT = 10;
+  const [showAllFixed, setShowAllFixed] = useState(false);
+  const [showAllInstallment, setShowAllInstallment] = useState(false);
+  const [showAllVariable, setShowAllVariable] = useState(false);
+  const [isCollapsingFixed, setIsCollapsingFixed] = useState(false);
+  const [isCollapsingInstallment, setIsCollapsingInstallment] = useState(false);
+  const [isCollapsingVariable, setIsCollapsingVariable] = useState(false);
+
+  useEffect(() => {
+    if (!isCollapsingFixed) return;
+    const t = setTimeout(() => { setShowAllFixed(false); setIsCollapsingFixed(false); }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingFixed]);
+  useEffect(() => {
+    if (!isCollapsingInstallment) return;
+    const t = setTimeout(() => { setShowAllInstallment(false); setIsCollapsingInstallment(false); }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingInstallment]);
+  useEffect(() => {
+    if (!isCollapsingVariable) return;
+    const t = setTimeout(() => { setShowAllVariable(false); setIsCollapsingVariable(false); }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingVariable]);
+
   // Category management handlers
   const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
@@ -920,6 +944,11 @@ export const ExpenseSection = ({
     emptyMessage,
     groupTotal,
     groupCreditCards,
+    initialLimit = 10,
+    showAll = false,
+    isCollapsing = false,
+    onShowAll,
+    onRecolherClick,
   }: {
     title: string;
     icon: typeof Receipt;
@@ -928,7 +957,18 @@ export const ExpenseSection = ({
     emptyMessage: string;
     groupTotal: number;
     groupCreditCards: CreditCardType[];
+    initialLimit?: number;
+    showAll?: boolean;
+    isCollapsing?: boolean;
+    onShowAll?: () => void;
+    onRecolherClick?: () => void;
   }) => {
+    const isExpandedOrCollapsing = showAll || isCollapsing;
+    const displayedList = isExpandedOrCollapsing || list.length <= initialLimit ? list : list.slice(0, initialLimit);
+    const firstPart = displayedList.slice(0, initialLimit);
+    const restPart = displayedList.slice(initialLimit);
+    const hasMore = list.length > initialLimit && !showAll && !isCollapsing;
+    const isExpanded = showAll && list.length > initialLimit && !isCollapsing;
     const handleItemClick = (expense: Expense) => (e: React.MouseEvent) => {
       // Don't trigger selection if clicking on checkbox or action buttons
       const target = e.target as HTMLElement;
@@ -967,7 +1007,7 @@ export const ExpenseSection = ({
           </p>
         ) : (
           <div className="space-y-1">
-            {list.map((expense) => (
+            {firstPart.map((expense) => (
               <ExpenseItem
                 key={expense.id}
                 expense={expense}
@@ -983,6 +1023,51 @@ export const ExpenseSection = ({
                 onItemClick={handleItemClick(expense)}
               />
             ))}
+            {restPart.length > 0 && (
+              <div className={cn('space-y-1', isCollapsing && 'collapse-out')}>
+                {restPart.map((expense, index) => {
+                  const isNewlyExpanded = showAll && !isCollapsing;
+                  return (
+                    <div
+                      key={expense.id}
+                      className={cn(isNewlyExpanded && 'expand-in')}
+                      style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
+                    >
+                      <ExpenseItem
+                        expense={expense}
+                        creditCards={groupCreditCards}
+                        isLinkedToCard={isExpenseLinkedToCard(expense)}
+                        isCardPaid={isExpenseCardPaid(expense)}
+                        onTogglePaid={() => handleTogglePaid(expense)}
+                        onUpdate={onUpdate}
+                        onDelete={handleDeleteRequest}
+                        onEdit={handleEdit}
+                        onCardItemClick={() => setCardWarningOpen(true)}
+                        isSelected={selectedIds.has(expense.id)}
+                        onItemClick={handleItemClick(expense)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {(hasMore && onShowAll) || isExpanded || isCollapsing ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-2 text-expense hover:bg-expense-light hover:text-expense rounded-xl gap-1.5 disabled:opacity-70"
+                onClick={hasMore ? onShowAll : onRecolherClick}
+                disabled={isCollapsing}
+              >
+                {isCollapsing ? (
+                  <>Recolhendo...</>
+                ) : isExpanded ? (
+                  <><ChevronUp className="h-4 w-4" />Recolher</>
+                ) : (
+                  <><ChevronDown className="h-4 w-4" />Visualizar todos ({list.length})</>
+                )}
+              </Button>
+            ) : null}
           </div>
         )}
       </div>
@@ -1040,7 +1125,7 @@ export const ExpenseSection = ({
   };
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
+    <div className="bg-card rounded-2xl p-6 card-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -1307,6 +1392,11 @@ export const ExpenseSection = ({
               emptyMessage="Nenhum gasto fixo"
               groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
               groupCreditCards={creditCards}
+              initialLimit={INITIAL_ITEMS_LIMIT}
+              showAll={showAllFixed}
+              isCollapsing={isCollapsingFixed}
+              onShowAll={() => setShowAllFixed(true)}
+              onRecolherClick={() => setIsCollapsingFixed(true)}
             />
             <ExpenseGroup
               title="Gastos Parcelados"
@@ -1316,6 +1406,11 @@ export const ExpenseSection = ({
               emptyMessage="Nenhum gasto parcelado"
               groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
               groupCreditCards={creditCards}
+              initialLimit={INITIAL_ITEMS_LIMIT}
+              showAll={showAllInstallment}
+              isCollapsing={isCollapsingInstallment}
+              onShowAll={() => setShowAllInstallment(true)}
+              onRecolherClick={() => setIsCollapsingInstallment(true)}
             />
             <ExpenseGroup
               title="Gastos Variáveis"
@@ -1325,6 +1420,11 @@ export const ExpenseSection = ({
               emptyMessage="Nenhum gasto variável"
               groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
               groupCreditCards={creditCards}
+              initialLimit={INITIAL_ITEMS_LIMIT}
+              showAll={showAllVariable}
+              isCollapsing={isCollapsingVariable}
+              onShowAll={() => setShowAllVariable(true)}
+              onRecolherClick={() => setIsCollapsingVariable(true)}
             />
           </>
         ) : (

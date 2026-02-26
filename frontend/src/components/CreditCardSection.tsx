@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2, AlertTriangle, List, LayoutGrid, ArrowUpDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2, AlertTriangle, List, LayoutGrid, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -124,6 +124,30 @@ export const CreditCardSection = ({
   };
 
   const sortedCards = useMemo(() => sortCards(creditCards), [creditCards, sortOption]);
+
+  const INITIAL_ITEMS_LIMIT = 10;
+  const [showAllCards, setShowAllCards] = useState(false);
+  const [isCollapsingCards, setIsCollapsingCards] = useState(false);
+  const isExpandedOrCollapsingCards = showAllCards || isCollapsingCards;
+  const displayedCards = isExpandedOrCollapsingCards ? sortedCards : sortedCards.slice(0, INITIAL_ITEMS_LIMIT);
+  const hasMoreCards = sortedCards.length > INITIAL_ITEMS_LIMIT;
+  const firstPartCards = displayedCards.slice(0, INITIAL_ITEMS_LIMIT);
+  const restPartCards = displayedCards.slice(INITIAL_ITEMS_LIMIT);
+
+  const handleExpandCollapseCards = () => {
+    if (isCollapsingCards) return;
+    if (showAllCards) setIsCollapsingCards(true);
+    else setShowAllCards(true);
+  };
+
+  useEffect(() => {
+    if (!isCollapsingCards) return;
+    const t = setTimeout(() => {
+      setShowAllCards(false);
+      setIsCollapsingCards(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingCards]);
 
   const resetForm = () => {
     setName('');
@@ -290,7 +314,7 @@ export const CreditCardSection = ({
   };
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
+    <div className="bg-card rounded-2xl p-6 card-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -445,8 +469,45 @@ export const CreditCardSection = ({
           </p>
         </div>
       ) : viewMode === 'general' ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {sortedCards.map(renderCard)}
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {firstPartCards.map((card) => (
+              <div key={card.id}>{renderCard(card)}</div>
+            ))}
+            {restPartCards.length > 0 && (
+              <div className={isCollapsingCards ? 'collapse-out grid gap-3 sm:grid-cols-2 col-span-full' : 'grid gap-3 sm:grid-cols-2 col-span-full'}>
+                {restPartCards.map((card, index) => {
+                  const isNewlyExpanded = showAllCards && !isCollapsingCards;
+                  return (
+                    <div
+                      key={card.id}
+                      className={isNewlyExpanded ? 'expand-in' : ''}
+                      style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
+                    >
+                      {renderCard(card)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {hasMoreCards && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-credit hover:bg-credit-light hover:text-credit rounded-xl gap-1.5 disabled:opacity-70"
+              onClick={handleExpandCollapseCards}
+              disabled={isCollapsingCards}
+            >
+              {isCollapsingCards ? (
+                <>Recolhendo...</>
+              ) : showAllCards ? (
+                <><ChevronUp className="h-4 w-4" />Recolher</>
+              ) : (
+                <><ChevronDown className="h-4 w-4" />Visualizar todos ({sortedCards.length})</>
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         renderSummaryCard()

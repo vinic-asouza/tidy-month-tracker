@@ -1,14 +1,11 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { BarChart3, Loader2 } from 'lucide-react';
-import { MonthData, FinanceSettings, CreditCard } from '@/types/finance';
-import { FinancialRuleSection } from './FinancialRuleSection';
+import { MonthData, CreditCard } from '@/types/finance';
 
 interface StatisticsProps {
   yearData: MonthData[];
   currentYear: number;
-  monthData: MonthData;
-  settings: FinanceSettings;
   creditCards: CreditCard[];
   isLoading?: boolean;
 }
@@ -25,7 +22,7 @@ const MONTH_NAMES = [
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
 ];
 
-export const Statistics = ({ yearData, currentYear, monthData, settings, creditCards, isLoading = false }: StatisticsProps) => {
+export const Statistics = ({ yearData, currentYear, creditCards, isLoading = false }: StatisticsProps) => {
   // Função auxiliar para calcular gastos pagos considerando cartões de crédito
   const calculatePaidExpenses = (month: MonthData) => {
     return month.expenses.reduce((sum, expense) => {
@@ -82,9 +79,6 @@ export const Statistics = ({ yearData, currentYear, monthData, settings, creditC
 
   return (
     <div className="space-y-6">
-      {/* Financial Rule Section */}
-      <FinancialRuleSection monthData={monthData} settings={settings} />
-
       {/* Year Summary */}
       <div className="bg-card rounded-2xl p-6 card-shadow">
         {isLoading ? (

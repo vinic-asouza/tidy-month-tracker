@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -221,9 +221,34 @@ export const InvestmentSection = ({
   const [valueError, setValueError] = useState<string | null>(null);
   const [tagError, setTagError] = useState<string | null>(null);
 
+  const INITIAL_ITEMS_LIMIT = 10;
+
   // Apply sorting and grouping
   const sortedInvestments = useMemo(() => sortInvestments(investments, sortOption), [investments, sortOption]);
   const groupedByInstitution = useMemo(() => groupByInstitution(investments, sortOption), [investments, sortOption]);
+
+  const [showAllInvestments, setShowAllInvestments] = useState(false);
+  const [isCollapsingInvestments, setIsCollapsingInvestments] = useState(false);
+  const isExpandedOrCollapsingInv = showAllInvestments || isCollapsingInvestments;
+  const displayedInvestments = isExpandedOrCollapsingInv ? sortedInvestments : sortedInvestments.slice(0, INITIAL_ITEMS_LIMIT);
+  const hasMoreInvestments = sortedInvestments.length > INITIAL_ITEMS_LIMIT;
+  const firstPartInv = displayedInvestments.slice(0, INITIAL_ITEMS_LIMIT);
+  const restPartInv = displayedInvestments.slice(INITIAL_ITEMS_LIMIT);
+
+  const handleExpandCollapseInvestments = () => {
+    if (isCollapsingInvestments) return;
+    if (showAllInvestments) setIsCollapsingInvestments(true);
+    else setShowAllInvestments(true);
+  };
+
+  useEffect(() => {
+    if (!isCollapsingInvestments) return;
+    const t = setTimeout(() => {
+      setShowAllInvestments(false);
+      setIsCollapsingInvestments(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingInvestments]);
   
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
@@ -448,7 +473,7 @@ export const InvestmentSection = ({
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
+    <div className="bg-card rounded-2xl p-6 card-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -784,99 +809,102 @@ export const InvestmentSection = ({
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
-          {sortedInvestments.map((investment) => {
+          {firstPartInv.map((investment) => {
             const isSelected = selectedIds.has(investment.id);
-            
             const handleItemClick = (e: React.MouseEvent) => {
-              // Don't trigger selection if clicking on checkbox or action buttons
               const target = e.target as HTMLElement;
-              if (
-                target.closest('button') ||
-                target.closest('[role="checkbox"]') ||
-                target.closest('.group-hover\\:w-16')
-              ) {
-                return;
-              }
-              
+              if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
               if (onSelectionChange) {
                 const newSelection = new Set(selectedIds);
-                if (isSelected) {
-                  newSelection.delete(investment.id);
-                } else {
-                  newSelection.add(investment.id);
-                }
+                if (isSelected) newSelection.delete(investment.id);
+                else newSelection.add(investment.id);
                 onSelectionChange(newSelection);
               }
             };
-
             return (
               <div
                 key={investment.id}
                 onClick={handleItemClick}
-                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 ${
-                  isSelected 
-                    ? 'bg-muted/70 cursor-pointer' 
-                    : investment.invested 
-                      ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' 
-                      : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
-                }`}
-              >
-                {/* Checkbox */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={investment.invested}
-                    onCheckedChange={() => handleToggleInvested(investment)}
-                    className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0"
-                  />
-                </div>
-
-                {/* Esquerda: categoria, data, descrição */}
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light"
-                >
-                  {investment.tag}
-                </Badge>
-                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
-                  {formatItemDayMonth(investment.date, investment.createdAt)}
-                </span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
-                  {investment.description}
-                </span>
-
-                {/* Direita: valor, ícone recorrência */}
-                <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">
-                  {formatCurrency(investment.value)}
-                </span>
-                {investment.repeatAllMonths && (
-                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                className={cn(
+                  'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                  isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 )}
-
-                {/* Actions */}
-                <div 
-                  className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => handleEdit(investment)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => handleDeleteClick(investment.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
+              >
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0" />
+                </div>
+                <Badge variant="secondary" className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light">{investment.tag}</Badge>
+                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{investment.description}</span>
+                <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">{formatCurrency(investment.value)}</span>
+                {investment.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                 </div>
               </div>
             );
           })}
+          {restPartInv.length > 0 && (
+            <div className={cn('space-y-1', isCollapsingInvestments && 'collapse-out')}>
+              {restPartInv.map((investment, index) => {
+                const isSelected = selectedIds.has(investment.id);
+                const isNewlyExpanded = showAllInvestments && !isCollapsingInvestments;
+                const handleItemClick = (e: React.MouseEvent) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+                  if (onSelectionChange) {
+                    const newSelection = new Set(selectedIds);
+                    if (isSelected) newSelection.delete(investment.id);
+                    else newSelection.add(investment.id);
+                    onSelectionChange(newSelection);
+                  }
+                };
+                return (
+                  <div
+                    key={investment.id}
+                    onClick={handleItemClick}
+                    className={cn(
+                      'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                      isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
+                      isNewlyExpanded && 'expand-in'
+                    )}
+                    style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
+                  >
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0" />
+                    </div>
+                    <Badge variant="secondary" className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light">{investment.tag}</Badge>
+                    <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+                    <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{investment.description}</span>
+                    <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">{formatCurrency(investment.value)}</span>
+                    {investment.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                    <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {viewMode === 'general' && hasMoreInvestments && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 text-investment hover:bg-investment-light hover:text-investment rounded-xl gap-1.5 disabled:opacity-70"
+              onClick={handleExpandCollapseInvestments}
+              disabled={isCollapsingInvestments}
+            >
+              {isCollapsingInvestments ? (
+                <>Recolhendo...</>
+              ) : showAllInvestments ? (
+                <><ChevronUp className="h-4 w-4" />Recolher</>
+              ) : (
+                <><ChevronDown className="h-4 w-4" />Visualizar todos ({sortedInvestments.length})</>
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-1">

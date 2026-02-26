@@ -248,6 +248,28 @@
     }
   }
 
+  /* Expand list items with staggered fade-in */
+  .expand-in {
+    opacity: 0;
+    animation: animate-in 0.35s ease-out forwards;
+  }
+
+  /* Collapse: fade-out + slide up */
+  .collapse-out {
+    animation: collapse-out 0.3s ease-in forwards;
+  }
+
+  @keyframes collapse-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
   /* Dialog animations - smooth center fade + scale */
   .dialog-content {
     animation: none !important;

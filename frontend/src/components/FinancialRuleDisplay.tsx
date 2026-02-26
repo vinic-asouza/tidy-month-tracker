@@ -5,11 +5,12 @@
  */
 
 import { useMemo } from 'react';
-import { Receipt, ShoppingBag, PiggyBank } from 'lucide-react';
+import { AlertTriangle, Smile, Frown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { FinancialRule, MonthData, FinancialRuleStats } from '@/types/domain';
 import { calculateFinancialRuleStats } from '@/utils/financialRuleCalculations';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface FinancialRuleDisplayProps {
   rule: FinancialRule;
@@ -57,21 +58,9 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium">{label}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">
-              {color === 'investment' ? 'Meta' : 'Limite'}: {target.toFixed(1)}%
-            </span>
-            <span className={cn(
-              'font-semibold',
-              color === 'investment'
-                ? 'text-investment'
-                : isOverTarget
-                  ? 'text-expense'
-                  : 'text-income'
-            )}>
-              Atual: {current.toFixed(1)}%
-            </span>
-          </div>
+          <span className="text-muted-foreground">
+            {color === 'investment' ? 'Meta' : 'Limite'}: {target.toFixed(1)}%
+          </span>
         </div>
         <div className="relative h-8 rounded-xl bg-muted/30 overflow-visible">
           {/* Barra da Limite (atrás) */}
@@ -148,11 +137,108 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     );
   };
 
+  // Linha de valores: "R$ atual de R$ limite" + diferença colorida + alertas
+  const ValuesLine = ({
+    currentValue,
+    targetValue,
+    differenceValue,
+    differencePercent,
+    kind,
+  }: {
+    currentValue: number;
+    targetValue: number;
+    differenceValue: number;
+    differencePercent: number;
+    kind: 'expense' | 'investment';
+  }) => {
+    // Se não há diferença em valor, mostramos apenas os valores base
+    if (differenceValue === 0) {
+      return (
+        <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
+          <span>
+            {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
+          </span>
+        </p>
+      );
+    }
+
+    let displayText: string;
+    let displayClass: string;
+
+    if (kind === 'expense') {
+      // Para essenciais e estilo de vida, interpretamos como SALDO:
+      // saldo = limite - atual -> > 0 = abaixo do limite (bom / positivo), < 0 = acima (ruim / negativo)
+      const saldo = targetValue - currentValue;
+      const saldoAbs = Math.abs(saldo);
+
+      // Se por algum motivo saldo for 0 mas differenceValue não (edge raro), tratamos como sem diferença visível
+      if (saldoAbs === 0) {
+        return (
+          <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
+            <span>
+              {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
+            </span>
+          </p>
+        );
+      }
+
+      const isPositive = saldo > 0;
+      // Sinal invertido em relação ao gasto bruto:
+      // + para saldo positivo (abaixo do limite), - para saldo negativo (acima do limite)
+      displayText = `${isPositive ? '+' : '-'}${formatCurrency(saldoAbs)}`;
+      displayClass = isPositive ? 'text-income' : 'text-expense';
+    } else {
+      // Para investimentos, usamos a diferença direta: > 0 = acima da meta (bom), < 0 = abaixo (ruim)
+      const diffAbs = Math.abs(differenceValue);
+      const isPositive = differenceValue > 0;
+
+      displayText = `${isPositive ? '+' : '-'}${formatCurrency(diffAbs)}`;
+      displayClass = isPositive ? 'text-investment' : 'text-expense';
+    }
+
+    return (
+      <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
+        <span>
+          {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
+        </span>
+        <span className="flex items-center gap-2">
+          {/* Alertas para gastos essenciais/estilo de vida acima do limite */}
+          {kind === 'expense' && differencePercent > 0 && (
+            <Badge
+              variant="outline"
+              className="h-6 px-2 rounded-full border-none bg-expense-light text-expense text-[11px] font-medium gap-1"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {differencePercent.toFixed(1)}% acima do limite
+            </Badge>
+          )}
+
+          {/* Alerta para investimento: abaixo da meta */}
+          {kind === 'investment' && differencePercent < 0 && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full">
+              <Frown className="h-3 w-3" />
+              Faltam {Math.abs(differencePercent).toFixed(1)}% para meta
+            </span>
+          )}
+          {/* Feedback para investimento acima da meta */}
+          {kind === 'investment' && differencePercent > 0 && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full">
+              <Smile className="h-3 w-3" />
+              {differencePercent.toFixed(1)}% acima da meta
+            </span>
+          )}
+
+          <span className={cn('font-semibold tabular-nums', displayClass)}>
+            {displayText}
+          </span>
+        </span>
+      </p>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* BLOCO ÚNICO: Renda + Regra + Gráfico + Informações */}
       <div>
-        {/* Renda do mês */}
         <p className="text-sm text-muted-foreground mb-2">
           Renda do mês:{' '}
           <span className="font-semibold text-foreground">
@@ -160,145 +246,51 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
           </span>
         </p>
 
-        {/* Gráfico + Bloco Informativo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          {/* Gráfico (barras) */}
-          <div className="space-y-4">
+        <div className="space-y-5">
+          <div className="space-y-2">
             <ProgressBar
               current={stats.essentials.current}
               target={stats.essentials.target}
               label="Essenciais"
               color="expense"
             />
+            <ValuesLine
+              currentValue={stats.essentials.currentValue}
+              targetValue={stats.essentials.targetValue}
+              differenceValue={stats.essentials.differenceValue}
+              differencePercent={stats.essentials.difference}
+              kind="expense"
+            />
+          </div>
+          <div className="space-y-2">
             <ProgressBar
               current={stats.lifestyle.current}
               target={stats.lifestyle.target}
               label="Estilo de Vida"
               color="expense"
             />
+            <ValuesLine
+              currentValue={stats.lifestyle.currentValue}
+              targetValue={stats.lifestyle.targetValue}
+              differenceValue={stats.lifestyle.differenceValue}
+              differencePercent={stats.lifestyle.difference}
+              kind="expense"
+            />
+          </div>
+          <div className="space-y-2">
             <ProgressBar
               current={stats.investments.current}
               target={stats.investments.target}
               label="Investimentos"
               color="investment"
             />
-          </div>
-
-          {/* Bloco Informativo (valores monetários) */}
-          <div className="space-y-0 rounded-xl border bg-muted/20 p-4 text-sm">
-            {/* Essenciais */}
-            <div className="space-y-1.5 pb-4">
-              <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Essenciais</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Limite</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.essentials.targetValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Atual</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.essentials.currentValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Diferença</span>
-                  <p className={cn(
-                    'font-semibold',
-                    stats.essentials.differenceValue > 0
-                      ? 'text-expense'
-                      : stats.essentials.differenceValue < 0
-                        ? 'text-income'
-                        : 'text-foreground'
-                  )}>
-                    {stats.essentials.differenceValue > 0 ? '+' : ''}
-                    {formatCurrency(stats.essentials.differenceValue)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-border/50 my-2" />
-
-            {/* Estilo de Vida */}
-            <div className="space-y-1.5 pb-4 pt-2">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Estilo de Vida</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Limite</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.lifestyle.targetValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Atual</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.lifestyle.currentValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Diferença</span>
-                  <p className={cn(
-                    'font-semibold',
-                    stats.lifestyle.differenceValue > 0
-                      ? 'text-expense'
-                      : stats.lifestyle.differenceValue < 0
-                        ? 'text-income'
-                        : 'text-foreground'
-                  )}>
-                    {stats.lifestyle.differenceValue > 0 ? '+' : ''}
-                    {formatCurrency(stats.lifestyle.differenceValue)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-border/50 my-2" />
-
-            {/* Investimentos */}
-            <div className="space-y-1.5 pt-2">
-              <div className="flex items-center gap-2">
-                <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Investimentos</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Meta</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.investments.targetValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Atual</span>
-                  <p className="font-semibold text-foreground">
-                    {formatCurrency(stats.investments.currentValue)}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs text-muted-foreground">Diferença</span>
-                  <p className={cn(
-                    'font-semibold',
-                    stats.investments.differenceValue < 0
-                      ? 'text-expense'
-                      : stats.investments.differenceValue > 0
-                        ? 'text-investment'
-                        : 'text-foreground'
-                  )}>
-                    {stats.investments.differenceValue > 0 ? '+' : ''}
-                    {formatCurrency(stats.investments.differenceValue)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ValuesLine
+              currentValue={stats.investments.currentValue}
+              targetValue={stats.investments.targetValue}
+              differenceValue={stats.investments.differenceValue}
+              differencePercent={stats.investments.difference}
+              kind="investment"
+            />
           </div>
         </div>
       </div>

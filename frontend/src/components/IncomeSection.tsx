@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -219,9 +219,37 @@ export const IncomeSection = ({
   const [valueError, setValueError] = useState<string | null>(null);
   const [tagError, setTagError] = useState<string | null>(null);
 
+  const INITIAL_ITEMS_LIMIT = 10;
+
   // Apply sorting and grouping
   const sortedIncomes = useMemo(() => sortIncomes(incomes, sortOption), [incomes, sortOption]);
   const groupedByCategory = useMemo(() => groupByCategory(incomes, sortOption), [incomes, sortOption]);
+
+  const [showAllIncomes, setShowAllIncomes] = useState(false);
+  const [isCollapsingIncomes, setIsCollapsingIncomes] = useState(false);
+  const isExpandedOrCollapsing = showAllIncomes || isCollapsingIncomes;
+  const displayedIncomes = isExpandedOrCollapsing ? sortedIncomes : sortedIncomes.slice(0, INITIAL_ITEMS_LIMIT);
+  const hasMoreIncomes = sortedIncomes.length > INITIAL_ITEMS_LIMIT;
+  const firstPart = displayedIncomes.slice(0, INITIAL_ITEMS_LIMIT);
+  const restPart = displayedIncomes.slice(INITIAL_ITEMS_LIMIT);
+
+  const handleExpandCollapseIncomes = () => {
+    if (isCollapsingIncomes) return;
+    if (showAllIncomes) {
+      setIsCollapsingIncomes(true);
+    } else {
+      setShowAllIncomes(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!isCollapsingIncomes) return;
+    const t = setTimeout(() => {
+      setShowAllIncomes(false);
+      setIsCollapsingIncomes(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [isCollapsingIncomes]);
   
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
@@ -444,7 +472,7 @@ export const IncomeSection = ({
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all duration-300">
+    <div className="bg-card rounded-2xl p-6 card-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -779,99 +807,102 @@ export const IncomeSection = ({
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
-          {sortedIncomes.map((income) => {
+          {firstPart.map((income) => {
             const isSelected = selectedIds.has(income.id);
-            
             const handleItemClick = (e: React.MouseEvent) => {
-              // Don't trigger selection if clicking on checkbox or action buttons
               const target = e.target as HTMLElement;
-              if (
-                target.closest('button') ||
-                target.closest('[role="checkbox"]') ||
-                target.closest('.group-hover\\:w-16')
-              ) {
-                return;
-              }
-              
+              if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
               if (onSelectionChange) {
                 const newSelection = new Set(selectedIds);
-                if (isSelected) {
-                  newSelection.delete(income.id);
-                } else {
-                  newSelection.add(income.id);
-                }
+                if (isSelected) newSelection.delete(income.id);
+                else newSelection.add(income.id);
                 onSelectionChange(newSelection);
               }
             };
-
             return (
               <div
                 key={income.id}
                 onClick={handleItemClick}
-                className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 ${
-                  isSelected 
-                    ? 'bg-muted/70 cursor-pointer' 
-                    : income.received 
-                      ? 'bg-income-light cursor-pointer hover:bg-income-light/80' 
-                      : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
-                }`}
-              >
-                {/* Checkbox */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={income.received}
-                    onCheckedChange={() => handleToggleReceived(income)}
-                    className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0"
-                  />
-                </div>
-
-                {/* Esquerda: categoria, data, descrição */}
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light"
-                >
-                  {income.tag}
-                </Badge>
-                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
-                  {formatItemDayMonth(income.date, income.createdAt)}
-                </span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
-                  {income.description}
-                </span>
-
-                {/* Direita: valor, ícone recorrência */}
-                <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">
-                  {formatCurrency(income.value)}
-                </span>
-                {income.repeatAllMonths && (
-                  <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                className={cn(
+                  'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                  isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 )}
-
-                {/* Actions - slide in from right */}
-                <div 
-                  className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => handleEdit(income)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg hover:bg-muted"
-                    onClick={() => handleDeleteClick(income.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
+              >
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0" />
+                </div>
+                <Badge variant="secondary" className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light">{income.tag}</Badge>
+                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(income.date, income.createdAt)}</span>
+                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{income.description}</span>
+                <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">{formatCurrency(income.value)}</span>
+                {income.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                 </div>
               </div>
             );
           })}
+          {restPart.length > 0 && (
+            <div className={cn('space-y-1', isCollapsingIncomes && 'collapse-out')}>
+              {restPart.map((income, index) => {
+                const isSelected = selectedIds.has(income.id);
+                const isNewlyExpanded = showAllIncomes && !isCollapsingIncomes;
+                const handleItemClick = (e: React.MouseEvent) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+                  if (onSelectionChange) {
+                    const newSelection = new Set(selectedIds);
+                    if (isSelected) newSelection.delete(income.id);
+                    else newSelection.add(income.id);
+                    onSelectionChange(newSelection);
+                  }
+                };
+                return (
+                  <div
+                    key={income.id}
+                    onClick={handleItemClick}
+                    className={cn(
+                      'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                      isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
+                      isNewlyExpanded && 'expand-in'
+                    )}
+                    style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
+                  >
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0" />
+                    </div>
+                    <Badge variant="secondary" className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light">{income.tag}</Badge>
+                    <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(income.date, income.createdAt)}</span>
+                    <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{income.description}</span>
+                    <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">{formatCurrency(income.value)}</span>
+                    {income.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                    <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {viewMode === 'general' && hasMoreIncomes && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 text-income hover:bg-income-light hover:text-income rounded-xl gap-1.5 disabled:opacity-70"
+              onClick={handleExpandCollapseIncomes}
+              disabled={isCollapsingIncomes}
+            >
+              {isCollapsingIncomes ? (
+                <>Recolhendo...</>
+              ) : showAllIncomes ? (
+                <><ChevronUp className="h-4 w-4" />Recolher</>
+              ) : (
+                <><ChevronDown className="h-4 w-4" />Visualizar todos ({sortedIncomes.length})</>
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-1">

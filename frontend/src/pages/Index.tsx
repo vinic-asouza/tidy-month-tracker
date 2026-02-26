@@ -8,12 +8,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { SummaryCards } from '@/components/SummaryCards';
+import { SaldosSection } from '@/components/SaldosSection';
 import { IncomeSection } from '@/components/IncomeSection';
 import { ExpenseSection } from '@/components/ExpenseSection';
 import { CreditCardSection } from '@/components/CreditCardSection';
 import { InvestmentSection } from '@/components/InvestmentSection';
 import { Statistics } from '@/components/Statistics';
+import { FinancialRuleSection } from '@/components/FinancialRuleSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
 import { useAuth } from '@/contexts/AuthContext';
@@ -235,9 +236,9 @@ const Index = () => {
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
       )}
-      {/* Header Flutuante */}
-      <header 
-        className="sticky top-4 z-50 mx-4 mt-4 rounded-2xl glass border border-border/50 card-shadow"
+      {/* Header */}
+      <header
+        className="sticky top-0 z-50 w-full glass border-b border-border"
         style={{ '--header-height': '64px' } as React.CSSProperties}
       >
         <div className="container mx-auto px-4 py-3 relative">
@@ -280,7 +281,7 @@ const Index = () => {
                     }`}
                   >
                     <Wallet className="h-4 w-4" />
-                    Controle
+                    Mensal
                   </Button>
                   <Button
                     variant={view === 'statistics' ? 'default' : 'ghost'}
@@ -292,7 +293,7 @@ const Index = () => {
                     }`}
                   >
                     <BarChart3 className="h-4 w-4" />
-                    Estatísticas
+                    Anual
                   </Button>
                 </div>
                 <Button
@@ -366,7 +367,7 @@ const Index = () => {
                 }`}
               >
                 <Wallet className="h-4 w-4" />
-                Controle
+                Mensal
               </Button>
               <Button
                 variant={view === 'statistics' ? 'default' : 'outline'}
@@ -376,7 +377,7 @@ const Index = () => {
                 }`}
               >
                 <BarChart3 className="h-4 w-4" />
-                Estatísticas
+                Anual
               </Button>
             </nav>
           )}
@@ -392,10 +393,19 @@ const Index = () => {
             </div>
           ) : (
             <div className="animate-fade-in space-y-6">
-              {/* Summary Cards */}
-              <SummaryCards monthData={monthData} />
+              {/* Estatísticas do Mês */}
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                Estatísticas do Mês
+              </h2>
+              <div className="grid lg:grid-cols-2 gap-6">
+                <SaldosSection monthData={monthData} />
+                <FinancialRuleSection monthData={monthData} settings={settings} />
+              </div>
 
-              {/* Main Grid */}
+              {/* Registros do Mês */}
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                Registros do Mês
+              </h2>
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <div className="space-y-6">
@@ -433,7 +443,7 @@ const Index = () => {
                   />
                 </div>
 
-                {/* Right Column - Sticky Credit Cards */}
+                {/* Right Column */}
                 <div className="space-y-6">
                   <InvestmentSection
                     investments={monthData.investments}
@@ -484,8 +494,6 @@ const Index = () => {
                 <Statistics
                   yearData={yearData}
                   currentYear={currentYear}
-                  monthData={monthData}
-                  settings={settings}
                   creditCards={creditCards}
                   isLoading={loadingYearData && yearData.length > 0}
                 />
