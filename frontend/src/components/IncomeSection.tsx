@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -227,11 +227,25 @@ export const IncomeSection = ({
 
   const [showAllIncomes, setShowAllIncomes] = useState(false);
   const [isCollapsingIncomes, setIsCollapsingIncomes] = useState(false);
+  const expandAnimationPlayedRef = useRef(false);
   const isExpandedOrCollapsing = showAllIncomes || isCollapsingIncomes;
   const displayedIncomes = isExpandedOrCollapsing ? sortedIncomes : sortedIncomes.slice(0, INITIAL_ITEMS_LIMIT);
   const hasMoreIncomes = sortedIncomes.length > INITIAL_ITEMS_LIMIT;
   const firstPart = displayedIncomes.slice(0, INITIAL_ITEMS_LIMIT);
   const restPart = displayedIncomes.slice(INITIAL_ITEMS_LIMIT);
+  const shouldPlayExpandAnimation = showAllIncomes && !isCollapsingIncomes && !expandAnimationPlayedRef.current;
+
+  useEffect(() => {
+    if (!showAllIncomes) {
+      expandAnimationPlayedRef.current = false;
+      return;
+    }
+    if (isCollapsingIncomes) return;
+    const t = setTimeout(() => {
+      expandAnimationPlayedRef.current = true;
+    }, 500);
+    return () => clearTimeout(t);
+  }, [showAllIncomes, isCollapsingIncomes]);
 
   const handleExpandCollapseIncomes = () => {
     if (isCollapsingIncomes) return;
@@ -368,6 +382,7 @@ export const IncomeSection = ({
     }
     resetForm();
     setIsOpen(false);
+    onAddDialogClose?.();
   };
 
   const handleEdit = (income: IncomeEntry) => {
@@ -847,7 +862,7 @@ export const IncomeSection = ({
             <div className={cn('space-y-1', isCollapsingIncomes && 'collapse-out')}>
               {restPart.map((income, index) => {
                 const isSelected = selectedIds.has(income.id);
-                const isNewlyExpanded = showAllIncomes && !isCollapsingIncomes;
+                const isNewlyExpanded = shouldPlayExpandAnimation;
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
                   if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;

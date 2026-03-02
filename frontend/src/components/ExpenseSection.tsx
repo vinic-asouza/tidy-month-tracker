@@ -1,4 +1,4 @@
-import { useState, useMemo, ReactNode, useEffect } from 'react';
+import { useState, useMemo, ReactNode, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -717,6 +717,29 @@ export const ExpenseSection = ({
     return () => clearTimeout(t);
   }, [isCollapsingVariable]);
 
+  const expandAnimationPlayedFixedRef = useRef(false);
+  const expandAnimationPlayedInstallmentRef = useRef(false);
+  const expandAnimationPlayedVariableRef = useRef(false);
+
+  useEffect(() => {
+    if (!showAllFixed) { expandAnimationPlayedFixedRef.current = false; return; }
+    if (isCollapsingFixed) return;
+    const t = setTimeout(() => { expandAnimationPlayedFixedRef.current = true; }, 500);
+    return () => clearTimeout(t);
+  }, [showAllFixed, isCollapsingFixed]);
+  useEffect(() => {
+    if (!showAllInstallment) { expandAnimationPlayedInstallmentRef.current = false; return; }
+    if (isCollapsingInstallment) return;
+    const t = setTimeout(() => { expandAnimationPlayedInstallmentRef.current = true; }, 500);
+    return () => clearTimeout(t);
+  }, [showAllInstallment, isCollapsingInstallment]);
+  useEffect(() => {
+    if (!showAllVariable) { expandAnimationPlayedVariableRef.current = false; return; }
+    if (isCollapsingVariable) return;
+    const t = setTimeout(() => { expandAnimationPlayedVariableRef.current = true; }, 500);
+    return () => clearTimeout(t);
+  }, [showAllVariable, isCollapsingVariable]);
+
   // Category management handlers
   const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
@@ -830,6 +853,7 @@ export const ExpenseSection = ({
     }
     setIsOpen(false);
     setEditingExpense(null);
+    onAddDialogClose?.();
   };
 
   const handleEdit = (expense: Expense) => {
@@ -947,6 +971,7 @@ export const ExpenseSection = ({
     initialLimit = 10,
     showAll = false,
     isCollapsing = false,
+    shouldPlayExpandAnimation = false,
     onShowAll,
     onRecolherClick,
   }: {
@@ -960,6 +985,7 @@ export const ExpenseSection = ({
     initialLimit?: number;
     showAll?: boolean;
     isCollapsing?: boolean;
+    shouldPlayExpandAnimation?: boolean;
     onShowAll?: () => void;
     onRecolherClick?: () => void;
   }) => {
@@ -1026,7 +1052,7 @@ export const ExpenseSection = ({
             {restPart.length > 0 && (
               <div className={cn('space-y-1', isCollapsing && 'collapse-out')}>
                 {restPart.map((expense, index) => {
-                  const isNewlyExpanded = showAll && !isCollapsing;
+                  const isNewlyExpanded = shouldPlayExpandAnimation;
                   return (
                     <div
                       key={expense.id}
@@ -1395,6 +1421,7 @@ export const ExpenseSection = ({
               initialLimit={INITIAL_ITEMS_LIMIT}
               showAll={showAllFixed}
               isCollapsing={isCollapsingFixed}
+              shouldPlayExpandAnimation={showAllFixed && !isCollapsingFixed && !expandAnimationPlayedFixedRef.current}
               onShowAll={() => setShowAllFixed(true)}
               onRecolherClick={() => setIsCollapsingFixed(true)}
             />
@@ -1409,6 +1436,7 @@ export const ExpenseSection = ({
               initialLimit={INITIAL_ITEMS_LIMIT}
               showAll={showAllInstallment}
               isCollapsing={isCollapsingInstallment}
+              shouldPlayExpandAnimation={showAllInstallment && !isCollapsingInstallment && !expandAnimationPlayedInstallmentRef.current}
               onShowAll={() => setShowAllInstallment(true)}
               onRecolherClick={() => setIsCollapsingInstallment(true)}
             />
@@ -1423,6 +1451,7 @@ export const ExpenseSection = ({
               initialLimit={INITIAL_ITEMS_LIMIT}
               showAll={showAllVariable}
               isCollapsing={isCollapsingVariable}
+              shouldPlayExpandAnimation={showAllVariable && !isCollapsingVariable && !expandAnimationPlayedVariableRef.current}
               onShowAll={() => setShowAllVariable(true)}
               onRecolherClick={() => setIsCollapsingVariable(true)}
             />

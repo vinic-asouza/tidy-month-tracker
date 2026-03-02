@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -229,11 +229,25 @@ export const InvestmentSection = ({
 
   const [showAllInvestments, setShowAllInvestments] = useState(false);
   const [isCollapsingInvestments, setIsCollapsingInvestments] = useState(false);
+  const expandAnimationPlayedRef = useRef(false);
   const isExpandedOrCollapsingInv = showAllInvestments || isCollapsingInvestments;
   const displayedInvestments = isExpandedOrCollapsingInv ? sortedInvestments : sortedInvestments.slice(0, INITIAL_ITEMS_LIMIT);
   const hasMoreInvestments = sortedInvestments.length > INITIAL_ITEMS_LIMIT;
   const firstPartInv = displayedInvestments.slice(0, INITIAL_ITEMS_LIMIT);
   const restPartInv = displayedInvestments.slice(INITIAL_ITEMS_LIMIT);
+  const shouldPlayExpandAnimation = showAllInvestments && !isCollapsingInvestments && !expandAnimationPlayedRef.current;
+
+  useEffect(() => {
+    if (!showAllInvestments) {
+      expandAnimationPlayedRef.current = false;
+      return;
+    }
+    if (isCollapsingInvestments) return;
+    const t = setTimeout(() => {
+      expandAnimationPlayedRef.current = true;
+    }, 500);
+    return () => clearTimeout(t);
+  }, [showAllInvestments, isCollapsingInvestments]);
 
   const handleExpandCollapseInvestments = () => {
     if (isCollapsingInvestments) return;
@@ -312,6 +326,7 @@ export const InvestmentSection = ({
     }
     resetForm();
     setIsOpen(false);
+    onAddDialogClose?.();
   };
 
   const handleEdit = (investment: Investment) => {
@@ -849,7 +864,7 @@ export const InvestmentSection = ({
             <div className={cn('space-y-1', isCollapsingInvestments && 'collapse-out')}>
               {restPartInv.map((investment, index) => {
                 const isSelected = selectedIds.has(investment.id);
-                const isNewlyExpanded = showAllInvestments && !isCollapsingInvestments;
+                const isNewlyExpanded = shouldPlayExpandAnimation;
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
                   if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;

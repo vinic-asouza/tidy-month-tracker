@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon, CheckCircle2, AlertTriangle, List, LayoutGrid, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,11 +128,25 @@ export const CreditCardSection = ({
   const INITIAL_ITEMS_LIMIT = 10;
   const [showAllCards, setShowAllCards] = useState(false);
   const [isCollapsingCards, setIsCollapsingCards] = useState(false);
+  const expandAnimationPlayedRef = useRef(false);
   const isExpandedOrCollapsingCards = showAllCards || isCollapsingCards;
   const displayedCards = isExpandedOrCollapsingCards ? sortedCards : sortedCards.slice(0, INITIAL_ITEMS_LIMIT);
   const hasMoreCards = sortedCards.length > INITIAL_ITEMS_LIMIT;
   const firstPartCards = displayedCards.slice(0, INITIAL_ITEMS_LIMIT);
   const restPartCards = displayedCards.slice(INITIAL_ITEMS_LIMIT);
+  const shouldPlayExpandAnimation = showAllCards && !isCollapsingCards && !expandAnimationPlayedRef.current;
+
+  useEffect(() => {
+    if (!showAllCards) {
+      expandAnimationPlayedRef.current = false;
+      return;
+    }
+    if (isCollapsingCards) return;
+    const t = setTimeout(() => {
+      expandAnimationPlayedRef.current = true;
+    }, 500);
+    return () => clearTimeout(t);
+  }, [showAllCards, isCollapsingCards]);
 
   const handleExpandCollapseCards = () => {
     if (isCollapsingCards) return;
@@ -174,6 +188,7 @@ export const CreditCardSection = ({
     }
     resetForm();
     setIsOpen(false);
+    onAddDialogClose?.();
   };
 
   const handleEdit = (card: CreditCard) => {
@@ -476,9 +491,9 @@ export const CreditCardSection = ({
             ))}
             {restPartCards.length > 0 && (
               <div className={isCollapsingCards ? 'collapse-out grid gap-3 sm:grid-cols-2 col-span-full' : 'grid gap-3 sm:grid-cols-2 col-span-full'}>
-                {restPartCards.map((card, index) => {
-                  const isNewlyExpanded = showAllCards && !isCollapsingCards;
-                  return (
+            {restPartCards.map((card, index) => {
+              const isNewlyExpanded = shouldPlayExpandAnimation;
+              return (
                     <div
                       key={card.id}
                       className={isNewlyExpanded ? 'expand-in' : ''}
