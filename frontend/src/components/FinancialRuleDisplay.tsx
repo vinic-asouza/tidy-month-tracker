@@ -56,13 +56,13 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
           <span className="font-medium">{label}</span>
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground text-xs sm:text-sm tabular-nums">
             {color === 'investment' ? 'Meta' : 'Limite'}: {target.toFixed(1)}%
           </span>
         </div>
-        <div className="relative h-8 rounded-xl bg-muted/30 overflow-visible">
+        <div className="relative h-7 sm:h-8 rounded-xl bg-muted/30 overflow-visible">
           {/* Barra da Limite (atrás) */}
           {targetPercentage <= 100 && (
             <div
@@ -154,8 +154,8 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     // Se não há diferença em valor, mostramos apenas os valores base
     if (differenceValue === 0) {
       return (
-        <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
-          <span>
+        <p className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="tabular-nums">
             {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
           </span>
         </p>
@@ -174,8 +174,8 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
       // Se por algum motivo saldo for 0 mas differenceValue não (edge raro), tratamos como sem diferença visível
       if (saldoAbs === 0) {
         return (
-          <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
-            <span>
+          <p className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <span className="tabular-nums">
               {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
             </span>
           </p>
@@ -197,33 +197,33 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     }
 
     return (
-      <p className="text-sm text-muted-foreground flex items-center justify-between gap-2">
-        <span>
+      <div className="flex flex-col gap-1.5 sm:gap-0 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
+        <span className="tabular-nums order-2 sm:order-1">
           {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
         </span>
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2 order-1 sm:order-2">
           {/* Alertas para gastos essenciais/estilo de vida acima do limite */}
           {kind === 'expense' && differencePercent > 0 && (
             <Badge
               variant="outline"
-              className="h-6 px-2 rounded-full border-none bg-expense-light text-expense text-[11px] font-medium gap-1"
+              className="h-6 px-2 rounded-full border-none bg-expense-light text-expense text-[10px] sm:text-[11px] font-medium gap-1 w-fit"
             >
-              <AlertTriangle className="h-3 w-3" />
-              {differencePercent.toFixed(1)}% acima do limite
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="whitespace-nowrap">{differencePercent.toFixed(1)}% acima do limite</span>
             </Badge>
           )}
 
           {/* Alerta para investimento: abaixo da meta */}
           {kind === 'investment' && differencePercent < 0 && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full">
-              <Frown className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <Frown className="h-3 w-3 shrink-0" />
               Faltam {Math.abs(differencePercent).toFixed(1)}% para meta
             </span>
           )}
           {/* Feedback para investimento acima da meta */}
           {kind === 'investment' && differencePercent > 0 && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full">
-              <Smile className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <Smile className="h-3 w-3 shrink-0" />
               {differencePercent.toFixed(1)}% acima da meta
             </span>
           )}
@@ -232,22 +232,22 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
             {displayText}
           </span>
         </span>
-      </p>
+      </div>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <p className="text-sm text-muted-foreground mb-2">
+        <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-2">
           Renda do mês:{' '}
-          <span className="font-semibold text-foreground">
+          <span className="font-semibold text-foreground tabular-nums">
             {formatCurrency(totalIncome)}
           </span>
         </p>
 
-        <div className="space-y-5">
-          <div className="space-y-2">
+        <div className="space-y-4 sm:space-y-5">
+          <div className="space-y-1.5 sm:space-y-2">
             <ProgressBar
               current={stats.essentials.current}
               target={stats.essentials.target}
@@ -262,7 +262,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
               kind="expense"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             <ProgressBar
               current={stats.lifestyle.current}
               target={stats.lifestyle.target}
@@ -277,7 +277,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
               kind="expense"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             <ProgressBar
               current={stats.investments.current}
               target={stats.investments.target}

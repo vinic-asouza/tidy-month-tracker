@@ -184,20 +184,22 @@ export const FinancialRuleSetup = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Configurar Regra Financeira</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-xl w-[min(100vw-1.5rem,36rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1 sm:space-y-1.5 text-left">
+          <DialogTitle className="text-base sm:text-lg">
+            Configurar Regra Financeira
+          </DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             Configure sua regra financeira personalizada para acompanhar seus gastos
           </DialogDescription>
         </DialogHeader>
 
         {/* Indicador de progresso */}
-        <div className="flex items-center justify-center gap-2 py-4">
-          <div className={cn('flex items-center gap-2', step >= 1 && 'text-primary')}>
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-4">
+          <div className={cn('flex items-center gap-1.5 sm:gap-2', step >= 1 && 'text-primary')}>
             <div
               className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold',
+                'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0',
                 step === 1
                   ? 'bg-primary text-primary-foreground'
                   : step > 1
@@ -205,15 +207,15 @@ export const FinancialRuleSetup = ({
                     : 'bg-muted text-muted-foreground'
               )}
             >
-              {step > 1 ? <CheckCircle2 className="h-4 w-4" /> : '1'}
+              {step > 1 ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : '1'}
             </div>
-            <span className="text-sm font-medium hidden sm:inline">Escolher Modelo</span>
+            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Escolher Modelo</span>
           </div>
-          <div className="w-12 h-0.5 bg-muted" />
-          <div className={cn('flex items-center gap-2', step >= 2 && 'text-primary')}>
+          <div className="w-8 sm:w-12 h-0.5 bg-muted shrink-0" />
+          <div className={cn('flex items-center gap-1.5 sm:gap-2', step >= 2 && 'text-primary')}>
             <div
               className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold',
+                'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0',
                 step === 2
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground'
@@ -221,30 +223,40 @@ export const FinancialRuleSetup = ({
             >
               2
             </div>
-            <span className="text-sm font-medium hidden sm:inline">Mapear Categorias</span>
+            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Mapear Categorias</span>
           </div>
         </div>
 
         {/* Conteúdo do passo 1 */}
         {step === 1 && (
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
             <div>
-              <Label className="text-base font-semibold mb-4 block">Escolha o modelo de regra</Label>
-              <RadioGroup value={ruleModel} onValueChange={(value) => setRuleModel(value as RuleModel)}>
-                <div className="flex items-center space-x-2 p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer">
-                  <RadioGroupItem value="default" id="default" />
-                  <Label htmlFor="default" className="flex-1 cursor-pointer">
-                    <div className="font-semibold">Regra 50/30/20 (Padrão)</div>
-                    <div className="text-sm text-muted-foreground">
+              <Label className="text-sm sm:text-base font-semibold mb-3 sm:mb-4 block">
+                Escolha o modelo de regra
+              </Label>
+              <RadioGroup
+                value={ruleModel}
+                onValueChange={(value) => setRuleModel(value as RuleModel)}
+                className="space-y-2"
+              >
+                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
+                  <RadioGroupItem value="default" id="default" className="mt-0.5 sm:mt-0 shrink-0" />
+                  <Label htmlFor="default" className="flex-1 cursor-pointer min-w-0">
+                    <div className="font-semibold text-sm sm:text-base">
+                      Regra 50/30/20 (Padrão)
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                       50% Essenciais, 30% Estilo de Vida, 20% Investimentos
                     </div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer">
-                  <RadioGroupItem value="custom" id="custom" />
-                  <Label htmlFor="custom" className="flex-1 cursor-pointer">
-                    <div className="font-semibold">Personalizar Regra</div>
-                    <div className="text-sm text-muted-foreground">
+                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
+                  <RadioGroupItem value="custom" id="custom" className="mt-0.5 sm:mt-0 shrink-0" />
+                  <Label htmlFor="custom" className="flex-1 cursor-pointer min-w-0">
+                    <div className="font-semibold text-sm sm:text-base">
+                      Personalizar Regra
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                       Defina seus próprios percentuais
                     </div>
                   </Label>
@@ -267,10 +279,7 @@ export const FinancialRuleSetup = ({
                       step="0.01"
                       value={essentialsPercentage}
                       onChange={(e) => setEssentialsPercentage(e.target.value)}
-                      className={cn(
-                        'h-9 text-sm',
-                        errors.essentials && 'border-destructive'
-                      )}
+                      className={cn('h-9 text-sm', errors.essentials && 'border-destructive')}
                     />
                     {errors.essentials && (
                       <p className="text-xs text-destructive">{errors.essentials}</p>
@@ -288,10 +297,7 @@ export const FinancialRuleSetup = ({
                       step="0.01"
                       value={lifestylePercentage}
                       onChange={(e) => setLifestylePercentage(e.target.value)}
-                      className={cn(
-                        'h-9 text-sm',
-                        errors.lifestyle && 'border-destructive'
-                      )}
+                      className={cn('h-9 text-sm', errors.lifestyle && 'border-destructive')}
                     />
                     {errors.lifestyle && (
                       <p className="text-xs text-destructive">{errors.lifestyle}</p>
@@ -309,10 +315,7 @@ export const FinancialRuleSetup = ({
                       step="0.01"
                       value={investmentsPercentage}
                       onChange={(e) => setInvestmentsPercentage(e.target.value)}
-                      className={cn(
-                        'h-9 text-sm',
-                        errors.investments && 'border-destructive'
-                      )}
+                      className={cn('h-9 text-sm', errors.investments && 'border-destructive')}
                     />
                     {errors.investments && (
                       <p className="text-xs text-destructive">{errors.investments}</p>
@@ -325,12 +328,14 @@ export const FinancialRuleSetup = ({
                     <AlertDescription>{errors.sum}</AlertDescription>
                   </Alert>
                 )}
-                <div className="text-xs text-muted-foreground">
-                  Soma: {(
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  Soma:{' '}
+                  {(
                     parseFloat(essentialsPercentage || '0') +
                     parseFloat(lifestylePercentage || '0') +
                     parseFloat(investmentsPercentage || '0')
-                  ).toFixed(2)}%
+                  ).toFixed(2)}
+                  %
                 </div>
               </div>
             )}
@@ -339,49 +344,56 @@ export const FinancialRuleSetup = ({
 
         {/* Conteúdo do passo 2 */}
         {step === 2 && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
             <div>
-              <Label className="text-base font-semibold mb-2 block">
+              <Label className="text-sm sm:text-base font-semibold mb-1.5 sm:mb-2 block">
                 Mapeie as categorias de gastos
               </Label>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
                 Defina quais categorias são Essenciais e quais são Estilo de Vida
               </p>
             </div>
 
             {errors.mapping && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{errors.mapping}</AlertDescription>
+              <Alert variant="destructive" className="py-2 sm:py-3">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <AlertDescription className="text-xs sm:text-sm">
+                  {errors.mapping}
+                </AlertDescription>
               </Alert>
             )}
 
             {unmappedCategories && unmappedCategories.length > 0 && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
+              <Alert variant="destructive" className="mb-3 sm:mb-4 py-2 sm:py-3">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <AlertDescription className="text-xs sm:text-sm">
                   {unmappedCategories.length} categoria(s) nova(s) precisa(m) ser mapeada(s)
                 </AlertDescription>
               </Alert>
             )}
 
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2 max-h-[45vh] sm:max-h-96 overflow-y-auto overscroll-contain">
               {categories.map((category) => {
                 const isUnmapped = unmappedCategories?.includes(category);
                 return (
                   <div
                     key={category}
                     className={cn(
-                      'flex items-center justify-between gap-3 p-2 rounded-lg border text-sm transition-colors',
+                      'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 p-2.5 sm:p-2 rounded-lg border text-sm transition-colors min-h-[3rem] sm:min-h-0',
                       isUnmapped
                         ? 'border-destructive bg-destructive/10'
                         : 'bg-muted/30'
                     )}
                   >
-                    <div className="flex items-center gap-2 flex-1">
-                      <Label className="font-medium truncate">{category}</Label>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Label className="font-medium truncate text-xs sm:text-sm">
+                        {category}
+                      </Label>
                       {isUnmapped && (
-                        <Badge variant="destructive" className="text-xs h-5 px-1.5">
+                        <Badge
+                          variant="destructive"
+                          className="text-[10px] sm:text-xs h-5 px-1.5 shrink-0"
+                        >
                           Nova
                         </Badge>
                       )}
@@ -392,7 +404,7 @@ export const FinancialRuleSetup = ({
                         handleCategoryMappingChange(category, value as 'essentials' | 'lifestyle')
                       }
                     >
-                      <SelectTrigger className="w-32 h-8 text-xs">
+                      <SelectTrigger className="w-full sm:w-32 h-9 sm:h-8 text-xs">
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -406,30 +418,45 @@ export const FinancialRuleSetup = ({
             </div>
 
             {allCategoriesMapped && (
-              <Alert>
-                <CheckCircle2 className="h-4 w-4" />
-                <AlertDescription>Todas as categorias foram mapeadas!</AlertDescription>
+              <Alert className="py-2 sm:py-3">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <AlertDescription className="text-xs sm:text-sm">
+                  Todas as categorias foram mapeadas!
+                </AlertDescription>
               </Alert>
             )}
           </div>
         )}
 
-        <DialogFooter>
-          <div className="flex justify-between w-full">
+        <DialogFooter className="mt-2 pt-4 border-t border-border/50">
+          <div className="flex justify-between w-full gap-2 flex-col sm:flex-row">
             {step === 2 && (
-              <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                className="sm:w-auto"
+              >
+                <ChevronLeft className="h-4 w-4 mr-2 shrink-0" />
                 Voltar
               </Button>
             )}
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2 sm:ml-auto w-full sm:w-auto">
               {step === 1 ? (
-                <Button onClick={handleNext} disabled={isSubmitting}>
+                <Button
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                  className="flex-1 sm:flex-initial"
+                >
                   Próximo
-                  <ChevronRight className="h-4 w-4 ml-2" />
+                  <ChevronRight className="h-4 w-4 ml-2 shrink-0" />
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} disabled={isSubmitting || !allCategoriesMapped}>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !allCategoriesMapped}
+                  className="flex-1 sm:flex-initial"
+                >
                   {isSubmitting ? 'Salvando...' : 'Concluir'}
                 </Button>
               )}

@@ -141,31 +141,31 @@ const CategorySummaryItem = ({
   const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
   
   return (
-    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+    <div className="relative flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted/30 overflow-hidden">
       {/* Progress bar background */}
       <div
-        className={`absolute inset-y-0 left-0 bg-income-light rounded-xl ${
+        className={`absolute inset-y-0 left-0 bg-income-light rounded-lg ${
           shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
         }`}
-        style={{ 
+        style={{
           width: shouldAnimate ? undefined : `${percentage}%`,
           '--progress-width': `${percentage}%`
         } as React.CSSProperties & { '--progress-width'?: string }}
       />
-      
+
       {/* Content */}
-      <div className="relative flex items-center justify-between w-full z-10">
-        <Badge 
-          variant="secondary" 
-          className="text-xs rounded-md px-2 py-0.5 bg-transparent text-income border-0 cursor-default"
+      <div className="relative flex items-center justify-between w-full z-10 gap-2">
+        <Badge
+          variant="secondary"
+          className="text-[11px] rounded px-1.5 py-0 bg-transparent text-income border-0 cursor-default truncate max-w-[60%] sm:max-w-none leading-tight"
         >
           {category}
         </Badge>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-muted-foreground font-medium tabular-nums">
             {percentage.toFixed(1)}%
           </span>
-          <span className="font-bold whitespace-nowrap text-sm text-income">
+          <span className="font-bold whitespace-nowrap text-xs text-income tabular-nums">
             {formatCurrency(total)}
           </span>
         </div>
@@ -478,7 +478,14 @@ export const IncomeSection = ({
   };
 
   const handleToggleReceived = (income: IncomeEntry) => {
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
     onUpdate(income.id, { received: !income.received });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(scrollLeft, scrollTop);
+      });
+    });
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
@@ -487,23 +494,23 @@ export const IncomeSection = ({
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow">
+    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl gradient-income shadow-glow-income">
+      <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 rounded-xl gradient-income shadow-glow-income shrink-0">
             <TrendingUp className="h-4 w-4 text-white" />
           </div>
-          <div>
-            <h3 className="text-lg font-semibold tracking-tight">Entradas</h3>
-            <div className="flex items-center gap-2">
-              <p className="text-base font-bold text-income">
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Entradas</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm sm:text-base font-bold text-income tabular-nums">
                 {formatCurrency(total)}
               </p>
               {receivedTotal > 0 && (
                 <>
                   <span className="text-xs text-muted-foreground">| Recebido:</span>
-                  <p className="text-base font-bold text-income">
+                  <p className="text-sm sm:text-base font-bold text-income tabular-nums">
                     {formatCurrency(receivedTotal)}
                   </p>
                 </>
@@ -702,9 +709,9 @@ export const IncomeSection = ({
                   </Popover>
                 </div>
 
-                {/* Description and Value on same line */}
-                <div className="grid grid-cols-5 gap-3">
-                  <div className="col-span-3">
+                {/* Description and Value: coluna no mobile, mesma linha no desktop */}
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                  <div className="sm:col-span-3">
                     <label className="text-sm font-medium mb-2 block text-muted-foreground">
                       Descrição
                     </label>
@@ -716,7 +723,7 @@ export const IncomeSection = ({
                     />
                     {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className="text-sm font-medium mb-2 block text-muted-foreground">
                       Valor
                     </label>
@@ -756,7 +763,7 @@ export const IncomeSection = ({
         </Dialog>
 
       {/* View Controls */}
-      <div className="flex items-center justify-between mb-4 gap-2">
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
         {/* View Mode Toggle */}
         <ToggleGroup
           type="single"
@@ -767,17 +774,17 @@ export const IncomeSection = ({
           <ToggleGroupItem
             value="general"
             aria-label="Visualização geral"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
+            className="rounded-md px-2 sm:px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
           >
-            <List className="h-3 w-3 mr-1" />
+            <List className="h-3 w-3 mr-1 shrink-0" />
             Geral
           </ToggleGroupItem>
           <ToggleGroupItem
             value="summary"
             aria-label="Visualização resumida"
-            className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
+            className="rounded-md px-2 sm:px-2.5 py-1 text-xs data-[state=on]:bg-income data-[state=on]:text-white data-[state=on]:shadow-sm text-income hover:bg-income/20 hover:text-income"
           >
-            <LayoutGrid className="h-3 w-3 mr-1" />
+            <LayoutGrid className="h-3 w-3 mr-1 shrink-0" />
             Resumo
           </ToggleGroupItem>
         </ToggleGroup>
@@ -788,9 +795,9 @@ export const IncomeSection = ({
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-lg h-7 px-2.5 text-xs gap-1 text-income hover:text-income hover:bg-income-light"
+              className="rounded-lg h-7 px-2 sm:px-2.5 text-xs gap-1 text-income hover:text-income hover:bg-income-light"
             >
-              <ArrowUpDown className="h-3 w-3" />
+              <ArrowUpDown className="h-3 w-3 shrink-0" />
               <span className="hidden sm:inline">
                 {SORT_OPTIONS.find(o => o.value === sortOption)?.label || 'Ordenar'}
               </span>
@@ -812,8 +819,8 @@ export const IncomeSection = ({
 
       {/* List */}
       {incomes.length === 0 ? (
-        <div className="text-center py-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-income-light mb-3">
+        <div className="text-center py-8 sm:py-10">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-income-light mb-3 shrink-0">
             <TrendingUp className="h-6 w-6 text-income" />
           </div>
           <p className="text-muted-foreground text-sm">
@@ -826,7 +833,7 @@ export const IncomeSection = ({
             const isSelected = selectedIds.has(income.id);
             const handleItemClick = (e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
-              if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+              if (target.closest('button') || target.closest('[role="checkbox"]')) return;
               if (onSelectionChange) {
                 const newSelection = new Set(selectedIds);
                 if (isSelected) newSelection.delete(income.id);
@@ -839,21 +846,34 @@ export const IncomeSection = ({
                 key={income.id}
                 onClick={handleItemClick}
                 className={cn(
-                  'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
                   isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 )}
               >
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0" />
+                {/* Col 1: checkbox centralizado verticalmente */}
+                <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
                 </div>
-                <Badge variant="secondary" className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light">{income.tag}</Badge>
-                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(income.date, income.createdAt)}</span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{income.description}</span>
-                <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">{formatCurrency(income.value)}</span>
-                {income.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                {/* Col 2: categoria em cima, descrição + ícone reconhecimento embaixo */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                  <span className="text-xs text-income font-medium">{income.tag}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium truncate text-foreground">{income.description}</span>
+                    {income.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  </div>
+                </div>
+                {/* Col 3 (direita): data em cima, valor + ações embaixo (no desktop ações ocupam espaço só no hover e empurram valor à esquerda) */}
+                <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+                  <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(income.date, income.createdAt)}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
+                    <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -865,7 +885,7 @@ export const IncomeSection = ({
                 const isNewlyExpanded = shouldPlayExpandAnimation;
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
-                  if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+                  if (target.closest('button') || target.closest('[role="checkbox"]')) return;
                   if (onSelectionChange) {
                     const newSelection = new Set(selectedIds);
                     if (isSelected) newSelection.delete(income.id);
@@ -878,23 +898,33 @@ export const IncomeSection = ({
                     key={income.id}
                     onClick={handleItemClick}
                     className={cn(
-                      'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
                       isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
                       isNewlyExpanded && 'expand-in'
                     )}
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
                   >
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded-md border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white flex-shrink-0" />
+                    <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
                     </div>
-                    <Badge variant="secondary" className="text-xs bg-income-light text-income border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-income-light">{income.tag}</Badge>
-                    <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(income.date, income.createdAt)}</span>
-                    <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{income.description}</span>
-                    <span className="font-bold text-income whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200 group-hover:mr-0">{formatCurrency(income.value)}</span>
-                    {income.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                    <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                      <span className="text-xs text-income font-medium">{income.tag}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium truncate text-foreground">{income.description}</span>
+                        {income.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+                      <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(income.date, income.createdAt)}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
+                        <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -905,16 +935,16 @@ export const IncomeSection = ({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full mt-2 text-income hover:bg-income-light hover:text-income rounded-xl gap-1.5 disabled:opacity-70"
+              className="w-full mt-1.5 text-income hover:bg-income-light hover:text-income rounded-lg gap-1.5 disabled:opacity-70 min-h-8 text-xs"
               onClick={handleExpandCollapseIncomes}
               disabled={isCollapsingIncomes}
             >
               {isCollapsingIncomes ? (
                 <>Recolhendo...</>
               ) : showAllIncomes ? (
-                <><ChevronUp className="h-4 w-4" />Recolher</>
+                <><ChevronUp className="h-4 w-4 shrink-0" />Recolher</>
               ) : (
-                <><ChevronDown className="h-4 w-4" />Visualizar todos ({sortedIncomes.length})</>
+                <><ChevronDown className="h-4 w-4 shrink-0" />Visualizar todos ({sortedIncomes.length})</>
               )}
             </Button>
           )}

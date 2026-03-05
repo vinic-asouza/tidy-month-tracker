@@ -252,7 +252,16 @@ export const CreditCardSection = ({
                 <Checkbox
                   id={`card-paid-${card.id}`}
                   checked={isPaid}
-                  onCheckedChange={(checked) => setCardPaidStatus(card.id, !!checked)}
+                  onCheckedChange={async (checked) => {
+                    const scrollTop = window.scrollY;
+                    const scrollLeft = window.scrollX;
+                    await setCardPaidStatus(card.id, !!checked);
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        window.scrollTo(scrollLeft, scrollTop);
+                      });
+                    });
+                  }}
                   className="h-4 w-4 rounded-full border-2 border-white/40 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-gray-900 flex-shrink-0"
                 />
                 Fatura paga

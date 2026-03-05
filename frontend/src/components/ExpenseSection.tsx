@@ -433,110 +433,83 @@ const ExpenseItem = ({
   return (
     <div
       onClick={onItemClick}
-      className={`group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200 select-none ${
-        isSelected 
-          ? 'bg-muted/70 cursor-pointer' 
+      className={cn(
+        'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 select-none',
+        isSelected
+          ? 'bg-muted/70 cursor-pointer'
           : isPaid
             ? 'bg-expense-light cursor-pointer hover:bg-expense-light/80'
             : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
-      }`}
+      )}
     >
-      {/* Paid Checkbox */}
-      <div onClick={(e) => e.stopPropagation()}>
+      {/* Col 1: checkbox centralizado verticalmente */}
+      <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
         {isLinkedToCard ? (
-          <div
-            onClick={onCardItemClick}
-            className="cursor-pointer"
-          >
+          <div onClick={onCardItemClick} className="cursor-pointer">
             <Checkbox
               checked={isCardPaid}
-              className="h-4 w-4 rounded-md border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+              className="h-4 w-4 rounded border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
             />
           </div>
         ) : (
           <Checkbox
             checked={expense.paid}
             onCheckedChange={onTogglePaid}
-            className="h-4 w-4 rounded-md border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white flex-shrink-0"
+            className="h-4 w-4 rounded border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
           />
         )}
       </div>
-
-      {/* Esquerda: categoria, data, descrição */}
-      <Badge
-        variant="secondary"
-        className="text-xs rounded-md px-2 py-0.5 bg-expense-light text-expense border-0 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-expense-light"
-      >
-        {expense.category}
-      </Badge>
-      <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">
-        {formatItemDayMonth(expense.date, expense.createdAt)}
-      </span>
-      <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">
-        {expense.description}
-      </span>
-
-      {/* Direita: valor, parcela (só se houver), ícone cartão (só se for cartão), ícone recorrência (só se houver) */}
-      <span className="font-bold whitespace-nowrap text-sm flex-shrink-0 text-expense">
-        {formatCurrency(expense.value)}
-      </span>
-      {installmentText && (
-        <Badge
-          variant="secondary"
-          className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 flex-shrink-0 cursor-default"
-        >
-          {installmentText}
-        </Badge>
-      )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="hidden sm:inline-flex flex-shrink-0">
-            {style.isCard ? (
-              <Badge
-                variant="secondary"
-                className={`text-xs rounded-full flex-shrink-0 border-0 cursor-default hover:opacity-100 p-1 ${style.className}`}
-              >
-                <CreditCard className="h-3 w-3" />
-              </Badge>
-            ) : PaymentIcon ? (
-              <Badge
-                variant="secondary"
-                className={`text-xs rounded-full flex-shrink-0 border-0 cursor-default hover:opacity-100 p-1 ${style.className}`}
-              >
-                <PaymentIcon className="h-3 w-3" />
-              </Badge>
-            ) : null}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          {expense.paymentMethod}
-        </TooltipContent>
-      </Tooltip>
-      {expense.repeatAllMonths && (
-        <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-      )}
-
-      {/* Actions */}
-      <div 
-        className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-lg hover:bg-muted"
-          onClick={() => onEdit(expense)}
-        >
-          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-lg hover:bg-muted"
-          onClick={() => onDelete(expense)}
-        >
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
+      {/* Col 2: categoria em cima, descrição + ícone reconhecimento embaixo */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-expense font-medium">{expense.category}</span>
+          {installmentText && (
+            <Badge variant="secondary" className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 cursor-default">
+              {installmentText}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-medium truncate text-foreground">{expense.description}</span>
+          {expense.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+        </div>
+      </div>
+      {/* Col 3 (direita): data em cima, valor + flag pagamento + ações (no desktop ações ocupam espaço só no hover e empurram valor/badge à esquerda) */}
+      <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+        <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(expense.date, expense.createdAt)}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-bold whitespace-nowrap text-sm text-expense tabular-nums shrink-0">{formatCurrency(expense.value)}</span>
+          {(style.isCard || PaymentIcon) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex shrink-0">
+                  {style.isCard ? (
+                    <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
+                      <CreditCard className="h-3.5 w-3.5" />
+                    </Badge>
+                  ) : PaymentIcon ? (
+                    <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
+                      <PaymentIcon className="h-3.5 w-3.5" />
+                    </Badge>
+                  ) : null}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {expense.paymentMethod}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(expense)}>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(expense)}>
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -947,7 +920,14 @@ export const ExpenseSection = ({
   };
 
   const handleTogglePaid = (expense: Expense) => {
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
     onUpdate(expense.id, { paid: !expense.paid });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(scrollLeft, scrollTop);
+      });
+    });
   };
 
   // Calculate paid total (items marked as paid or linked to paid cards)
@@ -996,13 +976,8 @@ export const ExpenseSection = ({
     const hasMore = list.length > initialLimit && !showAll && !isCollapsing;
     const isExpanded = showAll && list.length > initialLimit && !isCollapsing;
     const handleItemClick = (expense: Expense) => (e: React.MouseEvent) => {
-      // Don't trigger selection if clicking on checkbox or action buttons
       const target = e.target as HTMLElement;
-      if (
-        target.closest('button') ||
-        target.closest('[role="checkbox"]') ||
-        target.closest('.group-hover\\:w-16')
-      ) {
+      if (target.closest('button') || target.closest('[role="checkbox"]')) {
         return;
       }
       
@@ -1081,16 +1056,16 @@ export const ExpenseSection = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full mt-2 text-expense hover:bg-expense-light hover:text-expense rounded-xl gap-1.5 disabled:opacity-70"
+                className="w-full mt-1.5 text-expense hover:bg-expense-light hover:text-expense rounded-lg gap-1.5 disabled:opacity-70 min-h-8 text-xs"
                 onClick={hasMore ? onShowAll : onRecolherClick}
                 disabled={isCollapsing}
               >
                 {isCollapsing ? (
                   <>Recolhendo...</>
                 ) : isExpanded ? (
-                  <><ChevronUp className="h-4 w-4" />Recolher</>
+                  <><ChevronUp className="h-4 w-4 shrink-0" />Recolher</>
                 ) : (
-                  <><ChevronDown className="h-4 w-4" />Visualizar todos ({list.length})</>
+                  <><ChevronDown className="h-4 w-4 shrink-0" />Visualizar todos ({list.length})</>
                 )}
               </Button>
             ) : null}
@@ -1151,16 +1126,16 @@ export const ExpenseSection = ({
   };
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow">
+    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl gradient-expense shadow-glow-expense">
+      <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 rounded-xl gradient-expense shadow-glow-expense shrink-0">
             <TrendingDown className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold tracking-tight">Gastos</h3>
-            <div className="flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Gastos</h3>
+            <div className="flex items-center gap-2 flex-wrap">
               {hasPaidItems && (
                 <>
                   <span className="text-xs text-muted-foreground">Total:</span>

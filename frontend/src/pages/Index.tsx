@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Wallet, BarChart3, Menu, X, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
+import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
@@ -16,6 +16,7 @@ import { InvestmentSection } from '@/components/InvestmentSection';
 import { Statistics } from '@/components/Statistics';
 import { FinancialRuleSection } from '@/components/FinancialRuleSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ type View = 'dashboard' | 'statistics';
 
 const Index = () => {
   const [view, setView] = useState<View>('dashboard');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [yearData, setYearData] = useState<ReturnType<typeof useSupabaseFinance>['monthData'][]>([]);
   const [loadingYearData, setLoadingYearData] = useState(false);
   const lastReloadRef = useRef<number>(0);
@@ -152,7 +153,7 @@ const Index = () => {
 
   const handleViewChange = async (newView: View) => {
     setView(newView);
-    setMobileMenuOpen(false);
+    setMobileSidebarOpen(false);
     
     // Sempre recarregar os dados anuais quando acessar a view de estatísticas
     // para garantir que os dados estejam atualizados (incluindo itens marcados/desmarcados)
@@ -320,67 +321,101 @@ const Index = () => {
                 </Button>
               </nav>
 
-              {/* Mobile: Theme + Logout + Menu */}
+            {/* Mobile: Menu lateral (hambúrguer abre sidebar) */}
+            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen} modal={false}>
               <div className="flex md:hidden items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleThemeToggle}
-                  className="h-10 w-10 rounded-xl hover:bg-muted"
-                  title={isDark ? 'Modo claro' : 'Modo escuro'}
-                  disabled={isThemeTransitioning}
-                >
-                  {isDark ? (
-                    <Sun className="h-4 w-4" />
-                  ) : (
-                    <Moon className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleSignOut}
-                  className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl"
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                >
-                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                </Button>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl"
+                    aria-label="Abrir menu de navegação"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
               </div>
+              <SheetContent
+                side="right"
+                className="flex h-dvh max-h-dvh max-w-xs flex-col gap-0 border-l border-border/60 bg-background/95 px-0 py-0 backdrop-blur-xl"
+              >
+                <div className="flex shrink-0 items-center gap-3 border-b border-border/60 px-4 py-4">
+                  <div className="relative">
+                    <div className="h-9 w-9 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
+                      <Wallet className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-income rounded-full border-2 border-background animate-pulse-soft" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold leading-tight">Tidy Month Tracker</span>
+                    <span className="text-[11px] text-muted-foreground leading-tight">Seu painel financeiro</span>
+                  </div>
+                </div>
+
+                <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-4">
+                  <div className="space-y-2">
+                    <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Navegação
+                    </p>
+                    <Button
+                      variant={view === 'dashboard' ? 'default' : 'ghost'}
+                      className={`w-full justify-start gap-3 rounded-xl text-sm ${
+                        view === 'dashboard'
+                          ? 'gradient-primary text-primary-foreground shadow-glow'
+                          : 'bg-muted/40 hover:bg-muted'
+                      }`}
+                      onClick={() => handleViewChange('dashboard')}
+                    >
+                      <Wallet className="h-4 w-4" />
+                      <span>Visão mensal</span>
+                    </Button>
+                    <Button
+                      variant={view === 'statistics' ? 'default' : 'ghost'}
+                      className={`w-full justify-start gap-3 rounded-xl text-sm ${
+                        view === 'statistics'
+                          ? 'gradient-primary text-primary-foreground shadow-glow'
+                          : 'bg-muted/40 hover:bg-muted'
+                      }`}
+                      onClick={() => handleViewChange('statistics')}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Visão anual</span>
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-border/40">
+                    <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Preferências
+                    </p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 rounded-xl text-sm hover:bg-muted"
+                      onClick={handleThemeToggle}
+                      disabled={isThemeTransitioning}
+                    >
+                      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      <span>{isDark ? 'Modo claro' : 'Modo escuro'}</span>
+                    </Button>
+                  </div>
+                </nav>
+
+                <div className="shrink-0 border-t border-border/60 px-4 py-4">
+                  <Button
+                    variant="destructive"
+                    className="h-11 w-full justify-center gap-2 rounded-2xl text-sm font-semibold shadow-lg shadow-destructive/30 hover:shadow-destructive/40"
+                    onClick={async () => {
+                      await handleSignOut();
+                      setMobileSidebarOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sair</span>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
             </div>
           </div>
-
-          {/* Mobile Nav */}
-          {mobileMenuOpen && (
-            <nav className="md:hidden pt-3 pb-1 flex gap-2 animate-fade-in">
-              <Button
-                variant={view === 'dashboard' ? 'default' : 'outline'}
-                onClick={() => handleViewChange('dashboard')}
-                className={`flex-1 gap-2 rounded-xl ${
-                  view === 'dashboard' ? 'gradient-primary shadow-glow' : ''
-                }`}
-              >
-                <Wallet className="h-4 w-4" />
-                Mensal
-              </Button>
-              <Button
-                variant={view === 'statistics' ? 'default' : 'outline'}
-                onClick={() => handleViewChange('statistics')}
-                className={`flex-1 gap-2 rounded-xl ${
-                  view === 'statistics' ? 'gradient-primary shadow-glow' : ''
-                }`}
-              >
-                <BarChart3 className="h-4 w-4" />
-                Anual
-              </Button>
-            </nav>
-          )}
         </div>
       </header>
 

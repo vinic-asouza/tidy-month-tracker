@@ -25,31 +25,31 @@ export const SaldosSection = ({ monthData }: SaldosSectionProps) => {
   ];
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="p-2.5 rounded-xl gradient-primary shadow-glow">
+    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
+      <div className="flex items-center gap-3 mb-4 sm:mb-5">
+        <div className="p-2.5 rounded-xl gradient-primary shadow-glow shrink-0">
           <Wallet className="h-4 w-4 text-white dark:text-black" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold tracking-tight">Saldos</h3>
-          <p className="text-sm text-muted-foreground">Totais do mês</p>
+        <div className="min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold tracking-tight">Saldos</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">Totais do mês</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5 sm:space-y-3">
         {items.map(({ label, value, icon: Icon, color, bg }) => (
           <div
             key={label}
             className={cn(
-              'flex items-center justify-between rounded-xl px-3 py-2.5',
+              'flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 min-h-[2.75rem]',
               bg
             )}
           >
-            <div className="flex items-center gap-2">
-              <Icon className={cn('h-4 w-4', color)} />
-              <span className="text-sm font-medium text-muted-foreground">{label}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Icon className={cn('h-4 w-4 shrink-0', color)} />
+              <span className="text-sm font-medium text-muted-foreground truncate">{label}</span>
             </div>
-            <span className={cn('text-sm font-semibold tabular-nums', color)}>
+            <span className={cn('text-sm font-semibold tabular-nums shrink-0 text-right', color)}>
               {formatCurrency(value)}
             </span>
           </div>
@@ -59,23 +59,23 @@ export const SaldosSection = ({ monthData }: SaldosSectionProps) => {
       {/* Saldo em destaque */}
       <div
         className={cn(
-          'mt-4 rounded-xl px-4 py-4 border-2',
+          'mt-3 sm:mt-4 rounded-xl px-3 sm:px-4 py-3 sm:py-4 border-2',
           balance >= 0
             ? 'bg-income-light border-income/30'
             : 'bg-expense-light border-expense/30'
         )}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Wallet className={cn(
-              'h-5 w-5',
+              'h-5 w-5 shrink-0',
               balance >= 0 ? 'text-income' : 'text-expense'
             )} />
             <span className="text-sm font-medium text-muted-foreground">Saldo</span>
           </div>
           <span
             className={cn(
-              'text-xl font-bold tabular-nums',
+              'text-lg sm:text-xl font-bold tabular-nums shrink-0 text-right',
               balance >= 0 ? 'text-income' : 'text-expense'
             )}
           >

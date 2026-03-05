@@ -422,7 +422,14 @@ export const InvestmentSection = ({
   };
 
   const handleToggleInvested = (investment: Investment) => {
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
     onUpdate(investment.id, { invested: !investment.invested });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(scrollLeft, scrollTop);
+      });
+    });
   };
   
   // Tag management handlers
@@ -488,7 +495,7 @@ export const InvestmentSection = ({
     .reduce((sum, i) => sum + i.value, 0);
 
   return (
-    <div className="bg-card rounded-2xl p-6 card-shadow">
+    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -496,7 +503,7 @@ export const InvestmentSection = ({
             <PiggyBank className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold tracking-tight">Investimentos</h3>
+            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Investimentos</h3>
             <div className="flex items-center gap-2">
               <p className="text-base font-bold text-investment">
                 {formatCurrency(total)}
@@ -828,7 +835,7 @@ export const InvestmentSection = ({
             const isSelected = selectedIds.has(investment.id);
             const handleItemClick = (e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
-              if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+              if (target.closest('button') || target.closest('[role="checkbox"]')) return;
               if (onSelectionChange) {
                 const newSelection = new Set(selectedIds);
                 if (isSelected) newSelection.delete(investment.id);
@@ -841,21 +848,31 @@ export const InvestmentSection = ({
                 key={investment.id}
                 onClick={handleItemClick}
                 className={cn(
-                  'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
                   isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
                 )}
               >
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0" />
+                <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
                 </div>
-                <Badge variant="secondary" className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light">{investment.tag}</Badge>
-                <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
-                <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{investment.description}</span>
-                <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">{formatCurrency(investment.value)}</span>
-                {investment.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                  <span className="text-xs text-investment font-medium">{investment.tag}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
+                    {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+                  <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
+                    <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -867,7 +884,7 @@ export const InvestmentSection = ({
                 const isNewlyExpanded = shouldPlayExpandAnimation;
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
-                  if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('.group-hover\\:w-16')) return;
+                  if (target.closest('button') || target.closest('[role="checkbox"]')) return;
                   if (onSelectionChange) {
                     const newSelection = new Set(selectedIds);
                     if (isSelected) newSelection.delete(investment.id);
@@ -880,23 +897,33 @@ export const InvestmentSection = ({
                     key={investment.id}
                     onClick={handleItemClick}
                     className={cn(
-                      'group flex items-center gap-2 py-1.5 px-3 rounded-xl transition-all duration-200',
+                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
                       isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
                       isNewlyExpanded && 'expand-in'
                     )}
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
                   >
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded-md border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white flex-shrink-0" />
+                    <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
                     </div>
-                    <Badge variant="secondary" className="text-xs bg-investment-light text-investment border-0 rounded-md px-2 py-0.5 flex-shrink-0 cursor-default hover:opacity-100 hover:bg-investment-light">{investment.tag}</Badge>
-                    <span className="text-muted-foreground text-xs tabular-nums flex-shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
-                    <span className="flex-1 text-sm font-medium truncate text-foreground min-w-0">{investment.description}</span>
-                    <span className="font-bold text-investment whitespace-nowrap text-sm flex-shrink-0 transition-all duration-200">{formatCurrency(investment.value)}</span>
-                    {investment.repeatAllMonths && <Repeat className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                    <div className="flex gap-1 w-0 overflow-hidden group-hover:w-16 transition-all duration-200 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-muted" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                      <span className="text-xs text-investment font-medium">{investment.tag}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
+                        {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+                      <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
+                        <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -907,16 +934,16 @@ export const InvestmentSection = ({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full mt-2 text-investment hover:bg-investment-light hover:text-investment rounded-xl gap-1.5 disabled:opacity-70"
+              className="w-full mt-1.5 text-investment hover:bg-investment-light hover:text-investment rounded-lg gap-1.5 disabled:opacity-70 min-h-8 text-xs"
               onClick={handleExpandCollapseInvestments}
               disabled={isCollapsingInvestments}
             >
               {isCollapsingInvestments ? (
                 <>Recolhendo...</>
               ) : showAllInvestments ? (
-                <><ChevronUp className="h-4 w-4" />Recolher</>
+                <><ChevronUp className="h-4 w-4 shrink-0" />Recolher</>
               ) : (
-                <><ChevronDown className="h-4 w-4" />Visualizar todos ({sortedInvestments.length})</>
+                <><ChevronDown className="h-4 w-4 shrink-0" />Visualizar todos ({sortedInvestments.length})</>
               )}
             </Button>
           )}
