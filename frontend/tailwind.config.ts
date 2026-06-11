@@ -99,18 +99,18 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 4px)",
-        sm: "calc(var(--radius) - 8px)",
-        xl: "calc(var(--radius) + 4px)",
-        "2xl": "calc(var(--radius) + 8px)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "calc(var(--radius-xl) + 0.25rem)",
       },
       boxShadow: {
-        'glow': '0 0 20px -5px hsl(var(--primary) / 0.3)',
-        'glow-income': '0 0 20px -5px hsl(var(--income) / 0.3)',
-        'glow-expense': '0 0 20px -5px hsl(var(--expense) / 0.3)',
-        'glow-investment': '0 0 20px -5px hsl(var(--investment) / 0.3)',
-        'glow-credit': '0 0 20px -5px hsl(var(--credit) / 0.35)',
+        'glow': '0 0 16px -4px hsl(var(--primary) / 0.2)',
+        'glow-income': '0 0 16px -4px hsl(var(--income) / 0.2)',
+        'glow-expense': '0 0 16px -4px hsl(var(--expense) / 0.2)',
+        'glow-investment': '0 0 16px -4px hsl(var(--investment) / 0.2)',
+        'glow-credit': '0 0 16px -4px hsl(var(--credit) / 0.22)',
       },
       keyframes: {
         "accordion-down": {

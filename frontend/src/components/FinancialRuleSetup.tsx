@@ -184,7 +184,7 @@ export const FinancialRuleSetup = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl w-[min(100vw-1.5rem,36rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-xl w-[min(100vw-1.5rem,36rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-5">
         <DialogHeader className="space-y-1 sm:space-y-1.5 text-left">
           <DialogTitle className="text-base sm:text-lg">
             Configurar Regra Financeira
@@ -239,7 +239,7 @@ export const FinancialRuleSetup = ({
                 onValueChange={(value) => setRuleModel(value as RuleModel)}
                 className="space-y-2"
               >
-                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
+                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-md border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
                   <RadioGroupItem value="default" id="default" className="mt-0.5 sm:mt-0 shrink-0" />
                   <Label htmlFor="default" className="flex-1 cursor-pointer min-w-0">
                     <div className="font-semibold text-sm sm:text-base">
@@ -250,7 +250,7 @@ export const FinancialRuleSetup = ({
                     </div>
                   </Label>
                 </div>
-                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
+                <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-md border bg-card hover:bg-muted/50 transition-colors cursor-pointer min-h-[3.5rem]">
                   <RadioGroupItem value="custom" id="custom" className="mt-0.5 sm:mt-0 shrink-0" />
                   <Label htmlFor="custom" className="flex-1 cursor-pointer min-w-0">
                     <div className="font-semibold text-sm sm:text-base">
@@ -265,7 +265,7 @@ export const FinancialRuleSetup = ({
             </div>
 
             {ruleModel === 'custom' && (
-              <div className="mt-2 space-y-3 rounded-xl border bg-muted/20 px-3 py-3">
+              <div className="mt-2 space-y-3 rounded-md border bg-muted/20 px-3 py-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
                   <div className="flex-1 space-y-1.5">
                     <Label htmlFor="essentials" className="text-xs font-medium">

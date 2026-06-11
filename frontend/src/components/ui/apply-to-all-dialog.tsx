@@ -33,23 +33,23 @@ export const ApplyToAllDialog = ({
 }: ApplyToAllDialogProps) => {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl max-w-xl">
+      <AlertDialogContent className="rounded-lg max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col sm:flex-row gap-2 sm:justify-end sm:gap-2 w-full">
-          <AlertDialogCancel className="rounded-xl w-full sm:w-auto sm:flex-shrink-0">Cancelar</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-md w-full sm:w-auto sm:flex-shrink-0">Cancelar</AlertDialogCancel>
           <Button
             variant="outline"
             onClick={onApplyToCurrentMonth}
-            className="rounded-xl w-full sm:w-auto sm:flex-shrink-0"
+            className="rounded-md w-full sm:w-auto sm:flex-shrink-0"
           >
             {actionLabel} apenas este mês
           </Button>
           <AlertDialogAction
             onClick={onApplyToAllMonths}
-            className="rounded-xl w-full sm:w-auto sm:flex-shrink-0"
+            className="rounded-md w-full sm:w-auto sm:flex-shrink-0"
           >
             {applyToAllButtonLabel ?? `${actionLabel} em todos os meses`}
           </AlertDialogAction>

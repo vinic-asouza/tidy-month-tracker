@@ -46,6 +46,7 @@ import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 
 interface ExpenseSectionProps {
   expenses: Expense[];
@@ -66,6 +67,7 @@ interface ExpenseSectionProps {
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
+  variant?: 'default' | 'embedded';
 }
 
 type ViewMode = 'general' | 'summary';
@@ -193,10 +195,10 @@ const ExpenseForm = ({
         <div className="flex gap-2">
           <div className="flex-1">
             <Select value={category} onValueChange={(v) => { setCategory(v); setCategoryError(null); }}>
-              <SelectTrigger className={`rounded-xl h-11 ${categoryError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}>
+              <SelectTrigger className={`rounded-md h-10 ${categoryError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}>
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-64">
+              <SelectContent className="rounded-md max-h-64">
                 {categories.map((cat) => (
                   <SelectItem
                     key={cat}
@@ -222,7 +224,7 @@ const ExpenseForm = ({
             <Button
               variant="outline"
               className={cn(
-                'w-full justify-start text-left font-normal rounded-xl h-11',
+                'w-full justify-start text-left font-normal rounded-md h-10',
                 !itemDate && 'text-muted-foreground'
               )}
             >
@@ -249,7 +251,7 @@ const ExpenseForm = ({
             value={description}
             onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
             placeholder="Ex: Conta de luz"
-            className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
+            className={`rounded-md h-10 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
           />
           {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
         </div>
@@ -260,7 +262,7 @@ const ExpenseForm = ({
           <CurrencyInput
             value={value}
             onValueChange={(v) => { setValue(v); setValueError(null); }}
-            className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
+            className={`rounded-md h-10 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
           />
           {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
         </div>
@@ -271,11 +273,11 @@ const ExpenseForm = ({
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Forma de Pagamento</label>
         <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); setPaymentError(null); }}>
           <SelectTrigger
-            className={`rounded-xl h-11 ${paymentError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
+            className={`rounded-md h-10 ${paymentError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2`}
           >
             <SelectValue placeholder="Selecione..." />
           </SelectTrigger>
-          <SelectContent className="rounded-xl">
+          <SelectContent className="rounded-md">
             {allPaymentMethods.map((method) => {
               const isCard = typeof method === 'object';
               const value = isCard ? method.value : method;
@@ -301,10 +303,10 @@ const ExpenseForm = ({
           <div>
             <label className="text-sm font-medium mb-2 block text-muted-foreground">Parcela Atual</label>
             <Select value={currentInstallment} onValueChange={setCurrentInstallment}>
-              <SelectTrigger className="rounded-xl h-11">
+              <SelectTrigger className="rounded-md h-10">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-48">
+              <SelectContent className="rounded-md max-h-48">
                 {Array.from({ length: parseInt(totalInstallments) || 12 }, (_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()} className="rounded-lg">
                     {i + 1}
@@ -316,10 +318,10 @@ const ExpenseForm = ({
           <div>
             <label className="text-sm font-medium mb-2 block text-muted-foreground">Total de Parcelas</label>
             <Select value={totalInstallments} onValueChange={setTotalInstallments}>
-              <SelectTrigger className="rounded-xl h-11">
+              <SelectTrigger className="rounded-md h-10">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-48">
+              <SelectContent className="rounded-md max-h-48">
                 {Array.from({ length: 48 }, (_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()} className="rounded-lg">
                     {i + 1}x
@@ -333,7 +335,7 @@ const ExpenseForm = ({
 
       {/* Repeat for fixed expenses */}
       {type === 'fixed' && (
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
           <div className="flex items-center gap-2">
             <Repeat className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="repeat-months-expense" className="text-sm font-medium cursor-pointer">
@@ -351,7 +353,7 @@ const ExpenseForm = ({
 
       <Button
         onClick={handleSubmit}
-        className="w-full h-11 rounded-xl gradient-expense shadow-glow-expense hover:opacity-90 transition-opacity text-white border-0"
+        className="w-full h-10 rounded-md gradient-expense hover:opacity-90 transition-opacity text-white border-0"
       >
         {initialData ? 'Salvar Alterações' : 'Adicionar Gasto'}
       </Button>
@@ -434,12 +436,9 @@ const ExpenseItem = ({
     <div
       onClick={onItemClick}
       className={cn(
-        'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 select-none',
-        isSelected
-          ? 'bg-muted/70 cursor-pointer'
-          : isPaid
-            ? 'bg-expense-light cursor-pointer hover:bg-expense-light/80'
-            : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
+        'group flex items-stretch gap-3 py-2 px-2.5 rounded-md transition-all duration-200 select-none border-2 cursor-pointer',
+        isSelected ? 'border-expense/60' : 'border-transparent',
+        isPaid ? 'bg-expense-light hover:bg-expense-light/80' : 'bg-muted/30 hover:bg-muted/50'
       )}
     >
       {/* Col 1: checkbox centralizado verticalmente */}
@@ -530,10 +529,10 @@ const CategorySummaryItem = ({
   const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
   
   return (
-    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30 overflow-hidden">
       {/* Progress bar background */}
       <div
-        className={`absolute inset-y-0 left-0 bg-expense-light rounded-xl ${
+        className={`absolute inset-y-0 left-0 bg-expense-light rounded-md ${
           shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
         }`}
         style={{ 
@@ -642,6 +641,7 @@ export const ExpenseSection = ({
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
+  variant = 'default',
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -1003,7 +1003,7 @@ export const ExpenseSection = ({
           <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
         </div>
         {list.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-xl">
+          <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-md">
             {emptyMessage}
           </p>
         ) : (
@@ -1097,7 +1097,7 @@ export const ExpenseSection = ({
         <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
       </div>
       {categoryData.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-xl">
+        <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-md">
           {emptyMessage}
         </p>
       ) : (
@@ -1125,14 +1125,18 @@ export const ExpenseSection = ({
     return 'Tem certeza que deseja excluir este gasto? Esta ação não pode ser desfeita.';
   };
 
+  const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
+
   return (
-    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
+    <div className={shellClass}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2.5 rounded-xl gradient-expense shadow-glow-expense shrink-0">
-            <TrendingDown className="h-4 w-4 text-white" />
-          </div>
+          {variant === 'default' && (
+            <div className="p-2.5 rounded-md gradient-expense shrink-0">
+              <TrendingDown className="h-4 w-4 text-white" />
+            </div>
+          )}
           <div>
             <h3 className="text-base sm:text-lg font-semibold tracking-tight">Gastos</h3>
             <div className="flex items-center gap-2 flex-wrap">
@@ -1166,14 +1170,14 @@ export const ExpenseSection = ({
           }
         }}
       >
-        <DialogContent className="rounded-2xl max-w-md">
+        <DialogContent className="rounded-lg max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingExpense ? 'Editar Gasto' : 'Novo Gasto'}
                 </DialogTitle>
               </DialogHeader>
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Expense['type'])}>
-            <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted p-1">
+            <TabsList className="grid w-full grid-cols-3 rounded-md bg-muted p-1">
               <TabsTrigger
                 value="fixed"
                 className="rounded-lg text-xs sm:text-sm data-[state=active]:bg-expense data-[state=active]:text-white data-[state=active]:shadow-sm"
@@ -1212,12 +1216,12 @@ export const ExpenseSection = ({
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="rounded-xl h-11 w-11 text-expense hover:bg-expense-light hover:text-expense focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+                              className="rounded-md h-10 w-11 text-expense hover:bg-expense-light hover:text-expense focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
                             >
                               <Settings className="h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                          <PopoverContent className="w-72 rounded-md p-4 bg-background border shadow-lg" align="end">
                             <h4 className="font-semibold mb-3 text-sm">Gerenciar Categorias</h4>
 
                             {/* Add new category */}
@@ -1367,7 +1371,7 @@ export const ExpenseSection = ({
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-xl">
+          <DropdownMenuContent align="end" className="rounded-md">
             {SORT_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.value}
@@ -1382,55 +1386,59 @@ export const ExpenseSection = ({
       </div>
 
       {/* Expense Groups */}
-      <div className="space-y-6">
+      <div>
         {viewMode === 'general' ? (
-          <>
-            <ExpenseGroup
-              title="Gastos Fixos"
-              icon={Receipt}
-              list={sortedFixedExpenses}
-              type="fixed"
-              emptyMessage="Nenhum gasto fixo"
-              groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
-              groupCreditCards={creditCards}
-              initialLimit={INITIAL_ITEMS_LIMIT}
-              showAll={showAllFixed}
-              isCollapsing={isCollapsingFixed}
-              shouldPlayExpandAnimation={showAllFixed && !isCollapsingFixed && !expandAnimationPlayedFixedRef.current}
-              onShowAll={() => setShowAllFixed(true)}
-              onRecolherClick={() => setIsCollapsingFixed(true)}
-            />
-            <ExpenseGroup
-              title="Gastos Parcelados"
-              icon={CreditCard}
-              list={sortedInstallmentExpenses}
-              type="installment"
-              emptyMessage="Nenhum gasto parcelado"
-              groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
-              groupCreditCards={creditCards}
-              initialLimit={INITIAL_ITEMS_LIMIT}
-              showAll={showAllInstallment}
-              isCollapsing={isCollapsingInstallment}
-              shouldPlayExpandAnimation={showAllInstallment && !isCollapsingInstallment && !expandAnimationPlayedInstallmentRef.current}
-              onShowAll={() => setShowAllInstallment(true)}
-              onRecolherClick={() => setIsCollapsingInstallment(true)}
-            />
-            <ExpenseGroup
-              title="Gastos Variáveis"
-              icon={Repeat}
-              list={sortedVariableExpenses}
-              type="variable"
-              emptyMessage="Nenhum gasto variável"
-              groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
-              groupCreditCards={creditCards}
-              initialLimit={INITIAL_ITEMS_LIMIT}
-              showAll={showAllVariable}
-              isCollapsing={isCollapsingVariable}
-              shouldPlayExpandAnimation={showAllVariable && !isCollapsingVariable && !expandAnimationPlayedVariableRef.current}
-              onShowAll={() => setShowAllVariable(true)}
-              onRecolherClick={() => setIsCollapsingVariable(true)}
-            />
-          </>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            <div className="space-y-6">
+              <ExpenseGroup
+                title="Gastos Fixos"
+                icon={Receipt}
+                list={sortedFixedExpenses}
+                type="fixed"
+                emptyMessage="Nenhum gasto fixo"
+                groupTotal={fixedExpenses.reduce((s, e) => s + e.value, 0)}
+                groupCreditCards={creditCards}
+                initialLimit={INITIAL_ITEMS_LIMIT}
+                showAll={showAllFixed}
+                isCollapsing={isCollapsingFixed}
+                shouldPlayExpandAnimation={showAllFixed && !isCollapsingFixed && !expandAnimationPlayedFixedRef.current}
+                onShowAll={() => setShowAllFixed(true)}
+                onRecolherClick={() => setIsCollapsingFixed(true)}
+              />
+              <ExpenseGroup
+                title="Gastos Parcelados"
+                icon={CreditCard}
+                list={sortedInstallmentExpenses}
+                type="installment"
+                emptyMessage="Nenhum gasto parcelado"
+                groupTotal={installmentExpenses.reduce((s, e) => s + e.value, 0)}
+                groupCreditCards={creditCards}
+                initialLimit={INITIAL_ITEMS_LIMIT}
+                showAll={showAllInstallment}
+                isCollapsing={isCollapsingInstallment}
+                shouldPlayExpandAnimation={showAllInstallment && !isCollapsingInstallment && !expandAnimationPlayedInstallmentRef.current}
+                onShowAll={() => setShowAllInstallment(true)}
+                onRecolherClick={() => setIsCollapsingInstallment(true)}
+              />
+            </div>
+            <div>
+              <ExpenseGroup
+                title="Gastos Variáveis"
+                icon={Repeat}
+                list={sortedVariableExpenses}
+                type="variable"
+                emptyMessage="Nenhum gasto variável"
+                groupTotal={variableExpenses.reduce((s, e) => s + e.value, 0)}
+                groupCreditCards={creditCards}
+                initialLimit={INITIAL_ITEMS_LIMIT}
+                showAll={showAllVariable}
+                isCollapsing={isCollapsingVariable}
+                shouldPlayExpandAnimation={showAllVariable && !isCollapsingVariable && !expandAnimationPlayedVariableRef.current}
+                onShowAll={() => setShowAllVariable(true)}
+                onRecolherClick={() => setIsCollapsingVariable(true)}
+              />
+            </div>
+          </div>
         ) : (
           <SummaryGroup
             title="Gastos"
@@ -1477,20 +1485,20 @@ export const ExpenseSection = ({
 
       {/* Card Item Warning Dialog */}
       <AlertDialog open={cardWarningOpen} onOpenChange={setCardWarningOpen}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Item vinculado a cartão
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Este gasto está vinculado a uma fatura de cartão de crédito e não pode ser marcado individualmente como pago. Para registrar o pagamento, acesse a seção "Cartões de Crédito" e marque a fatura correspondente como paga.
+              Este gasto está vinculado a uma fatura de cartão de crédito e não pode ser marcado individualmente como pago. Para registrar o pagamento, marque a fatura correspondente como paga na faixa de cartões acima.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction
               onClick={() => setCardWarningOpen(false)}
-              className="rounded-xl bg-expense text-white hover:bg-expense/90 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
+              className="rounded-md bg-expense text-white hover:bg-expense/90 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
             >
               Entendi
             </AlertDialogAction>

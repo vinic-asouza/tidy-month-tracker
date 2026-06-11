@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Mail, Lock, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,24 +109,13 @@ const Auth = () => {
     <div className="min-h-screen bg-background gradient-subtle flex flex-col">
       {/* Header */}
       <header className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="h-10 w-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-              <Wallet className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="absolute -top-1 -right-1 h-3 w-3 bg-income rounded-full border-2 border-background animate-pulse-soft" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">Tidy Month Tracker</h1>
-            <p className="text-xs text-muted-foreground">Controle financeiro pessoal</p>
-          </div>
-        </div>
+        <BrandMark />
       </header>
 
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="bg-card rounded-2xl p-8 card-shadow">
+          <div className="bg-card rounded-lg p-8 border border-border/60 shadow-sm">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold mb-2">
                 {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
@@ -151,7 +141,7 @@ const Auth = () => {
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setErrors(prev => ({ ...prev, email: undefined })); }}
-                    className={`pl-10 rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`}
+                    className={`pl-10 rounded-md h-10 ${errors.email ? 'border-destructive' : ''}`}
                     disabled={isLoading}
                   />
                 </div>
@@ -171,7 +161,7 @@ const Auth = () => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setErrors(prev => ({ ...prev, password: undefined })); }}
-                    className={`pl-10 pr-10 rounded-xl h-11 ${errors.password ? 'border-destructive' : ''}`}
+                    className={`pl-10 pr-10 rounded-md h-10 ${errors.password ? 'border-destructive' : ''}`}
                     disabled={isLoading}
                   />
                   <button
@@ -199,7 +189,7 @@ const Auth = () => {
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); setErrors(prev => ({ ...prev, confirmPassword: undefined })); }}
-                      className={`pl-10 rounded-xl h-11 ${errors.confirmPassword ? 'border-destructive' : ''}`}
+                      className={`pl-10 rounded-md h-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
                       disabled={isLoading}
                     />
                   </div>
@@ -210,7 +200,7 @@ const Auth = () => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11 rounded-xl gradient-primary shadow-glow hover:opacity-90 transition-opacity text-primary-foreground"
+                className="w-full h-10 rounded-md gradient-primary shadow-glow hover:opacity-90 transition-opacity text-primary-foreground"
                 disabled={isLoading}
               >
                 {isLoading ? (

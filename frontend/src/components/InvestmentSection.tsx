@@ -39,6 +39,7 @@ import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 
 interface InvestmentSectionProps {
   investments: Investment[];
@@ -55,6 +56,7 @@ interface InvestmentSectionProps {
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
+  variant?: 'default' | 'embedded';
 }
 
 type ViewMode = 'general' | 'summary';
@@ -142,10 +144,10 @@ const InstitutionSummaryItem = ({
   const percentage = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
   
   return (
-    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-xl bg-muted/30 overflow-hidden">
+    <div className="relative flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30 overflow-hidden">
       {/* Progress bar background */}
       <div
-        className={`absolute inset-y-0 left-0 bg-investment-light rounded-xl ${
+        className={`absolute inset-y-0 left-0 bg-investment-light rounded-md ${
           shouldAnimate ? 'progress-bar-animate' : 'transition-all duration-300'
         }`}
         style={{ 
@@ -188,6 +190,7 @@ export const InvestmentSection = ({
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
+  variant = 'default',
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -494,14 +497,18 @@ export const InvestmentSection = ({
     .filter(i => i.invested)
     .reduce((sum, i) => sum + i.value, 0);
 
+  const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
+
   return (
-    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
+    <div className={shellClass}>
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl gradient-investment shadow-glow-investment">
-            <PiggyBank className="h-4 w-4 text-white" />
-          </div>
+          {variant === 'default' && (
+            <div className="p-2.5 rounded-md gradient-investment">
+              <PiggyBank className="h-4 w-4 text-white" />
+            </div>
+          )}
           <div>
             <h3 className="text-base sm:text-lg font-semibold tracking-tight">Investimentos</h3>
             <div className="flex items-center gap-2">
@@ -530,7 +537,7 @@ export const InvestmentSection = ({
           }
         }}
       >
-        <DialogContent className="rounded-2xl">
+        <DialogContent className="rounded-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingId ? 'Editar Investimento' : 'Novo Investimento'}
@@ -546,11 +553,11 @@ export const InvestmentSection = ({
                     <div className="flex-1">
                       <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
                         <SelectTrigger
-                          className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                          className={`rounded-md h-10 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
                         >
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl">
+                        <SelectContent className="rounded-md">
                           {tags.map((tag) => (
                             <SelectItem
                               key={tag}
@@ -569,12 +576,12 @@ export const InvestmentSection = ({
                           type="button"
                           size="sm" 
                           variant="ghost"
-                          className="rounded-xl h-11 w-11 text-investment hover:bg-investment-light hover:text-investment focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                          className="rounded-md h-10 w-11 text-investment hover:bg-investment-light hover:text-investment focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                      <PopoverContent className="w-72 rounded-md p-4 bg-background border shadow-lg" align="end">
                         <h4 className="font-semibold mb-3 text-sm">Gerenciar Instituições</h4>
                         
                         {/* Add new tag */}
@@ -688,7 +695,7 @@ export const InvestmentSection = ({
                       <Button
                         variant="outline"
                         className={cn(
-                          'w-full justify-start text-left font-normal rounded-xl h-11',
+                          'w-full justify-start text-left font-normal rounded-md h-10',
                           !itemDate && 'text-muted-foreground'
                         )}
                       >
@@ -717,7 +724,7 @@ export const InvestmentSection = ({
                       value={description}
                       onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
                       placeholder="Ex: Tesouro Direto, CDB..."
-                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                      className={`rounded-md h-10 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
                     />
                     {descriptionError && (
                       <p className="text-destructive text-sm mt-1">{descriptionError}</p>
@@ -730,7 +737,7 @@ export const InvestmentSection = ({
                     <CurrencyInput
                       value={value}
                       onValueChange={(v) => { setValue(v); setValueError(null); }}
-                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                      className={`rounded-md h-10 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
                     />
                     {valueError && (
                       <p className="text-destructive text-sm mt-1">{valueError}</p>
@@ -739,7 +746,7 @@ export const InvestmentSection = ({
                 </div>
 
                 {/* Repeat All Months */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2">
                     <Repeat className="h-4 w-4 text-muted-foreground" />
                     <Label htmlFor="repeat-all-months" className="text-sm font-medium cursor-pointer">
@@ -756,7 +763,7 @@ export const InvestmentSection = ({
 
                 <Button 
                   onClick={handleSubmit} 
-                  className="w-full h-11 rounded-xl gradient-investment shadow-glow-investment hover:opacity-90 transition-opacity text-white border-0"
+                  className="w-full h-10 rounded-md gradient-investment hover:opacity-90 transition-opacity text-white border-0"
                 >
                   {editingId ? 'Salvar Alterações' : 'Adicionar Investimento'}
                 </Button>
@@ -805,7 +812,7 @@ export const InvestmentSection = ({
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-xl">
+          <DropdownMenuContent align="end" className="rounded-md">
             {SORT_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.value}
@@ -822,7 +829,7 @@ export const InvestmentSection = ({
       {/* List */}
       {investments.length === 0 ? (
         <div className="text-center py-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-investment-light mb-3">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-investment-light mb-3">
             <PiggyBank className="h-6 w-6 text-investment" />
           </div>
           <p className="text-muted-foreground text-sm">
@@ -848,8 +855,9 @@ export const InvestmentSection = ({
                 key={investment.id}
                 onClick={handleItemClick}
                 className={cn(
-                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
-                  isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
+                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
+                  isSelected ? 'border-investment/60' : 'border-transparent',
+                  investment.invested ? 'bg-investment-light hover:bg-investment-light/80' : 'bg-muted/30 hover:bg-muted/50'
                 )}
               >
                 <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -897,8 +905,9 @@ export const InvestmentSection = ({
                     key={investment.id}
                     onClick={handleItemClick}
                     className={cn(
-                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
-                      isSelected ? 'bg-muted/70 cursor-pointer' : investment.invested ? 'bg-investment-light cursor-pointer hover:bg-investment-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
+                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
+                      isSelected ? 'border-investment/60' : 'border-transparent',
+                      investment.invested ? 'bg-investment-light hover:bg-investment-light/80' : 'bg-muted/30 hover:bg-muted/50',
                       isNewlyExpanded && 'expand-in'
                     )}
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}

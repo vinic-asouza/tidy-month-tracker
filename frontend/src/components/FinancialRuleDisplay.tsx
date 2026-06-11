@@ -20,8 +20,57 @@ interface FinancialRuleDisplayProps {
 export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayProps) => {
   const stats = useMemo(() => calculateFinancialRuleStats(rule, monthData), [rule, monthData]);
 
-  // Calcular renda total
-  const totalIncome = monthData.incomes.reduce((sum, income) => sum + income.value, 0);
+  const CategoryAlerts = ({
+    differencePercent,
+    kind,
+  }: {
+    differencePercent: number;
+    kind: 'expense' | 'investment';
+  }) => {
+    if (kind === 'expense' && differencePercent > 0) {
+      return (
+        <Badge
+          variant="outline"
+          className="h-6 px-2 rounded-full border-none bg-expense-light text-expense text-[10px] sm:text-[11px] font-medium gap-1 w-fit"
+        >
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          <span className="whitespace-nowrap">
+            {differencePercent.toFixed(1)}% acima do limite
+          </span>
+        </Badge>
+      );
+    }
+
+    if (kind === 'investment' && differencePercent < 0) {
+      return (
+        <Badge
+          variant="outline"
+          className="h-6 px-2 rounded-full border-none bg-investment-light text-investment text-[10px] sm:text-[11px] font-medium gap-1 w-fit"
+        >
+          <Frown className="h-3 w-3 shrink-0" />
+          <span className="whitespace-nowrap">
+            Faltam {Math.abs(differencePercent).toFixed(1)}% para meta
+          </span>
+        </Badge>
+      );
+    }
+
+    if (kind === 'investment' && differencePercent > 0) {
+      return (
+        <Badge
+          variant="outline"
+          className="h-6 px-2 rounded-full border-none bg-investment-light text-investment text-[10px] sm:text-[11px] font-medium gap-1 w-fit"
+        >
+          <Smile className="h-3 w-3 shrink-0" />
+          <span className="whitespace-nowrap">
+            {differencePercent.toFixed(1)}% acima da meta
+          </span>
+        </Badge>
+      );
+    }
+
+    return null;
+  };
 
   // Componente de barra de progresso
   const ProgressBar = ({
@@ -29,11 +78,15 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     target,
     label,
     color,
+    differencePercent,
+    kind,
   }: {
     current: number;
     target: number;
     label: string;
     color: 'expense' | 'income' | 'investment';
+    differencePercent: number;
+    kind: 'expense' | 'investment';
   }) => {
     const percentage = Math.max(0, Math.min(100, current));
     const targetPercentage = Math.max(0, Math.min(100, target));
@@ -55,19 +108,23 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     const metaBarColor = 'bg-muted/100';
 
     return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
-          <span className="font-medium">{label}</span>
-          <span className="text-muted-foreground text-xs sm:text-sm tabular-nums">
-            {color === 'investment' ? 'Meta' : 'Limite'}: {target.toFixed(1)}%
-          </span>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">{label}</span>
+          <Badge
+            variant="outline"
+            className="h-6 px-2 rounded-full border-none bg-muted text-muted-foreground text-[10px] sm:text-[11px] font-semibold tabular-nums w-fit"
+          >
+            {target.toFixed(1)}%
+          </Badge>
+          <CategoryAlerts differencePercent={differencePercent} kind={kind} />
         </div>
-        <div className="relative h-7 sm:h-8 rounded-xl bg-muted/30 overflow-visible">
+        <div className="relative h-7 sm:h-7 rounded-md bg-muted/30 overflow-hidden">
           {/* Barra da Limite (atrás) */}
           {targetPercentage <= 100 && (
             <div
               className={cn(
-                'absolute inset-y-0 left-0 rounded-xl transition-all duration-500',
+                'absolute inset-y-0 left-0 rounded-md transition-all duration-500',
                 metaBarColor
               )}
               style={{ width: `${visualTargetPercentage}%` }}
@@ -81,7 +138,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
               {/* Parte até a Limite */}
               <div
                 className={cn(
-                  'absolute inset-y-0 left-0 rounded-l-xl transition-all duration-500 z-10',
+                  'absolute inset-y-0 left-0 rounded-l-md transition-all duration-500 z-10',
                   color === 'expense' ? colorClasses.income : colorClasses.investment
                 )}
                 style={{ width: `${visualTargetPercentage}%` }}
@@ -89,7 +146,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
               {/* Parte do excesso */}
               <div
                 className={cn(
-                  'absolute inset-y-0 rounded-r-xl transition-all duration-500 z-10',
+                  'absolute inset-y-0 rounded-r-md transition-all duration-500 z-10',
                   color === 'expense' ? colorClasses.expense : investmentExcessColor
                 )}
                 style={{
@@ -102,7 +159,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
             /* Comportamento padrão: barra única */
             <div
               className={cn(
-                'absolute inset-y-0 left-0 rounded-xl transition-all duration-500 z-10',
+                'absolute inset-y-0 left-0 rounded-md transition-all duration-500 z-10',
                 // Para Essenciais e Estilo de Vida (color === 'expense'): sempre verde quando não passa da Limite
                 color === 'expense' && !isOverTarget
                   ? colorClasses.income
@@ -119,7 +176,7 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
             />
           )}
 
-          {/* Label da porcentagem atual sempre na ponta da barra atual */}
+          {/* Porcentagem atual na ponta da barra */}
           {visualPercentage > 6 && (
             <div
               className="absolute inset-y-0 left-0 z-20 flex items-center"
@@ -137,162 +194,127 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     );
   };
 
-  // Linha de valores: "R$ atual de R$ limite" + diferença colorida + alertas
+  // Linha de valores: limite/gasto à esquerda + tag de diferença; alertas à direita
   const ValuesLine = ({
     currentValue,
     targetValue,
     differenceValue,
-    differencePercent,
     kind,
   }: {
     currentValue: number;
     targetValue: number;
     differenceValue: number;
-    differencePercent: number;
     kind: 'expense' | 'investment';
   }) => {
-    // Se não há diferença em valor, mostramos apenas os valores base
-    if (differenceValue === 0) {
-      return (
-        <p className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="tabular-nums">
-            {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
-          </span>
-        </p>
-      );
-    }
+    const limitLabel = kind === 'investment' ? 'Meta' : 'Limite';
+    const spentLabel = kind === 'investment' ? 'Valor investido' : 'Valor gasto';
 
-    let displayText: string;
-    let displayClass: string;
+    let displayText: string | null = null;
+    let badgeClass: string | null = null;
 
     if (kind === 'expense') {
-      // Para essenciais e estilo de vida, interpretamos como SALDO:
-      // saldo = limite - atual -> > 0 = abaixo do limite (bom / positivo), < 0 = acima (ruim / negativo)
-      const saldo = targetValue - currentValue;
-      const saldoAbs = Math.abs(saldo);
+      const delta = currentValue - targetValue;
+      const deltaAbs = Math.abs(delta);
 
-      // Se por algum motivo saldo for 0 mas differenceValue não (edge raro), tratamos como sem diferença visível
-      if (saldoAbs === 0) {
-        return (
-          <p className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <span className="tabular-nums">
-              {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
-            </span>
-          </p>
-        );
+      if (deltaAbs > 0) {
+        const isOverLimit = delta > 0;
+        displayText = `${isOverLimit ? '+' : '-'}${formatCurrency(deltaAbs)}`;
+        badgeClass = isOverLimit
+          ? 'border-none bg-expense-light text-expense'
+          : 'border-none bg-income-light text-income';
       }
-
-      const isPositive = saldo > 0;
-      // Sinal invertido em relação ao gasto bruto:
-      // + para saldo positivo (abaixo do limite), - para saldo negativo (acima do limite)
-      displayText = `${isPositive ? '+' : '-'}${formatCurrency(saldoAbs)}`;
-      displayClass = isPositive ? 'text-income' : 'text-expense';
-    } else {
-      // Para investimentos, usamos a diferença direta: > 0 = acima da meta (bom), < 0 = abaixo (ruim)
+    } else if (differenceValue !== 0) {
       const diffAbs = Math.abs(differenceValue);
       const isPositive = differenceValue > 0;
-
       displayText = `${isPositive ? '+' : '-'}${formatCurrency(diffAbs)}`;
-      displayClass = isPositive ? 'text-investment' : 'text-expense';
+      badgeClass = isPositive
+        ? 'border-none bg-investment-light text-investment'
+        : 'border-none bg-expense-light text-expense';
     }
 
     return (
-      <div className="flex flex-col gap-1.5 sm:gap-0 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
-        <span className="tabular-nums order-2 sm:order-1">
-          {formatCurrency(currentValue)} de {formatCurrency(targetValue)}
-        </span>
-        <span className="flex flex-wrap items-center gap-2 order-1 sm:order-2">
-          {/* Alertas para gastos essenciais/estilo de vida acima do limite */}
-          {kind === 'expense' && differencePercent > 0 && (
+      <div className="text-xs sm:text-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-muted-foreground min-w-0">
+          <span>
+            {limitLabel}:{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {formatCurrency(targetValue)}
+            </span>
+          </span>
+          <span className="text-border hidden sm:inline" aria-hidden>
+            |
+          </span>
+          <span>
+            {spentLabel}:{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {formatCurrency(currentValue)}
+            </span>
+          </span>
+          {displayText && badgeClass && (
             <Badge
               variant="outline"
-              className="h-6 px-2 rounded-full border-none bg-expense-light text-expense text-[10px] sm:text-[11px] font-medium gap-1 w-fit"
+              className={cn(
+                'h-6 px-2 rounded-full text-[10px] sm:text-[11px] font-semibold tabular-nums w-fit',
+                badgeClass
+              )}
             >
-              <AlertTriangle className="h-3 w-3 shrink-0" />
-              <span className="whitespace-nowrap">{differencePercent.toFixed(1)}% acima do limite</span>
+              {displayText}
             </Badge>
           )}
-
-          {/* Alerta para investimento: abaixo da meta */}
-          {kind === 'investment' && differencePercent < 0 && (
-            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full whitespace-nowrap">
-              <Frown className="h-3 w-3 shrink-0" />
-              Faltam {Math.abs(differencePercent).toFixed(1)}% para meta
-            </span>
-          )}
-          {/* Feedback para investimento acima da meta */}
-          {kind === 'investment' && differencePercent > 0 && (
-            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-investment bg-investment-light/80 px-2 py-0.5 rounded-full whitespace-nowrap">
-              <Smile className="h-3 w-3 shrink-0" />
-              {differencePercent.toFixed(1)}% acima da meta
-            </span>
-          )}
-
-          <span className={cn('font-semibold tabular-nums', displayClass)}>
-            {displayText}
-          </span>
-        </span>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div>
-        <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-2">
-          Renda do mês:{' '}
-          <span className="font-semibold text-foreground tabular-nums">
-            {formatCurrency(totalIncome)}
-          </span>
-        </p>
-
-        <div className="space-y-4 sm:space-y-5">
-          <div className="space-y-1.5 sm:space-y-2">
-            <ProgressBar
-              current={stats.essentials.current}
-              target={stats.essentials.target}
-              label="Essenciais"
-              color="expense"
-            />
-            <ValuesLine
-              currentValue={stats.essentials.currentValue}
-              targetValue={stats.essentials.targetValue}
-              differenceValue={stats.essentials.differenceValue}
-              differencePercent={stats.essentials.difference}
-              kind="expense"
-            />
-          </div>
-          <div className="space-y-1.5 sm:space-y-2">
-            <ProgressBar
-              current={stats.lifestyle.current}
-              target={stats.lifestyle.target}
-              label="Estilo de Vida"
-              color="expense"
-            />
-            <ValuesLine
-              currentValue={stats.lifestyle.currentValue}
-              targetValue={stats.lifestyle.targetValue}
-              differenceValue={stats.lifestyle.differenceValue}
-              differencePercent={stats.lifestyle.difference}
-              kind="expense"
-            />
-          </div>
-          <div className="space-y-1.5 sm:space-y-2">
-            <ProgressBar
-              current={stats.investments.current}
-              target={stats.investments.target}
-              label="Investimentos"
-              color="investment"
-            />
-            <ValuesLine
-              currentValue={stats.investments.currentValue}
-              targetValue={stats.investments.targetValue}
-              differenceValue={stats.investments.differenceValue}
-              differencePercent={stats.investments.difference}
-              kind="investment"
-            />
-          </div>
-        </div>
+    <div className="space-y-5 sm:space-y-6">
+      <div className="space-y-2.5 sm:space-y-3">
+        <ProgressBar
+          current={stats.essentials.current}
+          target={stats.essentials.target}
+          label="Essenciais"
+          color="expense"
+          differencePercent={stats.essentials.difference}
+          kind="expense"
+        />
+        <ValuesLine
+          currentValue={stats.essentials.currentValue}
+          targetValue={stats.essentials.targetValue}
+          differenceValue={stats.essentials.differenceValue}
+          kind="expense"
+        />
+      </div>
+      <div className="space-y-2.5 sm:space-y-3">
+        <ProgressBar
+          current={stats.lifestyle.current}
+          target={stats.lifestyle.target}
+          label="Estilo de Vida"
+          color="expense"
+          differencePercent={stats.lifestyle.difference}
+          kind="expense"
+        />
+        <ValuesLine
+          currentValue={stats.lifestyle.currentValue}
+          targetValue={stats.lifestyle.targetValue}
+          differenceValue={stats.lifestyle.differenceValue}
+          kind="expense"
+        />
+      </div>
+      <div className="space-y-2.5 sm:space-y-3">
+        <ProgressBar
+          current={stats.investments.current}
+          target={stats.investments.target}
+          label="Investimentos"
+          color="investment"
+          differencePercent={stats.investments.difference}
+          kind="investment"
+        />
+        <ValuesLine
+          currentValue={stats.investments.currentValue}
+          targetValue={stats.investments.targetValue}
+          differenceValue={stats.investments.differenceValue}
+          kind="investment"
+        />
       </div>
     </div>
   );

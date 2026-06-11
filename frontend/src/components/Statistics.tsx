@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { SectionSurface } from '@/components/layout/SectionSurface';
 import { BarChart3, Loader2 } from 'lucide-react';
 import { MonthData, CreditCard } from '@/types/finance';
 
@@ -69,7 +70,7 @@ export const Statistics = ({ yearData, currentYear, creditCards, isLoading = fal
     gradient: string; 
     lightBg: string;
   }) => (
-    <div className={`${lightBg} rounded-xl p-4 text-center`}>
+    <div className={`${lightBg} rounded-md p-4 text-center`}>
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">{title}</p>
       <p className={`text-lg font-bold ${gradient === 'income' ? 'text-income' : gradient === 'expense' ? 'text-expense' : 'text-investment'}`}>
         {formatCurrency(value)}
@@ -78,25 +79,14 @@ export const Statistics = ({ yearData, currentYear, creditCards, isLoading = fal
   );
 
   return (
-    <div className="space-y-6">
-      {/* Year Summary */}
-      <div className="bg-card rounded-2xl p-6 card-shadow">
+    <div className="space-y-5">
+      <SectionSurface title="Resumo Anual" subtitle={String(currentYear)} icon={BarChart3}>
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 rounded-xl gradient-primary shadow-glow">
-                <BarChart3 className="h-4 w-4 text-white dark:text-black" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-lg font-semibold tracking-tight">Resumo Anual</h3>
-                <p className="text-sm text-muted-foreground">{currentYear}</p>
-              </div>
-            </div>
-            
             {/* Informativo discreto */}
             <p className="text-xs text-muted-foreground/70 mb-6 italic">
               Considera apenas itens marcados como recebido, pago ou investido
@@ -131,7 +121,7 @@ export const Statistics = ({ yearData, currentYear, creditCards, isLoading = fal
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px',
+                      borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
                   />
@@ -147,7 +137,7 @@ export const Statistics = ({ yearData, currentYear, creditCards, isLoading = fal
             </div>
           </>
         )}
-      </div>
+      </SectionSurface>
     </div>
   );
 };

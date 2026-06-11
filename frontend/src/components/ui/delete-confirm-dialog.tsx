@@ -26,16 +26,16 @@ export const DeleteConfirmDialog = ({
 }: DeleteConfirmDialogProps) => {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl">
+      <AlertDialogContent className="rounded-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-md">Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             Excluir
           </AlertDialogAction>

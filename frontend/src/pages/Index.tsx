@@ -3,18 +3,15 @@ import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, Tr
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator } from '@/components/MonthNavigator';
+import { BrandMark } from '@/components/brand/BrandMark';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { SaldosSection } from '@/components/SaldosSection';
-import { IncomeSection } from '@/components/IncomeSection';
-import { ExpenseSection } from '@/components/ExpenseSection';
-import { CreditCardSection } from '@/components/CreditCardSection';
-import { InvestmentSection } from '@/components/InvestmentSection';
+import { MonthSummarySection } from '@/components/MonthSummarySection';
+import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
 import { Statistics } from '@/components/Statistics';
-import { FinancialRuleSection } from '@/components/FinancialRuleSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
@@ -40,6 +37,7 @@ const Index = () => {
   type AddDialogType = 'income' | 'expense' | 'investment' | 'card' | null;
   const [addDialogType, setAddDialogType] = useState<AddDialogType>(null);
   const [fabPopoverOpen, setFabPopoverOpen] = useState(false);
+  const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
   
   const { signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
@@ -62,6 +60,12 @@ const Index = () => {
       if (themeTransitionTimerRef.current) clearTimeout(themeTransitionTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (addDialogType === 'income') setRecordsTab('income');
+    else if (addDialogType === 'expense' || addDialogType === 'card') setRecordsTab('expense');
+    else if (addDialogType === 'investment') setRecordsTab('investment');
+  }, [addDialogType]);
   
   const {
     loading,
@@ -246,18 +250,8 @@ const Index = () => {
           {/* Layout: Logo (esq) | Seletor de Mês (centro absoluto) | Navegação + Logout (dir) */}
           <div className="flex items-center justify-between gap-4">
             {/* Esquerda: Logo + Nome */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="relative">
-                <div className="h-10 w-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-                  <Wallet className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <div className="absolute -top-1 -right-1 h-3 w-3 bg-income rounded-full border-2 border-background animate-pulse-soft" />
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold tracking-tight">Tidy Month Tracker</h1>
-                <p className="text-xs text-muted-foreground">Controle financeiro pessoal</p>
-              </div>
-            </div>
+            <BrandMark className="hidden sm:flex" />
+            <BrandMark size="sm" showText={false} className="sm:hidden" />
 
             {/* Centro: Seletor de Mês (centralizado no centro absoluto do header) */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -271,7 +265,7 @@ const Index = () => {
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Desktop Nav */}
               <nav className="hidden md:flex items-center gap-2">
-                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-xl">
+                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
                   <Button
                     variant={view === 'dashboard' ? 'default' : 'ghost'}
                     onClick={() => handleViewChange('dashboard')}
@@ -301,7 +295,7 @@ const Index = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleThemeToggle}
-                  className="h-10 w-10 rounded-xl hover:bg-muted"
+                  className="h-10 w-10 rounded-md hover:bg-muted"
                   title={isDark ? 'Modo claro' : 'Modo escuro'}
                   disabled={isThemeTransitioning}
                 >
@@ -315,7 +309,7 @@ const Index = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleSignOut}
-                  className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive"
+                  className="h-10 w-10 rounded-md hover:bg-destructive/10 hover:text-destructive"
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -328,7 +322,7 @@ const Index = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-xl"
+                    className="h-10 w-10 rounded-md"
                     aria-label="Abrir menu de navegação"
                   >
                     <Menu className="h-5 w-5" />
@@ -339,17 +333,8 @@ const Index = () => {
                 side="right"
                 className="flex h-dvh max-h-dvh max-w-xs flex-col gap-0 border-l border-border/60 bg-background/95 px-0 py-0 backdrop-blur-xl"
               >
-                <div className="flex shrink-0 items-center gap-3 border-b border-border/60 px-4 py-4">
-                  <div className="relative">
-                    <div className="h-9 w-9 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-                      <Wallet className="h-4 w-4 text-primary-foreground" />
-                    </div>
-                    <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-income rounded-full border-2 border-background animate-pulse-soft" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold leading-tight">Tidy Month Tracker</span>
-                    <span className="text-[11px] text-muted-foreground leading-tight">Seu painel financeiro</span>
-                  </div>
+                <div className="flex shrink-0 items-center border-b border-border/60 px-4 py-4">
+                  <BrandMark size="sm" subtitle="Seu painel financeiro" />
                 </div>
 
                 <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-4">
@@ -359,7 +344,7 @@ const Index = () => {
                     </p>
                     <Button
                       variant={view === 'dashboard' ? 'default' : 'ghost'}
-                      className={`w-full justify-start gap-3 rounded-xl text-sm ${
+                      className={`w-full justify-start gap-3 rounded-md text-sm ${
                         view === 'dashboard'
                           ? 'gradient-primary text-primary-foreground shadow-glow'
                           : 'bg-muted/40 hover:bg-muted'
@@ -371,7 +356,7 @@ const Index = () => {
                     </Button>
                     <Button
                       variant={view === 'statistics' ? 'default' : 'ghost'}
-                      className={`w-full justify-start gap-3 rounded-xl text-sm ${
+                      className={`w-full justify-start gap-3 rounded-md text-sm ${
                         view === 'statistics'
                           ? 'gradient-primary text-primary-foreground shadow-glow'
                           : 'bg-muted/40 hover:bg-muted'
@@ -389,7 +374,7 @@ const Index = () => {
                     </p>
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 rounded-xl text-sm hover:bg-muted"
+                      className="w-full justify-start gap-3 rounded-md text-sm hover:bg-muted"
                       onClick={handleThemeToggle}
                       disabled={isThemeTransitioning}
                     >
@@ -402,7 +387,7 @@ const Index = () => {
                 <div className="shrink-0 border-t border-border/60 px-4 py-4">
                   <Button
                     variant="destructive"
-                    className="h-11 w-full justify-center gap-2 rounded-2xl text-sm font-semibold shadow-lg shadow-destructive/30 hover:shadow-destructive/40"
+                    className="h-11 w-full justify-center gap-2 rounded-lg text-sm font-semibold shadow-lg shadow-destructive/30 hover:shadow-destructive/40"
                     onClick={async () => {
                       await handleSignOut();
                       setMobileSidebarOpen(false);
@@ -427,91 +412,60 @@ const Index = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="animate-fade-in space-y-6">
-              {/* Estatísticas do Mês */}
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                Estatísticas do Mês
-              </h2>
-              <div className="grid lg:grid-cols-2 gap-6">
-                <SaldosSection monthData={monthData} />
-                <FinancialRuleSection monthData={monthData} settings={settings} />
-              </div>
-
-              {/* Registros do Mês */}
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                Registros do Mês
-              </h2>
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-6">
-                  <IncomeSection
-                    incomes={monthData.incomes}
-                    tags={settings.incomeTags}
-                    onAdd={addIncome}
-                    onUpdate={updateIncome}
-                    onDelete={deleteIncome}
-                    onAddTag={addIncomeTag}
-                    onUpdateTag={updateIncomeTag}
-                    onDeleteTag={deleteIncomeTag}
-                    selectedIds={selectedIncomeIds}
-                    onSelectionChange={handleIncomeSelectionChange}
-                    openAddDialog={addDialogType === 'income'}
-                    onAddDialogClose={() => setAddDialogType(null)}
-                  />
-                  <ExpenseSection
-                    expenses={monthData.expenses}
-                    categories={settings.expenseCategories}
-                    paymentMethods={settings.paymentMethods}
-                    creditCards={creditCards}
-                    onAdd={addExpense}
-                    onUpdate={updateExpense}
-                    onDelete={deleteExpense}
-                    onDeleteInstallment={deleteInstallmentExpense}
-                    getCardPaidStatus={getCardPaidStatus}
-                    onAddCategory={addExpenseCategory}
-                    onUpdateCategory={updateExpenseCategory}
-                    onDeleteCategory={deleteExpenseCategory}
-                    selectedIds={selectedExpenseIds}
-                    onSelectionChange={handleExpenseSelectionChange}
-                    openAddDialog={addDialogType === 'expense'}
-                    onAddDialogClose={() => setAddDialogType(null)}
-                  />
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <InvestmentSection
-                    investments={monthData.investments}
-                    tags={settings.investmentTags}
-                    onAdd={addInvestment}
-                    onUpdate={updateInvestment}
-                    onDelete={deleteInvestment}
-                    onAddTag={addInvestmentTag}
-                    onUpdateTag={updateInvestmentTag}
-                    onDeleteTag={deleteInvestmentTag}
-                    selectedIds={selectedInvestmentIds}
-                    onSelectionChange={handleInvestmentSelectionChange}
-                    openAddDialog={addDialogType === 'investment'}
-                    onAddDialogClose={() => setAddDialogType(null)}
-                  />
-                  <div className="lg:sticky lg:top-[calc(var(--header-height,64px)+3.5rem)]">
-                  <CreditCardSection
-                    creditCards={creditCards}
-                    currentMonth={currentMonth}
-                    onAdd={addCreditCard}
-                    onUpdate={updateCreditCard}
-                    onDelete={deleteCreditCard}
-                    getCardTotal={getCreditCardTotal}
-                    canDeleteCard={canDeleteCardSync}
-                    cardNameExists={cardNameExists}
-                    getCardPaidStatus={getCardPaidStatus}
-                    setCardPaidStatus={setCardPaidStatus}
-                    openAddDialog={addDialogType === 'card'}
-                    onAddDialogClose={() => setAddDialogType(null)}
-                  />
-                  </div>
-                </div>
-              </div>
+            <div className="animate-fade-in space-y-5">
+              <MonthSummarySection
+                currentMonth={currentMonth}
+                monthData={monthData}
+                settings={settings}
+              />
+              <MonthRecordsSection
+                currentMonth={currentMonth}
+                activeTab={recordsTab}
+                onTabChange={setRecordsTab}
+                incomes={monthData.incomes}
+                expenses={monthData.expenses}
+                investments={monthData.investments}
+                incomeTags={settings.incomeTags}
+                expenseCategories={settings.expenseCategories}
+                paymentMethods={settings.paymentMethods}
+                investmentTags={settings.investmentTags}
+                creditCards={creditCards}
+                selectedIncomeIds={selectedIncomeIds}
+                selectedExpenseIds={selectedExpenseIds}
+                selectedInvestmentIds={selectedInvestmentIds}
+                onIncomeSelectionChange={handleIncomeSelectionChange}
+                onExpenseSelectionChange={handleExpenseSelectionChange}
+                onInvestmentSelectionChange={handleInvestmentSelectionChange}
+                addIncome={addIncome}
+                updateIncome={updateIncome}
+                deleteIncome={deleteIncome}
+                addExpense={addExpense}
+                updateExpense={updateExpense}
+                deleteExpense={deleteExpense}
+                deleteInstallmentExpense={deleteInstallmentExpense}
+                addInvestment={addInvestment}
+                updateInvestment={updateInvestment}
+                deleteInvestment={deleteInvestment}
+                addCreditCard={addCreditCard}
+                updateCreditCard={updateCreditCard}
+                deleteCreditCard={deleteCreditCard}
+                getCreditCardTotal={getCreditCardTotal}
+                canDeleteCard={canDeleteCardSync}
+                cardNameExists={cardNameExists}
+                getCardPaidStatus={getCardPaidStatus}
+                setCardPaidStatus={setCardPaidStatus}
+                addIncomeTag={addIncomeTag}
+                updateIncomeTag={updateIncomeTag}
+                deleteIncomeTag={deleteIncomeTag}
+                addExpenseCategory={addExpenseCategory}
+                updateExpenseCategory={updateExpenseCategory}
+                deleteExpenseCategory={deleteExpenseCategory}
+                addInvestmentTag={addInvestmentTag}
+                updateInvestmentTag={updateInvestmentTag}
+                deleteInvestmentTag={deleteInvestmentTag}
+                addDialogType={addDialogType}
+                onAddDialogClose={() => setAddDialogType(null)}
+              />
             </div>
           )
         ) : (
@@ -546,7 +500,7 @@ const Index = () => {
             <Popover open={fabPopoverOpen} onOpenChange={setFabPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
-                  className={`h-12 px-4 gap-2 rounded-2xl shadow-lg transition-all duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 pointer-events-auto ${
+                  className={`h-12 px-4 gap-2 rounded-lg shadow-lg transition-all duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 pointer-events-auto ${
                     isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-black/90'
                   }`}
                   aria-label="Adicionar item"
@@ -556,7 +510,7 @@ const Index = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-56 p-2 rounded-xl glass border border-border/50"
+                className="w-56 p-2 rounded-md glass border border-border/50"
                 align="center"
                 side="top"
                 sideOffset={8}
@@ -600,7 +554,7 @@ const Index = () => {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-credit hover:bg-credit-light hover:text-credit"
+                    className="justify-start gap-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => {
                       setAddDialogType('card');
                       setFabPopoverOpen(false);

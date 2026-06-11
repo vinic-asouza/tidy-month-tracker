@@ -40,6 +40,7 @@ import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 
 interface IncomeSectionProps {
   incomes: IncomeEntry[];
@@ -54,6 +55,7 @@ interface IncomeSectionProps {
   onSelectionChange?: (ids: Set<string>) => void;
   openAddDialog?: boolean;
   onAddDialogClose?: () => void;
+  variant?: 'default' | 'embedded';
 }
 
 type ViewMode = 'general' | 'summary';
@@ -187,6 +189,7 @@ export const IncomeSection = ({
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
+  variant = 'default',
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -493,14 +496,18 @@ export const IncomeSection = ({
     .filter(i => i.received)
     .reduce((sum, i) => sum + i.value, 0);
 
+  const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
+
   return (
-    <div className="bg-card rounded-2xl p-4 sm:p-6 card-shadow">
+    <div className={shellClass}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2.5 rounded-xl gradient-income shadow-glow-income shrink-0">
-            <TrendingUp className="h-4 w-4 text-white" />
-          </div>
+          {variant === 'default' && (
+            <div className="p-2.5 rounded-md gradient-income shrink-0">
+              <TrendingUp className="h-4 w-4 text-white" />
+            </div>
+          )}
           <div className="min-w-0">
             <h3 className="text-base sm:text-lg font-semibold tracking-tight">Entradas</h3>
             <div className="flex items-center gap-2 flex-wrap">
@@ -529,7 +536,7 @@ export const IncomeSection = ({
           }
         }}
       >
-        <DialogContent className="rounded-2xl">
+        <DialogContent className="rounded-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">
                   {editingId ? 'Editar Entrada' : 'Nova Entrada'}
@@ -545,11 +552,11 @@ export const IncomeSection = ({
                     <div className="flex-1">
                       <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
                         <SelectTrigger
-                          className={`rounded-xl h-11 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-income focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                          className={`rounded-md h-10 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-income focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
                         >
                           <SelectValue placeholder="Selecione uma categoria..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl">
+                        <SelectContent className="rounded-md">
                           {tags.map((tag) => (
                             <SelectItem
                               key={tag}
@@ -568,12 +575,12 @@ export const IncomeSection = ({
                           type="button"
                           size="sm"
                           variant="ghost"
-                          className="rounded-xl h-11 w-11 text-income hover:bg-income-light hover:text-income focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
+                          className="rounded-md h-10 w-11 text-income hover:bg-income-light hover:text-income focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2"
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-72 rounded-xl p-4 bg-background border shadow-lg" align="end">
+                      <PopoverContent className="w-72 rounded-md p-4 bg-background border shadow-lg" align="end">
                         <h4 className="font-semibold mb-3 text-sm">Gerenciar Categorias</h4>
 
                         {/* Add new category */}
@@ -690,7 +697,7 @@ export const IncomeSection = ({
                       <Button
                         variant="outline"
                         className={cn(
-                          'w-full justify-start text-left font-normal rounded-xl h-11',
+                          'w-full justify-start text-left font-normal rounded-md h-10',
                           !itemDate && 'text-muted-foreground'
                         )}
                       >
@@ -719,7 +726,7 @@ export const IncomeSection = ({
                       value={description}
                       onChange={(e) => { setDescription(e.target.value); setDescriptionError(null); }}
                       placeholder="Ex: Salário janeiro"
-                      className={`rounded-xl h-11 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                      className={`rounded-md h-10 ${descriptionError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
                     />
                     {descriptionError && <p className="text-destructive text-sm mt-1">{descriptionError}</p>}
                   </div>
@@ -730,14 +737,14 @@ export const IncomeSection = ({
                     <CurrencyInput
                       value={value}
                       onValueChange={(v) => { setValue(v); setValueError(null); }}
-                      className={`rounded-xl h-11 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
+                      className={`rounded-md h-10 ${valueError ? 'border-destructive' : ''} focus-visible:ring-2 focus-visible:ring-income focus-visible:ring-offset-2`}
                     />
                     {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
                   </div>
                 </div>
 
                 {/* Repeat All Months */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2">
                     <Repeat className="h-4 w-4 text-muted-foreground" />
                     <Label htmlFor="repeat-months" className="text-sm font-medium cursor-pointer">
@@ -754,7 +761,7 @@ export const IncomeSection = ({
 
                 <Button 
                   onClick={handleSubmit} 
-                  className="w-full h-11 rounded-xl gradient-income shadow-glow-income hover:opacity-90 transition-opacity text-white border-0"
+                  className="w-full h-10 rounded-md gradient-income hover:opacity-90 transition-opacity text-white border-0"
                 >
                   {editingId ? 'Salvar Alterações' : 'Adicionar Entrada'}
                 </Button>
@@ -803,7 +810,7 @@ export const IncomeSection = ({
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-xl">
+          <DropdownMenuContent align="end" className="rounded-md">
             {SORT_OPTIONS.map((option) => (
               <DropdownMenuItem
                 key={option.value}
@@ -820,7 +827,7 @@ export const IncomeSection = ({
       {/* List */}
       {incomes.length === 0 ? (
         <div className="text-center py-8 sm:py-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-income-light mb-3 shrink-0">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-income-light mb-3 shrink-0">
             <TrendingUp className="h-6 w-6 text-income" />
           </div>
           <p className="text-muted-foreground text-sm">
@@ -846,8 +853,9 @@ export const IncomeSection = ({
                 key={income.id}
                 onClick={handleItemClick}
                 className={cn(
-                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
-                  isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50'
+                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
+                  isSelected ? 'border-income/60' : 'border-transparent',
+                  income.received ? 'bg-income-light hover:bg-income-light/80' : 'bg-muted/30 hover:bg-muted/50'
                 )}
               >
                 {/* Col 1: checkbox centralizado verticalmente */}
@@ -898,8 +906,9 @@ export const IncomeSection = ({
                     key={income.id}
                     onClick={handleItemClick}
                     className={cn(
-                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200',
-                      isSelected ? 'bg-muted/70 cursor-pointer' : income.received ? 'bg-income-light cursor-pointer hover:bg-income-light/80' : 'bg-muted/30 cursor-pointer hover:bg-muted/50',
+                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
+                      isSelected ? 'border-income/60' : 'border-transparent',
+                      income.received ? 'bg-income-light hover:bg-income-light/80' : 'bg-muted/30 hover:bg-muted/50',
                       isNewlyExpanded && 'expand-in'
                     )}
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}

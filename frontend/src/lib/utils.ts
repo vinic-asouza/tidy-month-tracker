@@ -57,3 +57,31 @@ export function formatCurrency(value: number): string {
     currency: 'BRL',
   }).format(value);
 }
+
+const MONTH_NAMES_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+/** Nome do mês a partir de yearMonth (ex.: "2024-06" → "Junho") */
+export function formatYearMonthName(yearMonth: string): string {
+  const month = parseInt(yearMonth.split('-')[1], 10);
+  return MONTH_NAMES_PT[month - 1] ?? '';
+}
+
+/** Título de bloco mensal (ex.: "Resumo de Mês de Junho") */
+export function formatMonthBlockTitle(label: string, yearMonth: string, fallback?: string): string {
+  const monthName = formatYearMonthName(yearMonth);
+  if (!monthName) return fallback ?? label;
+  return `${label} de Mês de ${monthName}`;
+}
+
+/** Título do bloco de resumo mensal */
+export function formatSummaryMonthTitle(yearMonth: string): string {
+  return formatMonthBlockTitle('Resumo', yearMonth, 'Resumo do Mês');
+}
+
+/** Título do bloco de registros mensais */
+export function formatRecordsMonthTitle(yearMonth: string): string {
+  return formatMonthBlockTitle('Registros', yearMonth, 'Registros do Mês');
+}

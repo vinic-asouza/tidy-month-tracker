@@ -37,7 +37,7 @@ export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorPr
   };
 
   return (
-    <div className="bg-muted/50 rounded-xl p-2">
+    <div className="bg-muted/50 rounded-lg p-2">
       <div className="flex items-center justify-between gap-2">
         <Button
           variant="ghost"
