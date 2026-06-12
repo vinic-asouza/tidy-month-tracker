@@ -13,7 +13,6 @@ interface BrandMarkProps {
 export const BrandMark = ({
   size = 'md',
   showText = true,
-  subtitle = 'Controle financeiro pessoal',
   className,
   textClassName,
 }: BrandMarkProps) => {
@@ -23,14 +22,14 @@ export const BrandMark = ({
     <div className={cn('flex items-center gap-3 shrink-0', className)}>
       <img
         src={logo}
-        alt="Finabit"
+        alt="Finto"
         className={cn(iconSize, 'shrink-0 object-contain dark:hidden')}
         width={size === 'sm' ? 36 : 40}
         height={size === 'sm' ? 36 : 40}
       />
       <img
         src={logoDark}
-        alt="Finabit"
+        alt="Finto"
         className={cn(iconSize, 'hidden shrink-0 object-contain dark:block')}
         width={size === 'sm' ? 36 : 40}
         height={size === 'sm' ? 36 : 40}
@@ -43,18 +42,8 @@ export const BrandMark = ({
               size === 'sm' ? 'text-sm' : 'text-lg'
             )}
           >
-            Finabit
+            Finto
           </p>
-          {subtitle && (
-            <p
-              className={cn(
-                'text-muted-foreground leading-tight',
-                size === 'sm' ? 'text-[11px]' : 'text-xs'
-              )}
-            >
-              {subtitle}
-            </p>
-          )}
         </div>
       )}
     </div>
