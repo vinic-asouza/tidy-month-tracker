@@ -1,0 +1,30 @@
+import { getDataProvider } from './provider';
+import * as apiCreditCards from './api/creditCards';
+import * as supabaseCreditCards from './supabase/creditCards';
+import * as apiIncomes from './api/incomes';
+import * as supabaseIncomes from './supabase/incomes';
+import * as apiExpenses from './api/expenses';
+import * as supabaseExpenses from './supabase/expenses';
+import * as apiInvestments from './api/investments';
+import * as supabaseInvestments from './supabase/investments';
+import * as apiSettings from './api/settings';
+import * as supabaseSettings from './supabase/settings';
+import * as apiFinancialRule from './api/financialRule';
+import * as supabaseFinancialRule from './supabase/financialRule';
+
+const isSupabase = () => getDataProvider() === 'supabase';
+
+export const creditCardsAdapter = () =>
+  isSupabase() ? supabaseCreditCards : apiCreditCards;
+
+export const incomesAdapter = () => (isSupabase() ? supabaseIncomes : apiIncomes);
+
+export const expensesAdapter = () => (isSupabase() ? supabaseExpenses : apiExpenses);
+
+export const investmentsAdapter = () =>
+  isSupabase() ? supabaseInvestments : apiInvestments;
+
+export const settingsAdapter = () => (isSupabase() ? supabaseSettings : apiSettings);
+
+export const financialRuleAdapter = () =>
+  isSupabase() ? supabaseFinancialRule : apiFinancialRule;

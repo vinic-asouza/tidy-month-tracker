@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
@@ -91,6 +89,7 @@ export type Database = {
           category: string
           created_at: string
           current_installment: number | null
+          date: string | null
           description: string
           display_order: number
           id: string
@@ -109,6 +108,7 @@ export type Database = {
           category: string
           created_at?: string
           current_installment?: number | null
+          date?: string | null
           description: string
           display_order?: number
           id?: string
@@ -127,6 +127,7 @@ export type Database = {
           category?: string
           created_at?: string
           current_installment?: number | null
+          date?: string | null
           description?: string
           display_order?: number
           id?: string
@@ -183,14 +184,51 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_rule: {
+        Row: {
+          category_mapping: Json
+          created_at: string
+          essentials_percentage: number
+          id: string
+          investments_percentage: number
+          is_custom: boolean
+          lifestyle_percentage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_mapping?: Json
+          created_at?: string
+          essentials_percentage?: number
+          id?: string
+          investments_percentage?: number
+          is_custom?: boolean
+          lifestyle_percentage?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_mapping?: Json
+          created_at?: string
+          essentials_percentage?: number
+          id?: string
+          investments_percentage?: number
+          is_custom?: boolean
+          lifestyle_percentage?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       incomes: {
         Row: {
           base_income_id: string | null
           created_at: string
-          date: string
+          date: string | null
           description: string
           display_order: number
           id: string
+          received: boolean
           repeat_all_months: boolean
           tag: string
           updated_at: string
@@ -201,10 +239,11 @@ export type Database = {
         Insert: {
           base_income_id?: string | null
           created_at?: string
-          date: string
+          date?: string | null
           description: string
           display_order?: number
           id?: string
+          received?: boolean
           repeat_all_months?: boolean
           tag: string
           updated_at?: string
@@ -215,10 +254,11 @@ export type Database = {
         Update: {
           base_income_id?: string | null
           created_at?: string
-          date?: string
+          date?: string | null
           description?: string
           display_order?: number
           id?: string
+          received?: boolean
           repeat_all_months?: boolean
           tag?: string
           updated_at?: string
@@ -238,11 +278,14 @@ export type Database = {
       }
       investments: {
         Row: {
+          base_investment_id: string | null
           created_at: string
-          date: string
+          date: string | null
           description: string
           display_order: number
           id: string
+          invested: boolean
+          repeat_all_months: boolean
           tag: string
           updated_at: string
           user_id: string
@@ -250,11 +293,14 @@ export type Database = {
           year_month: string
         }
         Insert: {
+          base_investment_id?: string | null
           created_at?: string
-          date: string
+          date?: string | null
           description: string
           display_order?: number
           id?: string
+          invested?: boolean
+          repeat_all_months?: boolean
           tag: string
           updated_at?: string
           user_id: string
@@ -262,18 +308,29 @@ export type Database = {
           year_month: string
         }
         Update: {
+          base_investment_id?: string | null
           created_at?: string
-          date?: string
+          date?: string | null
           description?: string
           display_order?: number
           id?: string
+          invested?: boolean
+          repeat_all_months?: boolean
           tag?: string
           updated_at?: string
           user_id?: string
           value?: number
           year_month?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "investments_base_investment_id_fkey"
+            columns: ["base_investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -396,40 +453,6 @@ export type TablesUpdate<
       }
       ? U
       : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {

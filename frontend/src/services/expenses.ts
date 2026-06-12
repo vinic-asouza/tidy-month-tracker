@@ -1,76 +1,43 @@
 /**
- * Serviço de Despesas (Expenses)
- * 
- * Usa API REST para operações de despesas
+ * Serviço de Despesas — facade que delega ao adaptador configurado.
  */
 
-import { apiClient } from '@/api/client';
+export type { CreateExpenseParams, UpdateExpenseParams } from './params';
+
 import type { Expense } from '@/types/domain';
+import type { CreateExpenseParams, UpdateExpenseParams } from './params';
+import { expensesAdapter } from './adapters/select';
 
-export interface CreateExpenseParams extends Omit<Expense, 'id'> {
-  userId?: string; // Mantido para compatibilidade, mas não usado (backend obtém do token)
-  yearMonth: string;
-  displayOrder?: number; // Mantido para compatibilidade, mas não usado (backend calcula)
+export async function getExpenses(userId: string, yearMonth: string): Promise<Expense[]> {
+  return expensesAdapter().getExpenses(userId, yearMonth);
 }
 
-export interface UpdateExpenseParams {
-  id: string;
-  userId?: string; // Mantido para compatibilidade, mas não usado (backend obtém do token)
-  updates: Partial<Omit<Expense, 'id'>>;
-  applyToAllMonths?: boolean;
-}
-
-/**
- * Busca despesas de um mês específico
- */
-export async function getExpenses(_userId: string, yearMonth: string): Promise<Expense[]> {
-  return apiClient.get<Expense[]>('/api/expenses', { month: yearMonth });
-}
-
-/**
- * Cria uma nova despesa
- */
 export async function createExpense(params: CreateExpenseParams): Promise<Expense> {
-  const { userId: _userId, yearMonth, displayOrder: _displayOrder, ...expenseData } = params;
-  return apiClient.post<Expense>(
-    '/api/expenses',
-    expenseData,
-    { month: yearMonth }
-  );
+  return expensesAdapter().createExpense(params);
 }
 
-/**
- * Atualiza uma despesa existente
- */
 export async function updateExpense(params: UpdateExpenseParams): Promise<void> {
-  const { id, userId: _userId, updates, applyToAllMonths } = params;
-  await apiClient.put(`/api/expenses/${id}`, { ...updates, applyToAllMonths });
+  return expensesAdapter().updateExpense(params);
 }
 
-/**
- * Deleta uma despesa
- */
-export async function deleteExpense(id: string, _userId: string, applyToAllMonths = false): Promise<void> {
-  await apiClient.delete(`/api/expenses/${id}`, { applyToAllMonths: applyToAllMonths.toString() });
+export async function deleteExpense(
+  id: string,
+  userId: string,
+  applyToAllMonths = false
+): Promise<void> {
+  return expensesAdapter().deleteExpense(id, userId, applyToAllMonths);
 }
 
-/**
- * Deleta todas as parcelas relacionadas a uma despesa parcelada
- */
 export async function deleteInstallmentExpense(
   expense: Expense,
-  _userId: string
+  userId: string
 ): Promise<void> {
-  await apiClient.delete(`/api/expenses/${expense.id}/installments`);
+  return expensesAdapter().deleteInstallmentExpense(expense, userId);
 }
 
-/**
- * Reordena despesas atualizando display_order
- */
 export async function reorderExpenses(
   expenses: Expense[],
-  _userId: string
+  userId: string
 ): Promise<void> {
-  const expenseIds = expenses.map((expense) => expense.id);
-  await apiClient.post('/api/expenses/reorder', { expenseIds });
+  return expensesAdapter().reorderExpenses(expenses, userId);
 }
