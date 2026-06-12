@@ -18,9 +18,17 @@ O Tidy Month Tracker é uma aplicação web que permite:
 Este projeto utiliza uma arquitetura **monorepo** com:
 
 - **Frontend**: React + TypeScript + Vite
-- **Backend**: Node.js + Express + TypeScript
+- **Backend**: Node.js + Express + TypeScript (preservado para uso futuro)
 - **Banco de Dados**: PostgreSQL (Supabase)
 - **Autenticação**: Supabase Auth
+
+### Produção (atual)
+
+Em produção, apenas o **frontend** é publicado ([Vercel](https://tidy-month-tracker.vercel.app)), acessando o Supabase diretamente via adaptadores (`VITE_DATA_PROVIDER=supabase`). O backend Express não é deployado nesta fase.
+
+A camada de serviços em `frontend/src/services/adapters/` permite alternar entre acesso direto ao Supabase e API REST sem alterar os componentes.
+
+📖 Veja [`docs/DEPLOY.md`](./docs/DEPLOY.md) para o guia completo de deploy.
 
 ## 🚀 Tecnologias
 
@@ -72,59 +80,44 @@ Isso instalará as dependências de todos os workspaces (frontend e backend).
 
 ### 3. Configure o Banco de Dados no Supabase
 
-**📖 IMPORTANTE:** Siga o guia completo em [`GUIA_CONFIGURACAO_SUPABASE.md`](./GUIA_CONFIGURACAO_SUPABASE.md)
-
-**Resumo rápido:**
-
 1. Crie um projeto no [Supabase](https://supabase.com)
 2. Execute o script SQL completo:
-   - Abra o arquivo `supabase/setup-completo.sql`
-   - Copie todo o conteúdo
-   - Cole no **SQL Editor** do Supabase
-   - Execute o script
-3. Obtenha as credenciais (veja guia completo para detalhes)
+   - Abra `supabase/setup-completo.sql`
+   - Cole no **SQL Editor** do Supabase e execute
+3. Em **Authentication → URL Configuration**, adicione as URLs de redirect do ambiente (local e produção)
 
 ### 4. Configure as variáveis de ambiente
 
-#### Frontend
+#### Frontend (obrigatório)
 
-1. Crie o arquivo `.env` na pasta `frontend/`:
 ```bash
-cd frontend
-# Crie o arquivo .env manualmente
+cp frontend/.env.example frontend/.env.local
 ```
 
-2. Edite `frontend/.env` e preencha:
-   ```env
-   VITE_SUPABASE_URL=https://xxxxx.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=eyJ... (anon public key)
-   VITE_API_URL=http://localhost:3000
-   ```
+Edite `frontend/.env.local`:
 
-#### Backend
-
-1. Crie o arquivo `.env` na pasta `backend/`:
-```bash
-cd backend
-# Crie o arquivo .env manualmente
+```env
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sua-chave-publishable
+VITE_DATA_PROVIDER=supabase
 ```
 
-2. Edite `backend/.env` e preencha:
-   ```env
-   DATABASE_URL=postgresql://postgres:[SUA-SENHA]@db.xxxxx.supabase.co:5432/postgres
-   SUPABASE_URL=https://xxxxx.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=eyJ... (service_role key)
-   PORT=3000
-   CORS_ORIGIN=http://localhost:8080
-   NODE_ENV=development
-   ```
+Com `VITE_DATA_PROVIDER=supabase`, o frontend acessa o banco diretamente — não é necessário subir o backend para desenvolvimento.
 
-**⚠️ IMPORTANTE:**
-- Substitua `[SUA-SENHA]` pela senha do banco que você criou
-- Substitua `xxxxx` pelo ID do seu projeto Supabase
-- Substitua as chaves `eyJ...` pelas chaves reais do seu projeto
+Para usar o backend local, defina `VITE_DATA_PROVIDER=api` e `VITE_API_URL=http://localhost:3000`.
 
-**📖 Para instruções detalhadas, veja [`GUIA_CONFIGURACAO_SUPABASE.md`](./GUIA_CONFIGURACAO_SUPABASE.md)**
+#### Backend (opcional — apenas com `VITE_DATA_PROVIDER=api`)
+
+```env
+DATABASE_URL=postgresql://postgres:[SUA-SENHA]@db.xxxxx.supabase.co:5432/postgres
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
+PORT=3000
+CORS_ORIGIN=http://localhost:8080
+NODE_ENV=development
+```
+
+**⚠️ Nunca exponha a `service_role` key no frontend ou em variáveis `VITE_*`.**
 
 ## 🏃 Execução
 
@@ -143,15 +136,17 @@ npm run dev:all
 
 ### Produção
 
-```bash
-# Build
-npm run build
-npm run build:backend
+O deploy de produção é feito na **Vercel** a partir da branch `main`. Cada push na `main` dispara build e publicação automáticos.
 
-# Executar
-npm run preview  # Frontend
-npm start        # Backend (após build)
+```bash
+# Build local (validação)
+npm run build
+
+# Preview local do build
+npm run preview --workspace=frontend
 ```
+
+📖 Guia completo: [`docs/DEPLOY.md`](./docs/DEPLOY.md)
 
 ## 📁 Estrutura do Projeto
 
@@ -160,7 +155,7 @@ tidy-month-tracker/
 ├── frontend/          # Aplicação React
 │   ├── src/
 │   │   ├── components/    # Componentes React
-│   │   ├── services/      # Camada de serviços (API)
+│   │   ├── services/      # Facades + adaptadores (supabase / api)
 │   │   ├── hooks/         # React hooks
 │   │   ├── types/         # Tipos TypeScript
 │   │   └── utils/         # Utilitários
@@ -182,12 +177,9 @@ Veja [backend/README.md](./backend/README.md) para documentação completa da AP
 
 ## 🔐 Autenticação
 
-O sistema usa **Supabase Auth** para autenticação. O backend valida tokens JWT do Supabase.
+O sistema usa **Supabase Auth** no frontend (`AuthContext`). Em produção, a sessão é gerenciada pelo `supabase-js` com RLS no banco.
 
-**Header necessário para requisições:**
-```
-Authorization: Bearer <token>
-```
+No modo `api`, o backend valida tokens JWT do Supabase via header `Authorization: Bearer <token>`.
 
 ## 🧪 Testes
 
@@ -220,6 +212,14 @@ O backend utiliza logging estruturado simples:
 ```
 [2024-01-15T10:30:45.123Z] INFO  Servidor iniciado {"port":3000,"environment":"development"}
 ```
+
+## 📚 Documentação
+
+| Documento | Descrição |
+|-----------|-----------|
+| [`docs/DEPLOY.md`](./docs/DEPLOY.md) | Deploy na Vercel, variáveis de ambiente e Supabase Auth |
+| [`docs/PLANO_FRONTEND_DIRETO_SUPABASE.md`](./docs/PLANO_FRONTEND_DIRETO_SUPABASE.md) | Plano e decisões da fase frontend → Supabase |
+| [`backend/README.md`](./backend/README.md) | API REST (modo `api`) |
 
 ## 📝 Scripts Disponíveis
 

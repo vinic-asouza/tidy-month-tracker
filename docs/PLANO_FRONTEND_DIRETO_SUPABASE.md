@@ -253,35 +253,35 @@ Ou via MCP / dashboard do Supabase.
 
 ### Código
 
-- [ ] Criar estrutura `services/adapters/` (`api.ts` e `supabase.ts`)
-- [ ] Adicionar `VITE_DATA_PROVIDER` e lógica de seleção do adaptador
-- [ ] Migrar `creditCards.ts`
-- [ ] Migrar `settings.ts`
-- [ ] Migrar `financialRule.ts`
-- [ ] Migrar `incomes.ts`
-- [ ] Migrar `investments.ts`
-- [ ] Migrar `expenses.ts`
-- [ ] Regenerar `types.ts` do Supabase
-- [ ] Testar fluxos críticos localmente com `VITE_DATA_PROVIDER=supabase`
+- [x] Criar estrutura `services/adapters/` (`api.ts` e `supabase.ts`)
+- [x] Adicionar `VITE_DATA_PROVIDER` e lógica de seleção do adaptador
+- [x] Migrar `creditCards.ts`
+- [x] Migrar `settings.ts`
+- [x] Migrar `financialRule.ts`
+- [x] Migrar `incomes.ts`
+- [x] Migrar `investments.ts`
+- [x] Migrar `expenses.ts`
+- [x] Regenerar `types.ts` do Supabase
+- [x] Testar fluxos críticos localmente com `VITE_DATA_PROVIDER=supabase`
 
 ### Infraestrutura
 
-- [ ] Alinhar `supabase/config.toml` com project ID `yoinjsmlntehikilqoxx`
-- [ ] Configurar env vars na Vercel
-- [ ] Criar `frontend/vercel.json` (rewrite SPA)
-- [ ] Atualizar Site URL e Redirect URLs no Supabase Auth
-- [ ] Deploy na Vercel e smoke test com usuário real
+- [x] Alinhar `supabase/config.toml` com project ID `yoinjsmlntehikilqoxx`
+- [x] Configurar env vars na Vercel
+- [x] Criar `vercel.json` na raiz (rewrite SPA + build do frontend)
+- [x] Atualizar Site URL e Redirect URLs no Supabase Auth
+- [x] Deploy na Vercel e smoke test com usuário real
 
 ### Validação
 
-- [ ] Login / logout / sessão persistente
-- [ ] CRUD de receitas, despesas, investimentos
-- [ ] Despesa fixa com repetição mensal
-- [ ] Despesa parcelada (criar, editar, deletar parcelas)
-- [ ] Cartões de crédito e status mensal
-- [ ] Configurações (tags, categorias, métodos)
-- [ ] Regra financeira
-- [ ] Recarregar página em `/` e `/auth` (roteamento SPA)
+- [x] Login / logout / sessão persistente
+- [x] CRUD de receitas, despesas, investimentos
+- [x] Despesa fixa com repetição mensal
+- [x] Despesa parcelada (criar, editar, deletar parcelas)
+- [x] Cartões de crédito e status mensal
+- [x] Configurações (tags, categorias, métodos)
+- [x] Regra financeira
+- [x] Recarregar página em `/` e `/auth` (roteamento SPA)
 
 ---
 
@@ -301,6 +301,7 @@ O adaptador Supabase pode permanecer no repositório para desenvolvimento local 
 
 | Arquivo | Descrição |
 |---------|-----------|
+| `docs/DEPLOY.md` | Guia de deploy na Vercel e configuração de produção |
 | `supabase/setup-completo.sql` | Schema base + RLS + triggers |
 | `supabase/migrations/` | Migrations incrementais |
 | `frontend/src/integrations/supabase/client.ts` | Cliente Supabase |
@@ -315,3 +316,4 @@ O adaptador Supabase pode permanecer no repositório para desenvolvimento local 
 | Data | Descrição |
 |------|-----------|
 | 2026-06-12 | Criação do plano após discussão de arquitetura e auditoria do banco via MCP |
+| 2026-06-12 | Fase concluída: adaptadores implementados, deploy em https://tidy-month-tracker.vercel.app, testes validados |
