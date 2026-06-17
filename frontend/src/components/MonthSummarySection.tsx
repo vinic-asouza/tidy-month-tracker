@@ -16,37 +16,55 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { MetricTile } from '@/components/layout/MetricTile';
+import { EffectiveTotalsLegend } from '@/components/layout/EffectiveTotalsLegend';
 import { FinancialRuleSetup } from './FinancialRuleSetup';
 import { FinancialRuleDisplay } from './FinancialRuleDisplay';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { formatCurrency, formatSummaryMonthTitle } from '@/lib/utils';
-import type { MonthData, FinanceSettings, CreateFinancialRuleInput } from '@/types/domain';
+import { calculateEffectiveMonthTotals, isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import type { MonthData, FinanceSettings, CreateFinancialRuleInput, CreditCard } from '@/types/domain';
 
 interface MonthSummarySectionProps {
   currentMonth: string;
   monthData: MonthData;
   settings: FinanceSettings;
+  creditCards: CreditCard[];
+  cardMonthlyStatuses: Record<string, boolean>;
 }
 
-export const MonthSummarySection = ({ currentMonth, monthData, settings }: MonthSummarySectionProps) => {
-  const { rule, loading, createRule, updateRule } = useFinancialRule();
+export const MonthSummarySection = ({
+  currentMonth,
+  monthData,
+  settings,
+  creditCards,
+  cardMonthlyStatuses,
+}: MonthSummarySectionProps) => {
+  const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [resetRuleOpen, setResetRuleOpen] = useState(false);
 
-  const totalIncome = monthData.incomes.reduce((sum, i) => sum + i.value, 0);
-  const totalExpenses = monthData.expenses.reduce((sum, e) => sum + e.value, 0);
-  const totalInvestments = monthData.investments.reduce((sum, i) => sum + i.value, 0);
-  const balance = totalIncome - totalExpenses - totalInvestments;
+  const { totalIncome, totalExpenses, totalInvestments, balance } = useMemo(
+    () => calculateEffectiveMonthTotals(monthData, creditCards, cardMonthlyStatuses),
+    [monthData, creditCards, cardMonthlyStatuses]
+  );
+
+  const enrichedMonthData = useMemo(
+    () => ({ ...monthData, cardMonthlyStatuses }),
+    [monthData, cardMonthlyStatuses]
+  );
 
   const metrics = [
-    { label: 'Entradas', value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-income', bg: 'bg-income-light' },
-    { label: 'Gastos', value: formatCurrency(totalExpenses), icon: TrendingDown, color: 'text-expense', bg: 'bg-expense-light' },
-    { label: 'Invest.', value: formatCurrency(totalInvestments), icon: PiggyBank, color: 'text-investment', bg: 'bg-investment-light' },
+    { label: 'Entradas (efetiv.)', value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-income', bg: 'bg-income-light' },
+    { label: 'Gastos (efetiv.)', value: formatCurrency(totalExpenses), icon: TrendingDown, color: 'text-expense', bg: 'bg-expense-light' },
+    { label: 'Invest. (efetiv.)', value: formatCurrency(totalInvestments), icon: PiggyBank, color: 'text-investment', bg: 'bg-investment-light' },
     {
-      label: 'Saldo',
+      label: 'Saldo (efetiv.)',
       value: `${balance >= 0 ? '+' : ''}${formatCurrency(balance)}`,
       icon: Wallet,
       color: balance >= 0 ? 'text-income' : 'text-expense',
       bg: balance >= 0 ? 'bg-income-light' : 'bg-expense-light',
+      hint: balance < 0 ? 'Com base no que já entrou e saiu de fato neste mês' : undefined,
     },
   ];
 
@@ -58,36 +76,65 @@ export const MonthSummarySection = ({ currentMonth, monthData, settings }: Month
 
   const hasUnmappedCategories = unmappedCategories.length > 0;
 
+  const unmappedExpensesTotal = useMemo(() => {
+    if (!hasUnmappedCategories) return 0;
+    return monthData.expenses
+      .filter(
+        (e) =>
+          unmappedCategories.includes(e.category) &&
+          isExpenseEffectivelyPaid(e, creditCards, cardMonthlyStatuses)
+      )
+      .reduce((sum, e) => sum + e.value, 0);
+  }, [monthData.expenses, unmappedCategories, hasUnmappedCategories, creditCards, cardMonthlyStatuses]);
+
   const handleComplete = async (data: CreateFinancialRuleInput) => {
-    if (rule) {
-      await updateRule(data);
-    } else {
-      await createRule(data);
+    try {
+      if (rule) {
+        await updateRule(data);
+      } else {
+        await createRule(data);
+      }
+      setIsSetupOpen(false);
+    } catch {
+      // Toast já exibido pelo hook; mantém dialog aberto
     }
-    setIsSetupOpen(false);
   };
 
   const handleEdit = () => setIsSetupOpen(true);
 
+  const handleResetRule = async () => {
+    try {
+      await deleteRule();
+      setResetRuleOpen(false);
+    } catch {
+      // toast no hook
+    }
+  };
+
   return (
     <SectionSurface
       title={formatSummaryMonthTitle(currentMonth)}
-      subtitle="Saldos e regra financeira"
+      subtitle="Saldos efetivados e regra financeira"
       icon={Wallet}
     >
       <div className="flex flex-col gap-4 md:grid md:grid-cols-[minmax(7.5rem,22%)_1fr] md:gap-5 md:items-start">
         {/* Métricas — coluna esquerda */}
         <div className="flex flex-col gap-2">
-          {metrics.map(({ label, value, icon, color, bg }) => (
-            <MetricTile
-              key={label}
-              label={label}
-              value={value}
-              icon={icon}
-              colorClass={color}
-              bgClass={bg}
-              variant="compact"
-            />
+          <EffectiveTotalsLegend />
+          {metrics.map(({ label, value, icon, color, bg, hint }) => (
+            <div key={label}>
+              <MetricTile
+                label={label}
+                value={value}
+                icon={icon}
+                colorClass={color}
+                bgClass={bg}
+                variant="compact"
+              />
+              {hint && (
+                <p className="text-[10px] text-muted-foreground px-0.5 mt-0.5">{hint}</p>
+              )}
+            </div>
           ))}
         </div>
 
@@ -130,7 +177,8 @@ export const MonthSummarySection = ({ currentMonth, monthData, settings }: Month
                     >
                       <AlertCircle className="h-3 w-3 shrink-0" />
                       <span className="line-clamp-2 sm:line-clamp-none">
-                        {unmappedCategories.length} nova(s) categoria(s) necessita de mapeamento
+                        {unmappedCategories.length} categoria(s) sem mapeamento
+                        {unmappedExpensesTotal > 0 && ` — ${formatCurrency(unmappedExpensesTotal)} este mês`}
                       </span>
                     </Badge>
                   )}
@@ -143,9 +191,22 @@ export const MonthSummarySection = ({ currentMonth, monthData, settings }: Month
                     <Settings className="h-4 w-4 shrink-0" />
                     Configurar Regra
                   </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-xs text-muted-foreground h-auto p-0 w-fit"
+                    onClick={() => setResetRuleOpen(true)}
+                  >
+                    Redefinir regra
+                  </Button>
                 </div>
               </div>
-              <FinancialRuleDisplay rule={rule} monthData={monthData} />
+              <FinancialRuleDisplay
+                rule={rule}
+                monthData={enrichedMonthData}
+                creditCards={creditCards}
+                onEditMapping={handleEdit}
+              />
             </>
           )}
         </div>
@@ -158,6 +219,14 @@ export const MonthSummarySection = ({ currentMonth, monthData, settings }: Month
         categories={settings.expenseCategories}
         initialRule={rule}
         unmappedCategories={hasUnmappedCategories ? unmappedCategories : undefined}
+      />
+
+      <DeleteConfirmDialog
+        open={resetRuleOpen}
+        onOpenChange={setResetRuleOpen}
+        onConfirm={handleResetRule}
+        title="Redefinir regra financeira"
+        description="Isso remove sua configuração atual. Você poderá configurar uma nova regra depois."
       />
     </SectionSurface>
   );

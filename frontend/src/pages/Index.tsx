@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
@@ -11,22 +11,24 @@ import {
 } from '@/components/ui/popover';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
 import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
-import { Statistics } from '@/components/Statistics';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+
+const Statistics = lazy(() =>
+  import('@/components/Statistics').then((m) => ({ default: m.Statistics }))
+);
 
 type View = 'dashboard' | 'statistics';
 
 const Index = () => {
   const [view, setView] = useState<View>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [yearData, setYearData] = useState<ReturnType<typeof useSupabaseFinance>['monthData'][]>([]);
-  const [loadingYearData, setLoadingYearData] = useState(false);
-  const lastReloadRef = useRef<number>(0);
-  const lastMonthDataRef = useRef<string>(''); // Para rastrear mudanças reais nos dados
   
   // Selection state for items
   const [selectedIncomeIds, setSelectedIncomeIds] = useState<Set<string>>(new Set());
@@ -38,7 +40,7 @@ const Index = () => {
   const [addDialogType, setAddDialogType] = useState<AddDialogType>(null);
   const [fabPopoverOpen, setFabPopoverOpen] = useState(false);
   const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
-  
+  const [monthAnnouncer, setMonthAnnouncer] = useState('');
   const { signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -52,7 +54,7 @@ const Index = () => {
     themeTransitionTimerRef.current = setTimeout(() => {
       themeTransitionTimerRef.current = null;
       setIsThemeTransitioning(false);
-    }, 400);
+    }, 150);
   }, [isDark, setTheme]);
 
   useEffect(() => {
@@ -75,6 +77,7 @@ const Index = () => {
     monthData,
     settings,
     creditCards,
+    cardMonthlyStatus,
     addIncome,
     updateIncome,
     deleteIncome,
@@ -102,96 +105,22 @@ const Index = () => {
     addIncomeTag,
     updateIncomeTag,
     deleteIncomeTag,
-    getYearData,
-  } = useSupabaseFinance();
+    yearData,
+    loadingYearData,
+  } = useSupabaseFinance({ statisticsEnabled: view === 'statistics' });
 
   const currentYear = parseInt(currentMonth.split('-')[0]);
 
-  // Recarregar dados anuais quando o mês mudar e estivermos na view de estatísticas
   useEffect(() => {
-    if (view === 'statistics' && !loadingYearData && yearData.length === 0) {
-      const loadYearData = async () => {
-        setLoadingYearData(true);
-        const data = await getYearData(currentYear);
-        setYearData(data);
-        setLoadingYearData(false);
-      };
-      loadYearData();
+    if (!monthLoading && currentMonth) {
+      const [year, month] = currentMonth.split('-');
+      const monthNames = [
+        'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+      ];
+      setMonthAnnouncer(`${monthNames[parseInt(month, 10) - 1]} de ${year}`);
     }
-  }, [currentYear, view, loadingYearData, yearData.length, getYearData]);
-
-  // Recarregar dados anuais quando monthData mudar (itens marcados/desmarcados)
-  // e estivermos na view de estatísticas, com debounce para evitar muitas chamadas
-  useEffect(() => {
-    if (view !== 'statistics' || loadingYearData) return;
-
-    // Cria uma string única baseada nos IDs dos itens marcados para detectar mudanças reais
-    const currentDataHash = JSON.stringify({
-      incomes: monthData.incomes.filter(i => i.received).map(i => i.id).sort(),
-      expenses: monthData.expenses.filter(e => e.paid).map(e => e.id).sort(),
-      investments: monthData.investments.filter(i => i.invested).map(i => i.id).sort(),
-    });
-
-    // Se os dados não mudaram realmente, não recarregar
-    if (currentDataHash === lastMonthDataRef.current) return;
-
-    lastMonthDataRef.current = currentDataHash;
-
-    const now = Date.now();
-    const timeSinceLastReload = now - lastReloadRef.current;
-    const debounceTime = 2000; // 2 segundos de debounce
-
-    // Se já recarregamos recentemente, aguardar o tempo restante
-    const remainingTime = Math.max(0, debounceTime - timeSinceLastReload);
-
-    const timeoutId = setTimeout(async () => {
-      lastReloadRef.current = Date.now();
-      setLoadingYearData(true);
-      const data = await getYearData(currentYear);
-      setYearData(data);
-      setLoadingYearData(false);
-    }, remainingTime);
-
-    return () => clearTimeout(timeoutId);
-  }, [view, currentYear, monthData, loadingYearData, getYearData]);
-
-  const handleViewChange = async (newView: View) => {
-    setView(newView);
-    setMobileSidebarOpen(false);
-    
-    // Sempre recarregar os dados anuais quando acessar a view de estatísticas
-    // para garantir que os dados estejam atualizados (incluindo itens marcados/desmarcados)
-    if (newView === 'statistics') {
-      setLoadingYearData(true);
-      const data = await getYearData(currentYear);
-      setYearData(data);
-      setLoadingYearData(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    toast.success('Logout realizado com sucesso!');
-  };
-
-  // Wrapper for canDeleteCard to handle async
-  const canDeleteCardSync = (cardName: string): boolean => {
-    // For sync compatibility, check current month expenses only
-    return !monthData.expenses.some(e => e.paymentMethod === cardName);
-  };
-
-  // Selection handlers
-  const handleIncomeSelectionChange = useCallback((ids: Set<string>) => {
-    setSelectedIncomeIds(ids);
-  }, []);
-
-  const handleInvestmentSelectionChange = useCallback((ids: Set<string>) => {
-    setSelectedInvestmentIds(ids);
-  }, []);
-
-  const handleExpenseSelectionChange = useCallback((ids: Set<string>) => {
-    setSelectedExpenseIds(ids);
-  }, []);
+  }, [currentMonth, monthLoading]);
 
   const handleClearAllSelections = useCallback(() => {
     setSelectedIncomeIds(new Set());
@@ -199,18 +128,57 @@ const Index = () => {
     setSelectedExpenseIds(new Set());
   }, []);
 
+  // Limpar seleções ao trocar de mês
+  useEffect(() => {
+    handleClearAllSelections();
+  }, [currentMonth, handleClearAllSelections]);
+
+  const handleViewChange = (newView: View) => {
+    setView(newView);
+    setMobileSidebarOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success('Logout realizado com sucesso!');
+    } catch {
+      toast.error('Erro ao sair. Tente novamente.');
+    }
+  };
+
+  // Selection handlers
+  const handleIncomeSelectionChange = useCallback((ids: Set<string>) => {
+    if (ids.size > selectedIncomeIds.size) showSelectionHintIfNeeded();
+    setSelectedIncomeIds(ids);
+  }, [selectedIncomeIds.size]);
+
+  const handleInvestmentSelectionChange = useCallback((ids: Set<string>) => {
+    if (ids.size > selectedInvestmentIds.size) showSelectionHintIfNeeded();
+    setSelectedInvestmentIds(ids);
+  }, [selectedInvestmentIds.size]);
+
+  const handleExpenseSelectionChange = useCallback((ids: Set<string>) => {
+    if (ids.size > selectedExpenseIds.size) showSelectionHintIfNeeded();
+    setSelectedExpenseIds(ids);
+  }, [selectedExpenseIds.size]);
+
   // Calculate selection summary
   const selectionSummary = useMemo(() => {
     const incomesTotal = monthData.incomes
-      .filter(income => selectedIncomeIds.has(income.id))
+      .filter((income) => selectedIncomeIds.has(income.id) && income.received)
       .reduce((sum, income) => sum + income.value, 0);
-    
+
     const investmentsTotal = monthData.investments
-      .filter(investment => selectedInvestmentIds.has(investment.id))
+      .filter((investment) => selectedInvestmentIds.has(investment.id) && investment.invested)
       .reduce((sum, investment) => sum + investment.value, 0);
-    
+
     const expensesTotal = monthData.expenses
-      .filter(expense => selectedExpenseIds.has(expense.id))
+      .filter(
+        (expense) =>
+          selectedExpenseIds.has(expense.id) &&
+          isExpenseEffectivelyPaid(expense, creditCards, cardMonthlyStatus)
+      )
       .reduce((sum, expense) => sum + expense.value, 0);
 
     return {
@@ -218,7 +186,39 @@ const Index = () => {
       investments: investmentsTotal,
       expenses: expensesTotal,
     };
-  }, [monthData.incomes, monthData.investments, monthData.expenses, selectedIncomeIds, selectedInvestmentIds, selectedExpenseIds]);
+  }, [
+    monthData.incomes,
+    monthData.investments,
+    monthData.expenses,
+    selectedIncomeIds,
+    selectedInvestmentIds,
+    selectedExpenseIds,
+    creditCards,
+    cardMonthlyStatus,
+  ]);
+
+  const selectedCount =
+    selectedIncomeIds.size + selectedInvestmentIds.size + selectedExpenseIds.size;
+
+  const selectionPlannedTotal = useMemo(() => {
+    const incomes = monthData.incomes
+      .filter((i) => selectedIncomeIds.has(i.id))
+      .reduce((sum, i) => sum + i.value, 0);
+    const investments = monthData.investments
+      .filter((i) => selectedInvestmentIds.has(i.id))
+      .reduce((sum, i) => sum + i.value, 0);
+    const expenses = monthData.expenses
+      .filter((e) => selectedExpenseIds.has(e.id))
+      .reduce((sum, e) => sum + e.value, 0);
+    return incomes + investments + expenses;
+  }, [
+    monthData.incomes,
+    monthData.investments,
+    monthData.expenses,
+    selectedIncomeIds,
+    selectedInvestmentIds,
+    selectedExpenseIds,
+  ]);
 
   if (loading) {
     return (
@@ -228,19 +228,19 @@ const Index = () => {
     );
   }
 
-  const hasSelections = selectionSummary.incomes > 0 || selectionSummary.investments > 0 || selectionSummary.expenses > 0;
+  const hasSelections = selectedCount > 0;
+
+  const handleFabOpenChange = (open: boolean) => {
+    if (open && view === 'statistics') {
+      handleViewChange('dashboard');
+    }
+    setFabPopoverOpen(open);
+  };
+
+  const showFab = view === 'dashboard' || view === 'statistics';
 
   return (
     <div className={`min-h-screen bg-background gradient-subtle ${hasSelections ? 'pb-24' : ''}`}>
-      {/* Overlay de loading na troca de tema */}
-      {isThemeTransitioning && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
-          aria-hidden="true"
-        >
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </div>
-      )}
       {/* Header */}
       <header
         className="sticky top-0 z-50 w-full glass border-b border-border"
@@ -269,6 +269,7 @@ const Index = () => {
                   <Button
                     variant={view === 'dashboard' ? 'default' : 'ghost'}
                     onClick={() => handleViewChange('dashboard')}
+                    aria-current={view === 'dashboard' ? 'page' : undefined}
                     className={`gap-2 rounded-lg transition-all ${
                       view === 'dashboard' 
                         ? 'gradient-primary shadow-glow text-primary-foreground' 
@@ -281,6 +282,7 @@ const Index = () => {
                   <Button
                     variant={view === 'statistics' ? 'default' : 'ghost'}
                     onClick={() => handleViewChange('statistics')}
+                    aria-current={view === 'statistics' ? 'page' : undefined}
                     className={`gap-2 rounded-lg transition-all ${
                       view === 'statistics' 
                         ? 'gradient-primary shadow-glow text-primary-foreground' 
@@ -298,8 +300,11 @@ const Index = () => {
                   className="h-10 w-10 rounded-md hover:bg-muted"
                   title={isDark ? 'Modo claro' : 'Modo escuro'}
                   disabled={isThemeTransitioning}
+                  aria-label={isDark ? 'Modo claro' : 'Modo escuro'}
                 >
-                  {isDark ? (
+                  {isThemeTransitioning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isDark ? (
                     <Sun className="h-4 w-4" />
                   ) : (
                     <Moon className="h-4 w-4" />
@@ -315,9 +320,31 @@ const Index = () => {
                 </Button>
               </nav>
 
-            {/* Mobile: Menu lateral (hambúrguer abre sidebar) */}
-            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen} modal={false}>
-              <div className="flex md:hidden items-center gap-2">
+            {/* Mobile: atalho Mensal/Anual + menu */}
+            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+              <div className="flex md:hidden items-center gap-1.5">
+                <div className="flex items-center gap-0.5 p-0.5 bg-muted/50 rounded-lg">
+                  <Button
+                    variant={view === 'dashboard' ? 'default' : 'ghost'}
+                    size="icon"
+                    className={`h-9 w-9 rounded-md ${view === 'dashboard' ? 'gradient-primary text-primary-foreground shadow-glow' : ''}`}
+                    onClick={() => handleViewChange('dashboard')}
+                    aria-label="Visão mensal"
+                    aria-current={view === 'dashboard' ? 'page' : undefined}
+                  >
+                    <Wallet className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={view === 'statistics' ? 'default' : 'ghost'}
+                    size="icon"
+                    className={`h-9 w-9 rounded-md ${view === 'statistics' ? 'gradient-primary text-primary-foreground shadow-glow' : ''}`}
+                    onClick={() => handleViewChange('statistics')}
+                    aria-label="Visão anual"
+                    aria-current={view === 'statistics' ? 'page' : undefined}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                </div>
                 <SheetTrigger asChild>
                   <Button
                     variant="ghost"
@@ -370,6 +397,24 @@ const Index = () => {
 
                   <div className="space-y-2 pt-4 border-t border-border/40">
                     <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Ajuda
+                    </p>
+                    <FinancialGlossaryDialog
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start gap-3 rounded-md text-sm hover:bg-muted"
+                          onClick={() => setMobileSidebarOpen(false)}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          <span>Como lemos seus números</span>
+                        </Button>
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-border/40">
+                    <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Preferências
                     </p>
                     <Button
@@ -405,7 +450,8 @@ const Index = () => {
       </header>
 
       {/* Conteúdo - scrollável, loading apenas aqui */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6" aria-live="polite" aria-atomic="true">
+        <span className="sr-only">{monthAnnouncer}</span>
         {view === 'dashboard' ? (
           monthLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -417,6 +463,8 @@ const Index = () => {
                 currentMonth={currentMonth}
                 monthData={monthData}
                 settings={settings}
+                creditCards={creditCards}
+                cardMonthlyStatuses={cardMonthlyStatus}
               />
               <MonthRecordsSection
                 currentMonth={currentMonth}
@@ -450,7 +498,7 @@ const Index = () => {
                 updateCreditCard={updateCreditCard}
                 deleteCreditCard={deleteCreditCard}
                 getCreditCardTotal={getCreditCardTotal}
-                canDeleteCard={canDeleteCardSync}
+                canDeleteCard={canDeleteCard}
                 cardNameExists={cardNameExists}
                 getCardPaidStatus={getCardPaidStatus}
                 setCardPaidStatus={setCardPaidStatus}
@@ -480,33 +528,44 @@ const Index = () => {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <Statistics
-                  yearData={yearData}
-                  currentYear={currentYear}
-                  creditCards={creditCards}
-                  isLoading={loadingYearData && yearData.length > 0}
-                />
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  }
+                >
+                  <Statistics
+                    yearData={yearData}
+                    currentYear={currentYear}
+                    currentMonth={currentMonth}
+                    creditCards={creditCards}
+                    isLoading={loadingYearData && yearData.length > 0}
+                  />
+                </Suspense>
               )}
             </div>
           )
         )}
 
-        {/* FAB: Adicionar item — centralizado, efeito glass e hover scale */}
-        {view === 'dashboard' && (
+        {/* FAB: Adicionar item — visível na visão mensal e anual */}
+        {showFab && (
           <div
             className="fixed left-0 right-0 z-40 flex justify-center pointer-events-none px-4"
             style={{ bottom: hasSelections ? '5.5rem' : '1.5rem' }}
           >
-            <Popover open={fabPopoverOpen} onOpenChange={setFabPopoverOpen}>
+            <Popover open={fabPopoverOpen} onOpenChange={handleFabOpenChange}>
               <PopoverTrigger asChild>
                 <Button
                   className={`h-12 px-4 gap-2 rounded-lg shadow-lg transition-all duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 pointer-events-auto ${
                     isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-black/90'
                   }`}
-                  aria-label="Adicionar item"
+                  aria-label={view === 'statistics' ? 'Adicionar item na visão mensal' : 'Adicionar item'}
                 >
                   <Plus className="h-5 w-5" />
-                  Adicionar item
+                  <span className="hidden sm:inline">
+                    {view === 'statistics' ? 'Adicionar na visão mensal' : 'Adicionar item'}
+                  </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -571,20 +630,18 @@ const Index = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 mt-12 py-8 bg-muted/30">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Controle Financeiro Pessoal</span>
-            <span className="text-border">•</span>
-            <span>Dados sincronizados na nuvem</span>
-          </div>
+      <footer className="border-t border-border/50 mt-8 py-4 bg-muted/30">
+        <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-muted-foreground">
+          <span>Controle Financeiro Pessoal</span>
+          <span className="hidden sm:inline text-border">•</span>
+          <FinancialGlossaryDialog />
         </div>
       </footer>
 
-      {/* Selection Bottom Bar */}
-      <SelectionBottomBar 
-        summary={selectionSummary} 
+      <SelectionBottomBar
+        summary={selectionSummary}
+        selectedCount={selectedCount}
+        plannedTotal={selectionPlannedTotal}
         onClearAll={handleClearAllSelections}
       />
     </div>

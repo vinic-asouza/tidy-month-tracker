@@ -1,4 +1,4 @@
-import { useState, useMemo, ReactNode, useEffect, useRef } from 'react';
+import { useState, useMemo, ReactNode, useEffect, useRef, memo } from 'react';
 import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,14 +47,25 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
+import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SelectionToggle } from '@/components/SelectionToggle';
+import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import { toast } from 'sonner';
+
+type PersistHandler = (expense: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
+type UpdateHandler = (
+  id: string,
+  updates: Partial<Expense>,
+  applyToAllMonths?: boolean
+) => Promise<boolean> | boolean;
 
 interface ExpenseSectionProps {
   expenses: Expense[];
   categories: string[];
   paymentMethods: string[];
   creditCards: CreditCardType[];
-  onAdd: (expense: Omit<Expense, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => void;
+  onAdd: PersistHandler;
+  onUpdate: UpdateHandler;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onDeleteInstallment: (expense: Expense) => void;
   getCardPaidStatus?: (cardId: string) => boolean;
@@ -109,10 +120,11 @@ const ExpenseForm = ({
   categories: string[];
   paymentMethods: string[];
   creditCards: CreditCardType[];
-  onSubmit: (data: Omit<Expense, 'id'>) => void;
+  onSubmit: (data: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
   initialData?: Expense;
   categoryManagerSlot?: ReactNode;
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState(initialData?.category || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [paymentMethod, setPaymentMethod] = useState(initialData?.paymentMethod || '');
@@ -150,7 +162,7 @@ const ExpenseForm = ({
     ...creditCards.map(c => ({ label: `Crédito: ${c.name}`, value: c.name }))
   ];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
 
@@ -173,18 +185,24 @@ const ExpenseForm = ({
 
     if (hasError) return;
 
-    onSubmit({
-      type,
-      category,
-      description: description.trim(),
-      paymentMethod,
-      value: numValue,
-      date: itemDate,
-      paid: initialData?.paid || false,
-      repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
-      currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
-      totalInstallments: type === 'installment' ? parseInt(totalInstallments) || 12 : undefined,
-    });
+    setIsSubmitting(true);
+    try {
+      const result = await onSubmit({
+        type,
+        category,
+        description: description.trim(),
+        paymentMethod,
+        value: numValue,
+        date: itemDate,
+        paid: initialData?.paid || false,
+        repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
+        currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
+        totalInstallments: type === 'installment' ? parseInt(totalInstallments) || 12 : undefined,
+      });
+      if (result === false) return;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -335,27 +353,39 @@ const ExpenseForm = ({
 
       {/* Repeat for fixed expenses */}
       {type === 'fixed' && (
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-          <div className="flex items-center gap-2">
-            <Repeat className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="repeat-months-expense" className="text-sm font-medium cursor-pointer">
-              Repetir todos os meses
-            </Label>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+            <div className="flex items-center gap-2">
+              <Repeat className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="repeat-months-expense" className="text-sm font-medium cursor-pointer">
+                Repetir todos os meses
+              </Label>
+            </div>
+            <Switch
+              id="repeat-months-expense"
+              checked={repeatAllMonths}
+              onCheckedChange={setRepeatAllMonths}
+              className="data-[state=checked]:bg-expense focus-visible:ring-expense"
+            />
           </div>
-          <Switch
-            id="repeat-months-expense"
-            checked={repeatAllMonths}
-            onCheckedChange={setRepeatAllMonths}
-            className="data-[state=checked]:bg-expense focus-visible:ring-expense"
-          />
+          <p className="text-xs text-muted-foreground px-1">
+            Repete nos demais meses deste ano.
+          </p>
         </div>
       )}
 
       <Button
         onClick={handleSubmit}
+        disabled={isSubmitting}
         className="w-full h-10 rounded-md gradient-expense hover:opacity-90 transition-opacity text-white border-0"
       >
-        {initialData ? 'Salvar Alterações' : 'Adicionar Gasto'}
+        {isSubmitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : initialData ? (
+          'Salvar Alterações'
+        ) : (
+          'Adicionar Gasto'
+        )}
       </Button>
     </div>
   );
@@ -411,6 +441,7 @@ const ExpenseItem = ({
   onCardItemClick,
   isSelected,
   onItemClick,
+  onToggleSelection,
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
@@ -423,6 +454,7 @@ const ExpenseItem = ({
   onCardItemClick: () => void;
   isSelected?: boolean;
   onItemClick?: (e: React.MouseEvent) => void;
+  onToggleSelection?: () => void;
 }) => {
   const installmentText = expense.currentInstallment && expense.totalInstallments
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
@@ -444,7 +476,7 @@ const ExpenseItem = ({
       {/* Col 1: checkbox centralizado verticalmente */}
       <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
         {isLinkedToCard ? (
-          <div onClick={onCardItemClick} className="cursor-pointer">
+          <div onClick={onCardItemClick} className="cursor-pointer" title="Pagamento via fatura do cartão">
             <Checkbox
               checked={isCardPaid}
               className="h-4 w-4 rounded border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
@@ -454,6 +486,7 @@ const ExpenseItem = ({
           <Checkbox
             checked={expense.paid}
             onCheckedChange={onTogglePaid}
+            title="Marcar como pago"
             className="h-4 w-4 rounded border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
           />
         )}
@@ -470,6 +503,11 @@ const ExpenseItem = ({
         </div>
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium truncate text-foreground">{expense.description}</span>
+          {isLinkedToCard && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground">
+              Via fatura
+            </Badge>
+          )}
           {expense.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
         </div>
       </div>
@@ -498,7 +536,11 @@ const ExpenseItem = ({
               </TooltipContent>
             </Tooltip>
           )}
-          <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {onToggleSelection && (
+              <SelectionToggle isSelected={!!isSelected} onToggle={onToggleSelection} />
+            )}
+            <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
             <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(expense)}>
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
@@ -506,6 +548,7 @@ const ExpenseItem = ({
               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(expense)}>
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
+            </div>
             </div>
           </div>
         </div>
@@ -624,7 +667,7 @@ const groupByCategory = (expenses: Expense[], sortOption: SortOption): { categor
   return result;
 };
 
-export const ExpenseSection = ({
+const ExpenseSectionComponent = ({
   expenses,
   categories,
   paymentMethods,
@@ -752,9 +795,12 @@ export const ExpenseSection = ({
   };
 
   const handleDeleteCategory = async (category: string) => {
-    // Não permitir excluir categoria em uso
     const hasExpenses = expenses.some((expense) => expense.category === category);
-    if (hasExpenses || isCategoryLoading) return;
+    if (hasExpenses) {
+      toast.error('Não é possível excluir: existem gastos usando esta categoria');
+      return;
+    }
+    if (isCategoryLoading) return;
 
     setIsCategoryLoading(true);
     try {
@@ -817,16 +863,18 @@ export const ExpenseSection = ({
     return cardId ? getCardPaidStatus(cardId) : false;
   };
 
-  const handleSubmit = (data: Omit<Expense, 'id'>) => {
-    if (editingExpense) {
-      onUpdate(editingExpense.id, data, applyToAllMonths);
-      setApplyToAllMonths(false); // Reset após uso
-    } else {
-      onAdd(data);
-    }
+  const handleSubmit = async (data: Omit<Expense, 'id'>) => {
+    const success = editingExpense
+      ? await onUpdate(editingExpense.id, data, applyToAllMonths)
+      : await onAdd(data);
+
+    if (success === false) return false;
+
+    setApplyToAllMonths(false);
     setIsOpen(false);
     setEditingExpense(null);
     onAddDialogClose?.();
+    return true;
   };
 
   const handleEdit = (expense: Expense) => {
@@ -910,16 +958,15 @@ export const ExpenseSection = ({
 
   const handleConfirmDelete = () => {
     if (deleteExpense) {
-      if (deleteExpense.type === 'installment') {
-        onDeleteInstallment(deleteExpense);
-      } else {
-        onDelete(deleteExpense.id, false); // Apenas este mês
-      }
+      // Parcela "apenas este mês" remove só o registro atual; série completa usa onDeleteInstallment
+      onDelete(deleteExpense.id, false);
       setDeleteExpense(null);
     }
   };
 
   const handleTogglePaid = (expense: Expense) => {
+    if (isExpenseLinkedToCard(expense)) return;
+
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
     onUpdate(expense.id, { paid: !expense.paid });
@@ -938,7 +985,15 @@ export const ExpenseSection = ({
   }, 0);
 
   const total = expenses.reduce((sum, e) => sum + e.value, 0);
-  const hasPaidItems = paidTotal > 0;
+
+  const toggleItemSelection = (id: string, isSelected: boolean) => {
+    if (!onSelectionChange) return;
+    showSelectionHintIfNeeded();
+    const newSelection = new Set(selectedIds);
+    if (isSelected) newSelection.delete(id);
+    else newSelection.add(id);
+    onSelectionChange(newSelection);
+  };
 
   const ExpenseGroup = ({
     title,
@@ -980,17 +1035,7 @@ export const ExpenseSection = ({
       if (target.closest('button') || target.closest('[role="checkbox"]')) {
         return;
       }
-      
-      if (onSelectionChange) {
-        const isSelected = selectedIds.has(expense.id);
-        const newSelection = new Set(selectedIds);
-        if (isSelected) {
-          newSelection.delete(expense.id);
-        } else {
-          newSelection.add(expense.id);
-        }
-        onSelectionChange(newSelection);
-      }
+      toggleItemSelection(expense.id, selectedIds.has(expense.id));
     };
 
     return (
@@ -998,7 +1043,7 @@ export const ExpenseSection = ({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+            <span className="text-sm font-medium text-muted-foreground">{title} ({list.length})</span>
           </div>
           <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
         </div>
@@ -1022,6 +1067,7 @@ export const ExpenseSection = ({
                 onCardItemClick={() => setCardWarningOpen(true)}
                 isSelected={selectedIds.has(expense.id)}
                 onItemClick={handleItemClick(expense)}
+                onToggleSelection={() => toggleItemSelection(expense.id, selectedIds.has(expense.id))}
               />
             ))}
             {restPart.length > 0 && (
@@ -1046,6 +1092,7 @@ export const ExpenseSection = ({
                         onCardItemClick={() => setCardWarningOpen(true)}
                         isSelected={selectedIds.has(expense.id)}
                         onItemClick={handleItemClick(expense)}
+                onToggleSelection={() => toggleItemSelection(expense.id, selectedIds.has(expense.id))}
                       />
                     </div>
                   );
@@ -1120,7 +1167,7 @@ export const ExpenseSection = ({
   const getDeleteMessage = () => {
     if (!deleteExpense) return '';
     if (deleteExpense.type === 'installment') {
-      return 'Este é um gasto parcelado. A exclusão será aplicada a todos os meses subsequentes. Deseja continuar?';
+      return 'Deseja excluir apenas esta parcela deste mês? As demais parcelas serão mantidas.';
     }
     return 'Tem certeza que deseja excluir este gasto? Esta ação não pode ser desfeita.';
   };
@@ -1138,25 +1185,13 @@ export const ExpenseSection = ({
             </div>
           )}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Gastos</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              {hasPaidItems && (
-                <>
-                  <span className="text-xs text-muted-foreground">Total:</span>
-                </>
-              )}
-              <p className="text-base font-bold text-expense">
-                {formatCurrency(total)}
-              </p>
-              {hasPaidItems && (
-                <>
-                  <span className="text-xs text-muted-foreground">| Pago:</span>
-                  <p className="text-base font-bold text-expense">
-                    {formatCurrency(paidTotal)}
-                  </p>
-                </>
-              )}
-            </div>
+            <SectionTotalsHeader
+              title="Gastos"
+              plannedTotal={total}
+              effectiveTotal={paidTotal}
+              effectiveLabel="Pago"
+              colorClass="text-expense"
+            />
           </div>
         </div>
       </div>
@@ -1387,7 +1422,25 @@ export const ExpenseSection = ({
 
       {/* Expense Groups */}
       <div>
-        {viewMode === 'general' ? (
+        {expenses.length === 0 ? (
+          <div className="text-center py-8 sm:py-10">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-expense-light mb-3">
+              <TrendingDown className="h-6 w-6 text-expense" />
+            </div>
+            <p className="text-muted-foreground text-sm mb-4">Nenhum gasto registrado</p>
+            <Button
+              onClick={() => {
+                setEditingExpense(null);
+                setIsOpen(true);
+              }}
+              className="gradient-expense text-white hover:opacity-90"
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Registrar gasto
+            </Button>
+          </div>
+        ) : viewMode === 'general' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             <div className="space-y-6">
               <ExpenseGroup
@@ -1480,6 +1533,12 @@ export const ExpenseSection = ({
               : 'Este gasto se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        isDestructive={pendingAction === 'delete'}
+        itemSummary={
+          editingExpense
+            ? `${editingExpense.description} — ${formatCurrency(editingExpense.value)}`
+            : undefined
+        }
         applyToAllButtonLabel={editingExpense?.type === 'installment' ? undefined : (pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes')}
       />
 
@@ -1508,3 +1567,5 @@ export const ExpenseSection = ({
     </div>
   );
 };
+
+export const ExpenseSection = memo(ExpenseSectionComponent);

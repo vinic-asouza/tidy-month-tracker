@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, memo } from 'react';
 import {
   Plus,
   Pencil,
@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   MoreVertical,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,14 +44,15 @@ import {
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { CreditCard, CARD_COLORS } from '@/types/finance';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface CreditCardStripProps {
   creditCards: CreditCard[];
-  onAdd: (card: Omit<CreditCard, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<CreditCard>) => void;
+  onAdd: (card: Omit<CreditCard, 'id'>) => Promise<boolean> | boolean;
+  onUpdate: (id: string, updates: Partial<CreditCard>) => Promise<boolean> | boolean;
   onDelete: (id: string) => void;
   getCardTotal: (cardName: string) => number;
-  canDeleteCard: (cardName: string) => boolean;
+  canDeleteCard: (cardName: string) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
   setCardPaidStatus: (cardId: string, paid: boolean) => Promise<boolean>;
@@ -72,7 +74,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'lowest', label: 'Menor Valor' },
 ];
 
-export const CreditCardStrip = ({
+const CreditCardStripComponent = ({
   creditCards,
   onAdd,
   onUpdate,
@@ -93,6 +95,8 @@ export const CreditCardStrip = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('default');
+  const [checkingDelete, setCheckingDelete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -131,7 +135,7 @@ export const CreditCardStrip = ({
     setNameError(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim()) {
       setNameError('Nome do cartão é obrigatório');
       return;
@@ -140,14 +144,21 @@ export const CreditCardStrip = ({
       setNameError('Já existe um cartão com este nome');
       return;
     }
-    if (editingId) {
-      onUpdate(editingId, { name: name.trim(), color: selectedColor });
-    } else {
-      onAdd({ name: name.trim(), color: selectedColor, paid: false });
+
+    setIsSubmitting(true);
+    try {
+      const success = editingId
+        ? await onUpdate(editingId, { name: name.trim(), color: selectedColor })
+        : await onAdd({ name: name.trim(), color: selectedColor, paid: false });
+
+      if (success === false) return;
+
+      resetForm();
+      setIsOpen(false);
+      onAddDialogClose?.();
+    } finally {
+      setIsSubmitting(false);
     }
-    resetForm();
-    setIsOpen(false);
-    onAddDialogClose?.();
   };
 
   const handleEdit = (card: CreditCard) => {
@@ -157,14 +168,20 @@ export const CreditCardStrip = ({
     setIsOpen(true);
   };
 
-  const handleDeleteAttempt = (card: CreditCard) => {
-    if (!canDeleteCard(card.name)) {
-      setDeleteError(
-        `Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Remova os gastos primeiro.`
-      );
-      return;
+  const handleDeleteAttempt = async (card: CreditCard) => {
+    setCheckingDelete(true);
+    try {
+      const canDelete = await canDeleteCard(card.name);
+      if (!canDelete) {
+        setDeleteError(
+          `Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Remova os gastos primeiro.`
+        );
+        return;
+      }
+      setDeleteId(card.id);
+    } finally {
+      setCheckingDelete(false);
     }
-    setDeleteId(card.id);
   };
 
   const handleConfirmDelete = () => {
@@ -216,6 +233,7 @@ export const CreditCardStrip = ({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="rounded-lg cursor-pointer gap-2 text-destructive focus:text-destructive"
+                  disabled={checkingDelete}
                   onClick={() => handleDeleteAttempt(card)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -224,6 +242,7 @@ export const CreditCardStrip = ({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          <p className="text-[10px] text-white/80 uppercase tracking-wide">Fatura</p>
           <p className="text-sm font-bold text-white tabular-nums">{formatCurrency(total)}</p>
           <label
             htmlFor={`card-paid-${card.id}`}
@@ -235,7 +254,10 @@ export const CreditCardStrip = ({
               onCheckedChange={async (checked) => {
                 const scrollTop = window.scrollY;
                 const scrollLeft = window.scrollX;
-                await setCardPaidStatus(card.id, !!checked);
+                const success = await setCardPaidStatus(card.id, !!checked);
+                if (!success) {
+                  toast.error('Erro ao atualizar status da fatura');
+                }
                 requestAnimationFrame(() => {
                   requestAnimationFrame(() => {
                     window.scrollTo(scrollLeft, scrollTop);
@@ -260,7 +282,8 @@ export const CreditCardStrip = ({
             <CreditCardIcon className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold tracking-tight">Cartões</h3>
+            <h3 className="text-sm font-semibold tracking-tight">Faturas do mês</h3>
+            <p className="text-[10px] text-muted-foreground">Total de compras no cartão</p>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-xs font-bold text-foreground tabular-nums">{formatCurrency(totalInvoices)}</p>
               {creditCards.length > 0 && paidCount > 0 && (
@@ -406,9 +429,16 @@ export const CreditCardStrip = ({
             </div>
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting}
               className="w-full h-10 rounded-md gradient-primary hover:opacity-90 transition-opacity text-primary-foreground border-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              {editingId ? 'Salvar Alterações' : 'Adicionar Cartão'}
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : editingId ? (
+                'Salvar Alterações'
+              ) : (
+                'Adicionar Cartão'
+              )}
             </Button>
           </div>
         </DialogContent>
@@ -444,3 +474,5 @@ export const CreditCardStrip = ({
     </div>
   );
 };
+
+export const CreditCardStrip = memo(CreditCardStripComponent);

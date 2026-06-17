@@ -51,8 +51,8 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
 
   if (investmentData.repeatAllMonths) {
     const remainingMonths = calculateRemainingMonths(yearMonth);
-    for (const month of remainingMonths) {
-      const { error: copyError } = await supabase.from('investments').insert({
+    if (remainingMonths.length > 0) {
+      const rows = remainingMonths.map((month) => ({
         user_id: userId,
         year_month: month,
         description: investmentData.description,
@@ -63,7 +63,8 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: createdInvestment.id,
         display_order: 0,
-      });
+      }));
+      const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
     }
   }
@@ -93,8 +94,8 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
 
   if (isChangingRepeatStatus && willBeRepeatAllMonths && !currentRows.base_investment_id) {
     const remainingMonths = calculateRemainingMonths(currentRows.year_month);
-    for (const month of remainingMonths) {
-      const { error: copyError } = await supabase.from('investments').insert({
+    if (remainingMonths.length > 0) {
+      const rows = remainingMonths.map((month) => ({
         user_id: userId,
         year_month: month,
         description: updates.description ?? currentRows.description,
@@ -105,7 +106,8 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: id,
         display_order: 0,
-      });
+      }));
+      const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
     }
   }

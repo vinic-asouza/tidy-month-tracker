@@ -99,6 +99,9 @@ export interface UpdateFinancialRuleInput {
 }
 
 export interface FinancialRuleStats {
+  totalIncome: number;
+  totalEffectiveExpenses: number;
+  unclassifiedValue: number;
   essentials: {
     target: number; // percentual
     current: number; // percentual

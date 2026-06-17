@@ -1,27 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { getAuthErrorMessage } from '@/utils/authErrors';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('E-mail inválido');
-const passwordSchema = z.string().min(6, 'Senha deve ter pelo menos 6 caracteres');
+const passwordSchema = z
+  .string()
+  .min(6, 'Senha deve ter pelo menos 6 caracteres')
+  .max(72, 'Senha deve ter no máximo 72 caracteres');
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
-  
-  const { signIn, signUp, user, loading } = useAuth();
+  const [signupEmailSent, setSignupEmailSent] = useState(false);
+  const { signIn, signUp, resetPassword, user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,35 +65,53 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (isForgotPassword) {
+      try {
+        emailSchema.parse(email);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          setErrors({ email: err.errors[0].message });
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setErrors({});
+      try {
+        const normalizedEmail = email.trim().toLowerCase();
+        const { error } = await resetPassword(normalizedEmail);
+        if (error) {
+          toast.error(getAuthErrorMessage(error));
+        } else {
+          toast.success('Enviamos um link de recuperação para o seu e-mail');
+          setIsForgotPassword(false);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     if (!validateForm()) return;
     
     setIsLoading(true);
     
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(normalizedEmail, password);
         if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast.error('E-mail ou senha incorretos');
-          } else if (error.message.includes('Email not confirmed')) {
-            toast.error('Confirme seu e-mail antes de fazer login');
-          } else {
-            toast.error(error.message);
-          }
+          toast.error(getAuthErrorMessage(error));
         } else {
           toast.success('Login realizado com sucesso!');
-          navigate('/', { replace: true });
         }
       } else {
-        const { error } = await signUp(email, password);
+        const { error } = await signUp(normalizedEmail, password);
         if (error) {
-          if (error.message.includes('User already registered')) {
-            toast.error('Este e-mail já está cadastrado');
-          } else {
-            toast.error(error.message);
-          }
+          toast.error(getAuthErrorMessage(error));
         } else {
+          setSignupEmailSent(true);
           toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.');
           setIsLogin(true);
         }
@@ -118,14 +142,29 @@ const Auth = () => {
           <div className="bg-card rounded-lg p-8 border border-border/60 shadow-sm">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold mb-2">
-                {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
+                {isForgotPassword
+                  ? 'Recuperar senha'
+                  : isLogin
+                    ? 'Bem-vindo de volta!'
+                    : 'Crie sua conta'}
               </h2>
               <p className="text-muted-foreground text-sm">
-                {isLogin
-                  ? 'Entre para acessar suas finanças'
-                  : 'Comece a controlar suas finanças hoje'}
+                {isForgotPassword
+                  ? 'Informe seu e-mail para receber o link de redefinição'
+                  : isLogin
+                    ? 'Entre para acessar suas finanças'
+                    : 'Comece a controlar suas finanças hoje'}
               </p>
             </div>
+
+            {signupEmailSent && (
+              <Alert className="mb-4">
+                <AlertDescription>
+                  Enviamos um link de confirmação. Verifique sua caixa de entrada e spam antes de
+                  fazer login.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
@@ -138,6 +177,7 @@ const Auth = () => {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setErrors(prev => ({ ...prev, email: undefined })); }}
@@ -149,6 +189,7 @@ const Auth = () => {
               </div>
 
               {/* Password */}
+              {!isForgotPassword && (
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">
                   Senha
@@ -158,6 +199,7 @@ const Auth = () => {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete={isLogin ? 'current-password' : 'new-password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setErrors(prev => ({ ...prev, password: undefined })); }}
@@ -174,9 +216,33 @@ const Auth = () => {
                 </div>
                 {errors.password && <p className="text-destructive text-sm">{errors.password}</p>}
               </div>
+              )}
+
+              {isForgotPassword && (
+                <p className="text-xs text-muted-foreground">
+                  O link abrirá uma página segura para definir sua nova senha.
+                </p>
+              )}
+
+              {isLogin && !isForgotPassword && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setErrors({});
+                      setPassword('');
+                      setConfirmPassword('');
+                    }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
+              )}
 
               {/* Confirm Password (only for signup) */}
-              {!isLogin && (
+              {!isLogin && !isForgotPassword && (
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="text-sm font-medium">
                     Confirmar Senha
@@ -205,6 +271,8 @@ const Auth = () => {
               >
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isForgotPassword ? (
+                  'Enviar link'
                 ) : isLogin ? (
                   'Entrar'
                 ) : (
@@ -214,17 +282,36 @@ const Auth = () => {
             </form>
 
             {/* Toggle */}
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-2">
+              {isForgotPassword ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setErrors({});
+                  }}
+                  className="text-sm text-primary font-medium hover:underline"
+                >
+                  Voltar ao login
+                </button>
+              ) : (
               <p className="text-sm text-muted-foreground">
                 {isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?'}
                 <button
                   type="button"
-                  onClick={() => { setIsLogin(!isLogin); setErrors({}); }}
+                  onClick={() => {
+                    setIsLogin(!isLogin);
+                    setErrors({});
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
                   className="ml-1 text-primary font-medium hover:underline"
                 >
                   {isLogin ? 'Cadastre-se' : 'Faça login'}
                 </button>
               </p>
+              )}
             </div>
           </div>
         </div>

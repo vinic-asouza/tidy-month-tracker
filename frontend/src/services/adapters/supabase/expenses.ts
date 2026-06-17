@@ -82,90 +82,111 @@ export async function getExpenses(userId: string, yearMonth: string): Promise<Ex
   return (data || []).map(toExpense);
 }
 
+async function rollbackExpenseSeries(userId: string, baseExpenseId: string): Promise<void> {
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('user_id', userId)
+    .or(`id.eq.${baseExpenseId},base_expense_id.eq.${baseExpenseId}`);
+
+  throwIfError(error);
+}
+
 export async function createExpense(params: CreateExpenseParams): Promise<Expense> {
   const userId = await resolveUserId(params.userId);
   const { yearMonth, ...expenseData } = params;
   const displayOrder = await getMonthItemCount('expenses', userId, yearMonth);
   const itemDate = expenseData.date ?? new Date().toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert({
-      user_id: userId,
-      year_month: yearMonth,
-      type: expenseData.type,
-      category: expenseData.category,
-      description: expenseData.description,
-      payment_method: expenseData.paymentMethod,
-      value: expenseData.value,
-      paid: expenseData.paid || false,
-      date: itemDate,
-      repeat_all_months: expenseData.repeatAllMonths || false,
-      current_installment: expenseData.currentInstallment ?? null,
-      total_installments: expenseData.totalInstallments ?? null,
-      display_order: displayOrder,
-    })
-    .select('*')
-    .single();
+  let createdExpense: Expense | null = null;
 
-  throwIfError(error);
-  const createdExpense = toExpense(data!);
-
-  if (expenseData.type === 'fixed' && expenseData.repeatAllMonths) {
-    const remainingMonths = calculateRemainingMonths(yearMonth);
-    for (const month of remainingMonths) {
-      const { error: copyError } = await supabase.from('expenses').insert({
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert({
         user_id: userId,
-        year_month: month,
+        year_month: yearMonth,
         type: expenseData.type,
         category: expenseData.category,
         description: expenseData.description,
         payment_method: expenseData.paymentMethod,
         value: expenseData.value,
-        paid: false,
+        paid: expenseData.paid || false,
         date: itemDate,
-        repeat_all_months: true,
-        base_expense_id: createdExpense.id,
-        display_order: 0,
-      });
-      throwIfError(copyError);
+        repeat_all_months: expenseData.repeatAllMonths || false,
+        current_installment: expenseData.currentInstallment ?? null,
+        total_installments: expenseData.totalInstallments ?? null,
+        display_order: displayOrder,
+      })
+      .select('*')
+      .single();
+
+    throwIfError(error);
+    createdExpense = toExpense(data!);
+
+    if (expenseData.type === 'fixed' && expenseData.repeatAllMonths) {
+      const remainingMonths = calculateRemainingMonths(yearMonth);
+      if (remainingMonths.length > 0) {
+        const rows = remainingMonths.map((month) => ({
+          user_id: userId,
+          year_month: month,
+          type: expenseData.type,
+          category: expenseData.category,
+          description: expenseData.description,
+          payment_method: expenseData.paymentMethod,
+          value: expenseData.value,
+          paid: false,
+          date: itemDate,
+          repeat_all_months: true,
+          base_expense_id: createdExpense.id,
+          display_order: 0,
+        }));
+        const { error: copyError } = await supabase.from('expenses').insert(rows);
+        throwIfError(copyError);
+      }
     }
-  }
 
-  if (
-    isValidInstallmentExpense({
-      type: expenseData.type,
-      currentInstallment: expenseData.currentInstallment,
-      totalInstallments: expenseData.totalInstallments,
-    } as Expense)
-  ) {
-    const installments = calculateRemainingInstallments(
-      yearMonth,
-      expenseData.currentInstallment!,
-      expenseData.totalInstallments!
-    );
-
-    for (const inst of installments) {
-      const { error: instError } = await supabase.from('expenses').insert({
-        user_id: userId,
-        year_month: inst.yearMonth,
+    if (
+      isValidInstallmentExpense({
         type: expenseData.type,
-        category: expenseData.category,
-        description: expenseData.description,
-        payment_method: expenseData.paymentMethod,
-        value: expenseData.value,
-        paid: false,
-        date: itemDate,
-        base_expense_id: createdExpense.id,
-        current_installment: inst.installmentNumber,
-        total_installments: expenseData.totalInstallments,
-        display_order: 0,
-      });
-      throwIfError(instError);
-    }
-  }
+        currentInstallment: expenseData.currentInstallment,
+        totalInstallments: expenseData.totalInstallments,
+      } as Expense)
+    ) {
+      const installments = calculateRemainingInstallments(
+        yearMonth,
+        expenseData.currentInstallment!,
+        expenseData.totalInstallments!
+      );
 
-  return createdExpense;
+      if (installments.length > 0) {
+        const rows = installments.map((inst) => ({
+          user_id: userId,
+          year_month: inst.yearMonth,
+          type: expenseData.type,
+          category: expenseData.category,
+          description: expenseData.description,
+          payment_method: expenseData.paymentMethod,
+          value: expenseData.value,
+          paid: false,
+          date: itemDate,
+          base_expense_id: createdExpense.id,
+          current_installment: inst.installmentNumber,
+          total_installments: expenseData.totalInstallments,
+          display_order: 0,
+        }));
+        const { error: instError } = await supabase.from('expenses').insert(rows);
+        throwIfError(instError);
+      }
+    }
+
+    return createdExpense;
+  } catch (error) {
+    if (createdExpense) {
+      await rollbackExpenseSeries(userId, createdExpense.id);
+    }
+    throw error;
+  }
 }
 
 export async function updateExpense(params: UpdateExpenseParams): Promise<void> {
@@ -195,8 +216,8 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       const remainingMonths = calculateRemainingMonths(currentExpense.year_month);
       const currentDate = currentExpense.date ?? new Date().toISOString().slice(0, 10);
 
-      for (const month of remainingMonths) {
-        const { error: copyError } = await supabase.from('expenses').insert({
+      if (remainingMonths.length > 0) {
+        const rows = remainingMonths.map((month) => ({
           user_id: userId,
           year_month: month,
           type: currentExpense.type,
@@ -209,7 +230,8 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           repeat_all_months: true,
           base_expense_id: id,
           display_order: 0,
-        });
+        }));
+        const { error: copyError } = await supabase.from('expenses').insert(rows);
         throwIfError(copyError);
       }
     }

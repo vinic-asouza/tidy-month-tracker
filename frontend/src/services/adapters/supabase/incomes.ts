@@ -48,8 +48,8 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
 
   if (incomeData.repeatAllMonths) {
     const remainingMonths = calculateRemainingMonths(yearMonth);
-    for (const month of remainingMonths) {
-      const { error: copyError } = await supabase.from('incomes').insert({
+    if (remainingMonths.length > 0) {
+      const rows = remainingMonths.map((month) => ({
         user_id: userId,
         year_month: month,
         description: incomeData.description,
@@ -60,7 +60,8 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
         repeat_all_months: true,
         base_income_id: createdIncome.id,
         display_order: 0,
-      });
+      }));
+      const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
     }
   }
@@ -90,8 +91,8 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
 
   if (isChangingRepeatStatus && willBeRepeatAllMonths && !currentRows.base_income_id) {
     const remainingMonths = calculateRemainingMonths(currentRows.year_month);
-    for (const month of remainingMonths) {
-      const { error: copyError } = await supabase.from('incomes').insert({
+    if (remainingMonths.length > 0) {
+      const rows = remainingMonths.map((month) => ({
         user_id: userId,
         year_month: month,
         description: updates.description ?? currentRows.description,
@@ -102,7 +103,8 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
         repeat_all_months: true,
         base_income_id: id,
         display_order: 0,
-      });
+      }));
+      const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
     }
   }

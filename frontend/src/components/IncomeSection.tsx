@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, memo } from 'react';
 import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown, Settings, AlertTriangle, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,12 +41,23 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
+import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SelectionToggle } from '@/components/SelectionToggle';
+import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import { toast } from 'sonner';
+
+type PersistHandler = (data: Omit<IncomeEntry, 'id'>) => Promise<boolean> | boolean;
+type UpdateHandler = (
+  id: string,
+  updates: Partial<IncomeEntry>,
+  applyToAllMonths?: boolean
+) => Promise<boolean> | boolean;
 
 interface IncomeSectionProps {
   incomes: IncomeEntry[];
   tags: string[];
-  onAdd: (income: Omit<IncomeEntry, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => void;
+  onAdd: PersistHandler;
+  onUpdate: UpdateHandler;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
@@ -176,7 +187,7 @@ const CategorySummaryItem = ({
   );
 };
 
-export const IncomeSection = ({
+const IncomeSectionComponent = ({
   incomes,
   tags,
   onAdd,
@@ -192,6 +203,7 @@ export const IncomeSection = ({
   variant = 'default',
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -327,9 +339,12 @@ export const IncomeSection = ({
   };
 
   const handleDeleteTag = async (tag: string) => {
-    // Não permitir excluir categoria em uso
     const hasIncomes = incomes.some((income) => income.tag === tag);
-    if (hasIncomes || isTagLoading) return;
+    if (hasIncomes) {
+      toast.error('Não é possível excluir: existem entradas usando esta categoria');
+      return;
+    }
+    if (isTagLoading) return;
 
     setIsTagLoading(true);
     try {
@@ -351,7 +366,7 @@ export const IncomeSection = ({
     setTagError(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
     
@@ -370,22 +385,34 @@ export const IncomeSection = ({
     
     if (hasError) return;
 
-    if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths }, applyToAllMonths);
-      setApplyToAllMonths(false);
-    } else {
-      onAdd({
-        description: description.trim(),
-        value: numValue,
-        tag: selectedTag,
-        date: itemDate,
-        repeatAllMonths,
-        received: false
-      });
+    setIsSubmitting(true);
+    try {
+      const success = editingId
+        ? await onUpdate(
+            editingId,
+            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths },
+            applyToAllMonths
+          )
+        : await onAdd({
+            description: description.trim(),
+            value: numValue,
+            tag: selectedTag,
+            date: itemDate,
+            repeatAllMonths,
+            received: false,
+          });
+
+      if (success === false) return;
+
+      if (editingId) {
+        setApplyToAllMonths(false);
+      }
+      resetForm();
+      setIsOpen(false);
+      onAddDialogClose?.();
+    } finally {
+      setIsSubmitting(false);
     }
-    resetForm();
-    setIsOpen(false);
-    onAddDialogClose?.();
   };
 
   const handleEdit = (income: IncomeEntry) => {
@@ -496,6 +523,15 @@ export const IncomeSection = ({
     .filter(i => i.received)
     .reduce((sum, i) => sum + i.value, 0);
 
+  const toggleItemSelection = (id: string, isSelected: boolean) => {
+    if (!onSelectionChange) return;
+    showSelectionHintIfNeeded();
+    const newSelection = new Set(selectedIds);
+    if (isSelected) newSelection.delete(id);
+    else newSelection.add(id);
+    onSelectionChange(newSelection);
+  };
+
   const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
 
   return (
@@ -508,22 +544,13 @@ export const IncomeSection = ({
               <TrendingUp className="h-4 w-4 text-white" />
             </div>
           )}
-          <div className="min-w-0">
-            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Entradas</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm sm:text-base font-bold text-income tabular-nums">
-                {formatCurrency(total)}
-              </p>
-              {receivedTotal > 0 && (
-                <>
-                  <span className="text-xs text-muted-foreground">| Recebido:</span>
-                  <p className="text-sm sm:text-base font-bold text-income tabular-nums">
-                    {formatCurrency(receivedTotal)}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+          <SectionTotalsHeader
+            title="Entradas"
+            plannedTotal={total}
+            effectiveTotal={receivedTotal}
+            effectiveLabel="Recebido"
+            colorClass="text-income"
+          />
         </div>
       </div>
       <Dialog
@@ -758,12 +785,22 @@ export const IncomeSection = ({
                     className="data-[state=checked]:bg-income focus-visible:ring-income"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Repete nos demais meses deste ano.
+                </p>
 
                 <Button 
-                  onClick={handleSubmit} 
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
                   className="w-full h-10 rounded-md gradient-income hover:opacity-90 transition-opacity text-white border-0"
                 >
-                  {editingId ? 'Salvar Alterações' : 'Adicionar Entrada'}
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : editingId ? (
+                    'Salvar Alterações'
+                  ) : (
+                    'Adicionar Entrada'
+                  )}
                 </Button>
               </div>
           </DialogContent>
@@ -830,9 +867,15 @@ export const IncomeSection = ({
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-income-light mb-3 shrink-0">
             <TrendingUp className="h-6 w-6 text-income" />
           </div>
-          <p className="text-muted-foreground text-sm">
-            Nenhuma entrada registrada
-          </p>
+          <p className="text-muted-foreground text-sm mb-4">Nenhuma entrada registrada</p>
+          <Button
+            onClick={() => setIsOpen(true)}
+            className="gradient-income text-white hover:opacity-90"
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            Adicionar primeira entrada
+          </Button>
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
@@ -841,12 +884,7 @@ export const IncomeSection = ({
             const handleItemClick = (e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
               if (target.closest('button') || target.closest('[role="checkbox"]')) return;
-              if (onSelectionChange) {
-                const newSelection = new Set(selectedIds);
-                if (isSelected) newSelection.delete(income.id);
-                else newSelection.add(income.id);
-                onSelectionChange(newSelection);
-              }
+              toggleItemSelection(income.id, isSelected);
             };
             return (
               <div
@@ -860,7 +898,7 @@ export const IncomeSection = ({
               >
                 {/* Col 1: checkbox centralizado verticalmente */}
                 <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
+                  <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} title="Marcar como recebido" className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
                 </div>
                 {/* Col 2: categoria em cima, descrição + ícone reconhecimento embaixo */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
@@ -875,10 +913,18 @@ export const IncomeSection = ({
                   <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(income.date, income.createdAt)}</span>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
-                    <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {onSelectionChange && (
+                        <SelectionToggle
+                          isSelected={isSelected}
+                          onToggle={() => toggleItemSelection(income.id, isSelected)}
+                        />
+                      )}
+                      <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
+                        <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -894,12 +940,7 @@ export const IncomeSection = ({
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
                   if (target.closest('button') || target.closest('[role="checkbox"]')) return;
-                  if (onSelectionChange) {
-                    const newSelection = new Set(selectedIds);
-                    if (isSelected) newSelection.delete(income.id);
-                    else newSelection.add(income.id);
-                    onSelectionChange(newSelection);
-                  }
+                  toggleItemSelection(income.id, isSelected);
                 };
                 return (
                   <div
@@ -914,7 +955,7 @@ export const IncomeSection = ({
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
                   >
                     <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
+                      <Checkbox checked={income.received} onCheckedChange={() => handleToggleReceived(income)} title="Marcar como recebido" className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white" />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                       <span className="text-xs text-income font-medium">{income.tag}</span>
@@ -927,10 +968,18 @@ export const IncomeSection = ({
                       <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(income.date, income.createdAt)}</span>
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
-                        <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {onSelectionChange && (
+                            <SelectionToggle
+                              isSelected={isSelected}
+                              onToggle={() => toggleItemSelection(income.id, isSelected)}
+                            />
+                          )}
+                          <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
+                            <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(income)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(income.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -978,7 +1027,16 @@ export const IncomeSection = ({
         onOpenChange={(open) => !open && setDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="Excluir entrada"
-        description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita."
+        description={
+          deleteId
+            ? (() => {
+                const item = incomes.find((i) => i.id === deleteId);
+                return item
+                  ? `Excluir "${item.description}" (${formatCurrency(item.value)})? Esta ação não pode ser desfeita.`
+                  : 'Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita.';
+              })()
+            : 'Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita.'
+        }
       />
 
       {/* Apply to All Months Dialog */}
@@ -994,8 +1052,16 @@ export const IncomeSection = ({
             : 'Esta entrada se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        isDestructive={pendingAction === 'delete'}
+        itemSummary={
+          editingIncome
+            ? `${editingIncome.description} — ${formatCurrency(editingIncome.value)}`
+            : undefined
+        }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
       />
     </div>
   );
 };
+
+export const IncomeSection = memo(IncomeSectionComponent);

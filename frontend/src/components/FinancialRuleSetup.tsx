@@ -46,8 +46,11 @@ export const FinancialRuleSetup = ({
   const [categoryMapping, setCategoryMapping] = useState<Record<string, 'essentials' | 'lifestyle'>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
 
-  // Reset / inicialização ao abrir
+  const filteredCategories = categories.filter((cat) =>
+    cat.toLowerCase().includes(categorySearch.trim().toLowerCase())
+  );
   useEffect(() => {
     if (open) {
       // Se houver categorias não mapeadas, ir direto para o passo 2
@@ -80,6 +83,7 @@ export const FinancialRuleSetup = ({
       }
 
       setErrors({});
+      setCategorySearch('');
     }
   }, [open, initialRule, unmappedCategories]);
 
@@ -234,6 +238,9 @@ export const FinancialRuleSetup = ({
               <Label className="text-sm sm:text-base font-semibold mb-3 sm:mb-4 block">
                 Escolha o modelo de regra
               </Label>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                50% necessidades, 30% desejos, 20% investimentos — sobre o que você já recebeu.
+              </p>
               <RadioGroup
                 value={ruleModel}
                 onValueChange={(value) => setRuleModel(value as RuleModel)}
@@ -372,8 +379,17 @@ export const FinancialRuleSetup = ({
               </Alert>
             )}
 
+            {categories.length > 8 && (
+              <Input
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                placeholder="Buscar categoria..."
+                className="h-9"
+              />
+            )}
+
             <div className="space-y-2 max-h-[45vh] sm:max-h-96 overflow-y-auto overscroll-contain">
-              {categories.map((category) => {
+              {filteredCategories.map((category) => {
                 const isUnmapped = unmappedCategories?.includes(category);
                 return (
                   <div

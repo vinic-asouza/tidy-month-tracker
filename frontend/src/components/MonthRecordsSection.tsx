@@ -1,5 +1,5 @@
 import { TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { IncomeSection } from '@/components/IncomeSection';
@@ -30,21 +30,21 @@ interface MonthRecordsSectionProps {
   onIncomeSelectionChange: (ids: Set<string>) => void;
   onExpenseSelectionChange: (ids: Set<string>) => void;
   onInvestmentSelectionChange: (ids: Set<string>) => void;
-  addIncome: (income: Omit<IncomeEntry, 'id'>) => void;
-  updateIncome: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => void;
+  addIncome: (income: Omit<IncomeEntry, 'id'>) => Promise<boolean> | boolean;
+  updateIncome: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => Promise<boolean> | boolean;
   deleteIncome: (id: string, applyToAllMonths?: boolean) => void;
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  updateExpense: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
+  updateExpense: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => Promise<boolean> | boolean;
   deleteExpense: (id: string, applyToAllMonths?: boolean) => void;
   deleteInstallmentExpense: (expense: Expense) => void;
-  addInvestment: (investment: Omit<Investment, 'id'>) => void;
-  updateInvestment: (id: string, updates: Partial<Investment>, applyToAllMonths?: boolean) => void;
+  addInvestment: (investment: Omit<Investment, 'id'>) => Promise<boolean> | boolean;
+  updateInvestment: (id: string, updates: Partial<Investment>, applyToAllMonths?: boolean) => Promise<boolean> | boolean;
   deleteInvestment: (id: string, applyToAllMonths?: boolean) => void;
-  addCreditCard: (card: Omit<CreditCard, 'id'>) => void;
-  updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
+  addCreditCard: (card: Omit<CreditCard, 'id'>) => Promise<boolean> | boolean;
+  updateCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<boolean> | boolean;
   deleteCreditCard: (id: string) => void;
   getCreditCardTotal: (cardName: string) => number;
-  canDeleteCard: (cardName: string) => boolean;
+  canDeleteCard: (cardName: string) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
   setCardPaidStatus: (cardId: string, paid: boolean) => Promise<boolean>;
@@ -161,77 +161,81 @@ export const MonthRecordsSection = ({
           ))}
         </TabsList>
 
-        <TabsContent value="income" className="mt-4 focus-visible:outline-none">
-          <IncomeSection
-            variant="embedded"
-            incomes={incomes}
-            tags={incomeTags}
-            onAdd={addIncome}
-            onUpdate={updateIncome}
-            onDelete={deleteIncome}
-            onAddTag={addIncomeTag}
-            onUpdateTag={updateIncomeTag}
-            onDeleteTag={deleteIncomeTag}
-            selectedIds={selectedIncomeIds}
-            onSelectionChange={onIncomeSelectionChange}
-            openAddDialog={addDialogType === 'income'}
-            onAddDialogClose={onAddDialogClose}
-          />
-        </TabsContent>
+        <div className="mt-4 focus-visible:outline-none">
+          {activeTab === 'income' && (
+            <IncomeSection
+              variant="embedded"
+              incomes={incomes}
+              tags={incomeTags}
+              onAdd={addIncome}
+              onUpdate={updateIncome}
+              onDelete={deleteIncome}
+              onAddTag={addIncomeTag}
+              onUpdateTag={updateIncomeTag}
+              onDeleteTag={deleteIncomeTag}
+              selectedIds={selectedIncomeIds}
+              onSelectionChange={onIncomeSelectionChange}
+              openAddDialog={addDialogType === 'income'}
+              onAddDialogClose={onAddDialogClose}
+            />
+          )}
 
-        <TabsContent value="expense" className="mt-4 focus-visible:outline-none space-y-5">
-          <CreditCardStrip
-            creditCards={creditCards}
-            onAdd={addCreditCard}
-            onUpdate={updateCreditCard}
-            onDelete={deleteCreditCard}
-            getCardTotal={getCreditCardTotal}
-            canDeleteCard={canDeleteCard}
-            cardNameExists={cardNameExists}
-            getCardPaidStatus={getCardPaidStatus}
-            setCardPaidStatus={setCardPaidStatus}
-            openAddDialog={addDialogType === 'card'}
-            onAddDialogClose={onAddDialogClose}
-          />
-          <Separator />
-          <ExpenseSection
-            variant="embedded"
-            expenses={expenses}
-            categories={expenseCategories}
-            paymentMethods={paymentMethods}
-            creditCards={creditCards}
-            onAdd={addExpense}
-            onUpdate={updateExpense}
-            onDelete={deleteExpense}
-            onDeleteInstallment={deleteInstallmentExpense}
-            getCardPaidStatus={getCardPaidStatus}
-            onAddCategory={addExpenseCategory}
-            onUpdateCategory={updateExpenseCategory}
-            onDeleteCategory={deleteExpenseCategory}
-            selectedIds={selectedExpenseIds}
-            onSelectionChange={onExpenseSelectionChange}
-            openAddDialog={addDialogType === 'expense'}
-            onAddDialogClose={onAddDialogClose}
-          />
-        </TabsContent>
+          {activeTab === 'expense' && (
+            <div className="space-y-5">
+              <CreditCardStrip
+                creditCards={creditCards}
+                onAdd={addCreditCard}
+                onUpdate={updateCreditCard}
+                onDelete={deleteCreditCard}
+                getCardTotal={getCreditCardTotal}
+                canDeleteCard={canDeleteCard}
+                cardNameExists={cardNameExists}
+                getCardPaidStatus={getCardPaidStatus}
+                setCardPaidStatus={setCardPaidStatus}
+                openAddDialog={addDialogType === 'card'}
+                onAddDialogClose={onAddDialogClose}
+              />
+              <Separator />
+              <ExpenseSection
+                variant="embedded"
+                expenses={expenses}
+                categories={expenseCategories}
+                paymentMethods={paymentMethods}
+                creditCards={creditCards}
+                onAdd={addExpense}
+                onUpdate={updateExpense}
+                onDelete={deleteExpense}
+                onDeleteInstallment={deleteInstallmentExpense}
+                getCardPaidStatus={getCardPaidStatus}
+                onAddCategory={addExpenseCategory}
+                onUpdateCategory={updateExpenseCategory}
+                onDeleteCategory={deleteExpenseCategory}
+                selectedIds={selectedExpenseIds}
+                onSelectionChange={onExpenseSelectionChange}
+                openAddDialog={addDialogType === 'expense'}
+                onAddDialogClose={onAddDialogClose}
+              />
+            </div>
+          )}
 
-        <TabsContent value="investment" className="mt-4 focus-visible:outline-none">
-          <InvestmentSection
-            variant="embedded"
-            investments={investments}
-            tags={investmentTags}
-            onAdd={addInvestment}
-            onUpdate={updateInvestment}
-            onDelete={deleteInvestment}
-            onAddTag={addInvestmentTag}
-            onUpdateTag={updateInvestmentTag}
-            onDeleteTag={deleteInvestmentTag}
-            selectedIds={selectedInvestmentIds}
-            onSelectionChange={onInvestmentSelectionChange}
-            openAddDialog={addDialogType === 'investment'}
-            onAddDialogClose={onAddDialogClose}
-          />
-        </TabsContent>
+          {activeTab === 'investment' && (
+            <InvestmentSection
+              variant="embedded"
+              investments={investments}
+              tags={investmentTags}
+              onAdd={addInvestment}
+              onUpdate={updateInvestment}
+              onDelete={deleteInvestment}
+              onAddTag={addInvestmentTag}
+              onUpdateTag={updateInvestmentTag}
+              onDeleteTag={deleteInvestmentTag}
+              selectedIds={selectedInvestmentIds}
+              onSelectionChange={onInvestmentSelectionChange}
+              openAddDialog={addDialogType === 'investment'}
+              onAddDialogClose={onAddDialogClose}
+            />
+          )}
+        </div>
       </Tabs>
     </SectionSurface>
   );

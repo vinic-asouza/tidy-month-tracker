@@ -1,11 +1,9 @@
 /**
- * Hook para gerenciar dados financeiros
- * 
- * Usa serviços para acessar dados, mantendo desacoplamento do Supabase.
- * A interface pública é mantida para compatibilidade com componentes existentes.
+ * Hook para gerenciar dados financeiros com React Query.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -21,30 +19,41 @@ import {
   DEFAULT_INVESTMENT_TAGS,
   DEFAULT_PAYMENT_METHODS,
 } from '@/types/finance';
-
-// Importar serviços
+import { financeKeys } from '@/lib/financeQueryKeys';
+import {
+  fetchMonthBundle,
+  fetchYearData,
+  type MonthBundle,
+} from '@/services/financeQueries';
+import {
+  getMonthIndex,
+  patchYearDataMonth,
+  toMonthSnapshot,
+} from '@/utils/business/yearDataSync';
+import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
+import { calculateRemainingInstallments } from '@/utils/business/installments';
 import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
 import * as investmentsService from '@/services/investments';
 import * as creditCardsService from '@/services/creditCards';
 import * as settingsService from '@/services/settings';
 
-export const useSupabaseFinance = () => {
+type UseSupabaseFinanceOptions = {
+  statisticsEnabled?: boolean;
+};
+
+export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
+  const { statisticsEnabled = false } = options;
+  const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [monthLoading, setMonthLoading] = useState(false); // Loading específico para mudanças de mês
+
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // State for current month data
-  const [incomes, setIncomes] = useState<IncomeEntry[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [investments, setInvestments] = useState<Investment[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
-  const [cardMonthlyStatus, setCardMonthlyStatus] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState<FinanceSettings>({
     incomeTags: DEFAULT_INCOME_TAGS,
     expenseCategories: DEFAULT_EXPENSE_CATEGORIES,
@@ -52,751 +61,920 @@ export const useSupabaseFinance = () => {
     paymentMethods: DEFAULT_PAYMENT_METHODS,
   });
 
-  // Fetch settings
+  const currentYear = parseInt(currentMonth.split('-')[0], 10);
+  const userId = user?.id ?? '';
+
   const fetchSettings = useCallback(async () => {
     if (!user) return;
-
     try {
       const data = await settingsService.getSettings(user.id);
       setSettings(data);
-    } catch (_error) {
-      // Erro de carregamento de configurações será perceptível no uso,
-      // não precisamos logar em produção para o MVP.
+    } catch {
+      toast.error('Erro ao carregar configurações');
     }
   }, [user]);
 
-  // Fetch credit cards (global)
   const fetchCreditCards = useCallback(async () => {
     if (!user) return;
-
     try {
       const data = await creditCardsService.getCreditCards(user.id);
       setCreditCards(data);
-    } catch (_error) {
-      // Erro de carregamento de cartões será visível na UI (lista vazia).
+    } catch {
+      toast.error('Erro ao carregar cartões');
     }
   }, [user]);
 
-  // Fetch month data
-  const fetchMonthData = useCallback(async (yearMonth: string, showLoading = true) => {
-    if (!user) return;
-
-    if (showLoading) {
-      setLoading(true);
-    }
-
-    try {
-      const [incomesData, expensesData, investmentsData] = await Promise.all([
-        incomesService.getIncomes(user.id, yearMonth),
-        expensesService.getExpenses(user.id, yearMonth),
-        investmentsService.getInvestments(user.id, yearMonth),
-      ]);
-
-      setIncomes(incomesData);
-      setExpenses(expensesData);
-      setInvestments(investmentsData);
-    } catch (error) {
-      console.error('Error fetching month data:', error);
-      toast.error('Erro ao carregar dados do mês');
-    } finally {
-      if (showLoading) {
-        setLoading(false);
-        setInitialLoadDone(true);
-      }
-    }
-  }, [user]);
-
-  // Fetch card monthly status
-  const fetchCardMonthlyStatus = useCallback(async (yearMonth: string) => {
-    if (!user) return;
-
-    try {
-      const statusMap = await creditCardsService.getAllCardMonthlyStatuses(user.id, yearMonth, creditCards);
-      setCardMonthlyStatus(statusMap);
-    } catch (_error) {
-      // Falha em status mensal não bloqueia uso básico para o MVP.
-    }
-  }, [user, creditCards]);
-
-  // Initial load - executa apenas uma vez quando user é definido
   useEffect(() => {
     if (!user || initialLoadDone) return;
 
     const loadInitialData = async () => {
-      await Promise.all([
-        fetchSettings(),
-        fetchCreditCards(),
-        fetchMonthData(currentMonth, true),
-        fetchCardMonthlyStatus(currentMonth),
-      ]);
+      await Promise.all([fetchSettings(), fetchCreditCards()]);
+      setInitialLoadDone(true);
     };
 
     loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]); // Apenas user como dependência para evitar loops
+  }, [user, initialLoadDone, fetchSettings, fetchCreditCards]);
 
-  // Efeito separado para mudanças de mês (após load inicial)
+  const monthQuery = useQuery({
+    queryKey: financeKeys.month(userId, currentMonth),
+    queryFn: () => fetchMonthBundle(userId, currentMonth, creditCards),
+    enabled: !!user && initialLoadDone,
+    staleTime: 30_000,
+  });
+
+  const yearQuery = useQuery({
+    queryKey: [...financeKeys.year(userId, currentYear), creditCards.length] as const,
+    queryFn: () => fetchYearData(userId, currentYear, creditCards),
+    enabled: !!user && initialLoadDone && statisticsEnabled,
+    staleTime: 5 * 60_000,
+  });
+
+  const incomes = monthQuery.data?.incomes ?? [];
+  const expenses = monthQuery.data?.expenses ?? [];
+  const investments = monthQuery.data?.investments ?? [];
+  const cardMonthlyStatus = monthQuery.data?.cardMonthlyStatuses ?? {};
+  const yearData = yearQuery.data ?? [];
+
+  const monthKey = financeKeys.month(userId, currentMonth);
+  const yearKey = financeKeys.year(userId, currentYear);
+
+  const setMonthBundle = useCallback(
+    (updater: (prev: MonthBundle) => MonthBundle) => {
+      if (!user) return;
+      queryClient.setQueryData<MonthBundle>(monthKey, (prev) => {
+        const base: MonthBundle = prev ?? {
+          incomes: [],
+          expenses: [],
+          investments: [],
+          cardMonthlyStatuses: {},
+        };
+        return updater(base);
+      });
+    },
+    [user, queryClient, monthKey]
+  );
+
+  const patchYearFromCurrentMonth = useCallback(() => {
+    if (!user || !statisticsEnabled) return;
+    const existing = queryClient.getQueryData<MonthData[]>(yearKey);
+    if (!existing || existing.length !== 12) return;
+
+    const snapshot = toMonthSnapshot(
+      { incomes, expenses, investments },
+      cardMonthlyStatus
+    );
+    const monthIndex = getMonthIndex(currentMonth);
+    queryClient.setQueryData(
+      yearKey,
+      patchYearDataMonth(existing, monthIndex, snapshot)
+    );
+  }, [
+    user,
+    statisticsEnabled,
+    queryClient,
+    yearKey,
+    incomes,
+    expenses,
+    investments,
+    cardMonthlyStatus,
+    currentMonth,
+  ]);
+
   useEffect(() => {
-    if (!user || !initialLoadDone) return;
+    patchYearFromCurrentMonth();
+  }, [patchYearFromCurrentMonth]);
 
-    const loadMonthData = async () => {
-      setMonthLoading(true); // Ativa loading específico para mudança de mês
-      await Promise.all([
-        fetchMonthData(currentMonth, false), // Não usa loading global
-        fetchCardMonthlyStatus(currentMonth),
-      ]);
-      setMonthLoading(false);
-    };
+  const refreshYearMonths = useCallback(
+    async (yearMonths: string[]) => {
+      if (!user) return;
 
-    loadMonthData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMonth, initialLoadDone, user]); // Apenas quando mês ou estado inicial mudar
+      for (const yearMonth of yearMonths) {
+        if (parseInt(yearMonth.split('-')[0], 10) !== currentYear) continue;
 
-  // Income operations
-  const addIncome = useCallback(async (income: Omit<IncomeEntry, 'id'>): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const tempId = `temp-${Date.now()}`;
-    const optimisticIncome: IncomeEntry = {
-      id: tempId,
-      ...income,
-    };
-    setIncomes((prev) => [...prev, optimisticIncome]);
-
-    try {
-      await incomesService.createIncome({
-        ...income,
-        userId: user.id,
-        yearMonth: currentMonth,
-        displayOrder: incomes.length,
-      });
-
-      // Silently refresh to get actual data
-      await fetchMonthData(currentMonth, false);
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao adicionar entrada');
-      // Rollback
-      setIncomes((prev) => prev.filter((i) => i.id !== tempId));
-      return false;
-    }
-  }, [user, currentMonth, incomes.length, fetchMonthData]);
-
-  const updateIncome = useCallback(async (id: string, updates: Partial<IncomeEntry>, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const previousIncomes = [...incomes];
-    setIncomes((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, ...updates } : i))
-    );
-
-    try {
-      await incomesService.updateIncome({
-        id,
-        userId: user.id,
-        updates,
-        applyToAllMonths,
-      });
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+        try {
+          const bundle = await fetchMonthBundle(user.id, yearMonth, creditCards);
+          const monthIndex = getMonthIndex(yearMonth);
+          queryClient.setQueryData<MonthData[]>(yearKey, (old) => {
+            if (!old || old.length !== 12) return old;
+            return patchYearDataMonth(
+              old,
+              monthIndex,
+              toMonthSnapshot(bundle, bundle.cardMonthlyStatuses)
+            );
+          });
+        } catch {
+          // ignora falha pontual
+        }
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao atualizar entrada');
-      // Rollback
-      setIncomes(previousIncomes);
-      return false;
-    }
-  }, [user, incomes, currentMonth, fetchMonthData]);
+    },
+    [user, creditCards, currentYear, queryClient, yearKey]
+  );
 
-  const deleteIncome = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
+  const fetchMonthForYear = useCallback(
+    async (yearMonth: string): Promise<MonthData> => {
+      if (!user) return getEmptyMonthData();
 
-    // Optimistic update
-    const previousIncomes = [...incomes];
-    setIncomes((prev) => prev.filter((i) => i.id !== id));
+      const bundle = await fetchMonthBundle(user.id, yearMonth, creditCards);
+      const snapshot = toMonthSnapshot(bundle, bundle.cardMonthlyStatuses);
 
-    try {
-      await incomesService.deleteIncome(id, user.id, applyToAllMonths);
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+      if (
+        statisticsEnabled &&
+        parseInt(yearMonth.split('-')[0], 10) === currentYear
+      ) {
+        const monthIndex = getMonthIndex(yearMonth);
+        queryClient.setQueryData<MonthData[]>(yearKey, (old) => {
+          if (!old || old.length !== 12) return old;
+          return patchYearDataMonth(old, monthIndex, snapshot);
+        });
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao excluir entrada');
-      // Rollback
-      setIncomes(previousIncomes);
-      return false;
-    }
-  }, [user, incomes, currentMonth, fetchMonthData]);
 
-  const reorderIncomes = useCallback(async (newIncomes: IncomeEntry[]) => {
+      return snapshot;
+    },
+    [user, creditCards, statisticsEnabled, currentYear, queryClient, yearKey]
+  );
+
+  const invalidateCurrentMonth = useCallback(async () => {
     if (!user) return;
+    await queryClient.invalidateQueries({ queryKey: monthKey });
+  }, [user, queryClient, monthKey]);
 
-    setIncomes(newIncomes);
+  const getYearData = useCallback(
+    async (year: number): Promise<MonthData[]> => {
+      if (!user) return Array(12).fill(getEmptyMonthData());
 
-    try {
-      await incomesService.reorderIncomes(newIncomes, user.id, currentMonth);
-    } catch (_error) {
-      toast.error('Erro ao reordenar entradas');
-    }
-  }, [user, currentMonth]);
-
-  // Expense operations
-  const addExpense = useCallback(async (expense: Omit<Expense, 'id'>): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const tempId = `temp-${Date.now()}`;
-    const optimisticExpense: Expense = {
-      id: tempId,
-      ...expense,
-    };
-    setExpenses((prev) => [...prev, optimisticExpense]);
-
-    try {
-      await expensesService.createExpense({
-        ...expense,
-        userId: user.id,
-        yearMonth: currentMonth,
-        displayOrder: expenses.length,
-      });
-
-      // Silently refresh to get actual data
-      await fetchMonthData(currentMonth, false);
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao adicionar gasto');
-      // Rollback
-      setExpenses((prev) => prev.filter((e) => e.id !== tempId));
-      return false;
-    }
-  }, [user, currentMonth, expenses.length, fetchMonthData]);
-
-  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const previousExpenses = [...expenses];
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
-    );
-
-    try {
-      await expensesService.updateExpense({
-        id,
-        userId: user.id,
-        updates,
-        applyToAllMonths,
-      });
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+      const data = await fetchYearData(user.id, year, creditCards);
+      if (year === currentYear) {
+        queryClient.setQueryData(yearKey, data);
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao atualizar gasto');
-      // Rollback
-      setExpenses(previousExpenses);
-      return false;
-    }
-  }, [user, expenses, currentMonth, fetchMonthData]);
+      return data;
+    },
+    [user, creditCards, currentYear, queryClient, yearKey]
+  );
 
-  const deleteExpense = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
+  const addIncome = useCallback(
+    async (income: Omit<IncomeEntry, 'id'>): Promise<boolean> => {
+      if (!user) return false;
 
-    // Optimistic update
-    const previousExpenses = [...expenses];
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: IncomeEntry = { id: tempId, ...income };
 
-    try {
-      await expensesService.deleteExpense(id, user.id, applyToAllMonths);
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+      setMonthBundle((prev) => ({
+        ...prev,
+        incomes: [...prev.incomes, optimistic],
+      }));
+
+      try {
+        const created = await incomesService.createIncome({
+          ...income,
+          userId: user.id,
+          yearMonth: currentMonth,
+          displayOrder: incomes.length,
+        });
+
+        setMonthBundle((prev) => ({
+          ...prev,
+          incomes: prev.incomes
+            .filter((i) => i.id !== tempId)
+            .concat(created),
+        }));
+
+        if (income.repeatAllMonths) {
+          const months = calculateRemainingMonths(currentMonth);
+          await refreshYearMonths([currentMonth, ...months]);
+        }
+
+        return true;
+      } catch {
+        toast.error('Erro ao adicionar entrada');
+        setMonthBundle((prev) => ({
+          ...prev,
+          incomes: prev.incomes.filter((i) => i.id !== tempId),
+        }));
+        return false;
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao excluir gasto');
-      // Rollback
-      setExpenses(previousExpenses);
-      return false;
-    }
-  }, [user, expenses, currentMonth, fetchMonthData]);
+    },
+    [user, currentMonth, incomes.length, setMonthBundle, refreshYearMonths]
+  );
 
-  const deleteInstallmentExpense = useCallback(async (expense: Expense): Promise<boolean> => {
-    if (!user) return false;
+  const updateIncome = useCallback(
+    async (
+      id: string,
+      updates: Partial<IncomeEntry>,
+      applyToAllMonths = false
+    ): Promise<boolean> => {
+      if (!user) return false;
 
-    // Optimistic update - remove all related installments from current view
-    const previousExpenses = [...expenses];
-    setExpenses((prev) => prev.filter((e) => e.id !== expense.id));
+      const previous = monthQuery.data?.incomes ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        incomes: prev.incomes.map((i) =>
+          i.id === id ? { ...i, ...updates } : i
+        ),
+      }));
 
-    try {
-      await expensesService.deleteInstallmentExpense(expense, user.id);
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao excluir parcelas');
-      // Rollback
-      setExpenses(previousExpenses);
-      return false;
-    }
-  }, [user, expenses]);
+      try {
+        await incomesService.updateIncome({
+          id,
+          userId: user.id,
+          updates,
+          applyToAllMonths,
+        });
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao atualizar entrada');
+        setMonthBundle((prev) => ({ ...prev, incomes: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.incomes, setMonthBundle, invalidateCurrentMonth]
+  );
+
+  const deleteIncome = useCallback(
+    async (id: string, applyToAllMonths = false): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.incomes ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        incomes: prev.incomes.filter((i) => i.id !== id),
+      }));
+
+      try {
+        await incomesService.deleteIncome(id, user.id, applyToAllMonths);
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao excluir entrada');
+        setMonthBundle((prev) => ({ ...prev, incomes: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.incomes, setMonthBundle, invalidateCurrentMonth]
+  );
+
+  const reorderIncomes = useCallback(
+    async (newIncomes: IncomeEntry[]) => {
+      if (!user) return;
+      setMonthBundle((prev) => ({ ...prev, incomes: newIncomes }));
+      try {
+        await incomesService.reorderIncomes(newIncomes, user.id, currentMonth);
+      } catch {
+        toast.error('Erro ao reordenar entradas');
+      }
+    },
+    [user, currentMonth, setMonthBundle]
+  );
+
+  const addExpense = useCallback(
+    async (expense: Omit<Expense, 'id'>): Promise<boolean> => {
+      if (!user) return false;
+
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: Expense = { id: tempId, ...expense };
+
+      setMonthBundle((prev) => ({
+        ...prev,
+        expenses: [...prev.expenses, optimistic],
+      }));
+
+      try {
+        const created = await expensesService.createExpense({
+          ...expense,
+          userId: user.id,
+          yearMonth: currentMonth,
+          displayOrder: expenses.length,
+        });
+
+        const needsMultiMonthRefresh =
+          (expense.type === 'fixed' && expense.repeatAllMonths) ||
+          (expense.type === 'installment' &&
+            expense.currentInstallment != null &&
+            expense.totalInstallments != null);
+
+        if (needsMultiMonthRefresh) {
+          await invalidateCurrentMonth();
+          const affectedMonths = [currentMonth];
+          if (expense.type === 'fixed' && expense.repeatAllMonths) {
+            affectedMonths.push(...calculateRemainingMonths(currentMonth));
+          }
+          if (
+            expense.type === 'installment' &&
+            expense.currentInstallment != null &&
+            expense.totalInstallments != null
+          ) {
+            const installments = calculateRemainingInstallments(
+              currentMonth,
+              expense.currentInstallment,
+              expense.totalInstallments
+            );
+            affectedMonths.push(...installments.map((i) => i.yearMonth));
+          }
+          await refreshYearMonths([...new Set(affectedMonths)]);
+        } else {
+          setMonthBundle((prev) => ({
+            ...prev,
+            expenses: prev.expenses
+              .filter((e) => e.id !== tempId)
+              .concat(created),
+          }));
+        }
+
+        return true;
+      } catch {
+        toast.error('Erro ao adicionar gasto');
+        setMonthBundle((prev) => ({
+          ...prev,
+          expenses: prev.expenses.filter((e) => e.id !== tempId),
+        }));
+        return false;
+      }
+    },
+    [
+      user,
+      currentMonth,
+      expenses.length,
+      setMonthBundle,
+      invalidateCurrentMonth,
+      refreshYearMonths,
+    ]
+  );
+
+  const updateExpense = useCallback(
+    async (
+      id: string,
+      updates: Partial<Expense>,
+      applyToAllMonths = false
+    ): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.expenses ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        expenses: prev.expenses.map((e) =>
+          e.id === id ? { ...e, ...updates } : e
+        ),
+      }));
+
+      try {
+        await expensesService.updateExpense({
+          id,
+          userId: user.id,
+          updates,
+          applyToAllMonths,
+        });
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao atualizar gasto');
+        setMonthBundle((prev) => ({ ...prev, expenses: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.expenses, setMonthBundle, invalidateCurrentMonth]
+  );
+
+  const deleteExpense = useCallback(
+    async (id: string, applyToAllMonths = false): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.expenses ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        expenses: prev.expenses.filter((e) => e.id !== id),
+      }));
+
+      try {
+        await expensesService.deleteExpense(id, user.id, applyToAllMonths);
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao excluir gasto');
+        setMonthBundle((prev) => ({ ...prev, expenses: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.expenses, setMonthBundle, invalidateCurrentMonth]
+  );
+
+  const deleteInstallmentExpense = useCallback(
+    async (expense: Expense): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.expenses ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        expenses: prev.expenses.filter((e) => e.id !== expense.id),
+      }));
+
+      try {
+        await expensesService.deleteInstallmentExpense(expense, user.id);
+        await invalidateCurrentMonth();
+        return true;
+      } catch {
+        toast.error('Erro ao excluir parcelas');
+        setMonthBundle((prev) => ({ ...prev, expenses: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.expenses, setMonthBundle, invalidateCurrentMonth]
+  );
 
   const reorderExpenses = useCallback(
     async (newExpenses: Expense[]) => {
       if (!user) return;
-
-      setExpenses(newExpenses);
-
+      setMonthBundle((prev) => ({ ...prev, expenses: newExpenses }));
       try {
         await expensesService.reorderExpenses(newExpenses, user.id);
-      } catch (_error) {
+      } catch {
         toast.error('Erro ao reordenar gastos');
+      }
+    },
+    [user, setMonthBundle]
+  );
+
+  const addCreditCard = useCallback(
+    async (card: Omit<CreditCard, 'id'>): Promise<boolean> => {
+      if (!user) return false;
+
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: CreditCard = { id: tempId, ...card };
+      setCreditCards((prev) => [...prev, optimistic]);
+
+      try {
+        await creditCardsService.createCreditCard({
+          ...card,
+          userId: user.id,
+          displayOrder: creditCards.length,
+        });
+        await fetchCreditCards();
+        return true;
+      } catch {
+        toast.error('Erro ao adicionar cartão');
+        setCreditCards((prev) => prev.filter((c) => c.id !== tempId));
+        return false;
+      }
+    },
+    [user, creditCards.length, fetchCreditCards]
+  );
+
+  const updateCreditCard = useCallback(
+    async (id: string, updates: Partial<CreditCard>): Promise<boolean> => {
+      if (!user) return false;
+
+      const previousCards = [...creditCards];
+      setCreditCards((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      );
+
+      try {
+        await creditCardsService.updateCreditCard({
+          id,
+          userId: user.id,
+          updates,
+        });
+        if (updates.name !== undefined) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erro ao atualizar cartão';
+        toast.error(errorMessage);
+        setCreditCards(previousCards);
+        return false;
+      }
+    },
+    [user, creditCards, invalidateCurrentMonth]
+  );
+
+  const deleteCreditCard = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (!user) return false;
+
+      const previousCards = [...creditCards];
+      setCreditCards((prev) => prev.filter((c) => c.id !== id));
+
+      try {
+        await creditCardsService.deleteCreditCard(id, user.id);
+        return true;
+      } catch {
+        toast.error('Erro ao excluir cartão');
+        setCreditCards(previousCards);
+        return false;
+      }
+    },
+    [user, creditCards]
+  );
+
+  const getCreditCardTotal = useCallback(
+    (cardName: string): number => {
+      return expenses
+        .filter((e) => e.paymentMethod === cardName)
+        .reduce((sum, e) => sum + e.value, 0);
+    },
+    [expenses]
+  );
+
+  const canDeleteCard = useCallback(
+    async (cardName: string): Promise<boolean> => {
+      if (!user) return true;
+      try {
+        return await creditCardsService.canDeleteCreditCard(cardName, user.id);
+      } catch {
+        return false;
       }
     },
     [user]
   );
 
-  // Credit Card operations
-  const addCreditCard = useCallback(async (card: Omit<CreditCard, 'id'>): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const tempId = `temp-${Date.now()}`;
-    const optimisticCard: CreditCard = {
-      id: tempId,
-      ...card,
-    };
-    setCreditCards((prev) => [...prev, optimisticCard]);
-
-    try {
-      await creditCardsService.createCreditCard({
-        ...card,
-        userId: user.id,
-        displayOrder: creditCards.length,
-      });
-
-      // Silently refresh to get actual ID
-      await fetchCreditCards();
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao adicionar cartão');
-      // Rollback
-      setCreditCards((prev) => prev.filter((c) => c.id !== tempId));
-      return false;
-    }
-  }, [user, creditCards.length, fetchCreditCards]);
-
-  const updateCreditCard = useCallback(async (id: string, updates: Partial<CreditCard>): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const previousCards = [...creditCards];
-    setCreditCards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
-
-    try {
-      await creditCardsService.updateCreditCard({
-        id,
-        userId: user.id,
-        updates,
-      });
-      // Se o nome foi alterado, recarrega os dados do mês para atualizar os gastos
-      if (updates.name !== undefined) {
-        await fetchMonthData(currentMonth, false);
-      }
-      return true;
-    } catch (error: any) {
-      // Mostra mensagem específica do backend se disponível
-      const errorMessage = error?.message || 'Erro ao atualizar cartão';
-      toast.error(errorMessage);
-      // Rollback
-      setCreditCards(previousCards);
-      return false;
-    }
-  }, [user, creditCards, currentMonth, fetchMonthData]);
-
-  const deleteCreditCard = useCallback(async (id: string): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const previousCards = [...creditCards];
-    setCreditCards((prev) => prev.filter((c) => c.id !== id));
-
-    try {
-      await creditCardsService.deleteCreditCard(id, user.id);
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao excluir cartão');
-      // Rollback
-      setCreditCards(previousCards);
-      return false;
-    }
-  }, [user, creditCards]);
-
-  const getCreditCardTotal = useCallback((cardName: string): number => {
-    return expenses
-      .filter((e) => e.paymentMethod === cardName)
-      .reduce((sum, e) => sum + e.value, 0);
-  }, [expenses]);
-
-  const canDeleteCard = useCallback(async (cardName: string): Promise<boolean> => {
-    if (!user) return true;
-
-    try {
-      return await creditCardsService.canDeleteCreditCard(cardName, user.id);
-    } catch (_error) {
-      return false;
-    }
-  }, [user]);
-
-  const cardNameExists = useCallback((name: string, excludeId?: string): boolean => {
-    return creditCards.some(
-      (c) => c.name.toLowerCase() === name.toLowerCase() && c.id !== excludeId
-    );
-  }, [creditCards]);
-
-  // Card monthly paid status
-  const getCardPaidStatus = useCallback((cardId: string): boolean => {
-    return cardMonthlyStatus[cardId] || false;
-  }, [cardMonthlyStatus]);
-
-  const setCardPaidStatus = useCallback(async (cardId: string, paid: boolean): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    setCardMonthlyStatus(prev => ({ ...prev, [cardId]: paid }));
-
-    try {
-      await creditCardsService.setCardMonthlyStatus(
-        user.id,
-        cardId,
-        currentMonth,
-        paid
+  const cardNameExists = useCallback(
+    (name: string, excludeId?: string): boolean => {
+      return creditCards.some(
+        (c) => c.name.toLowerCase() === name.toLowerCase() && c.id !== excludeId
       );
-      return true;
-    } catch (_error) {
-      // Rollback
-      setCardMonthlyStatus(prev => ({ ...prev, [cardId]: !paid }));
-      return false;
-    }
-  }, [user, currentMonth]);
+    },
+    [creditCards]
+  );
 
-  // Investment operations
-  const addInvestment = useCallback(async (investment: Omit<Investment, 'id'>): Promise<boolean> => {
-    if (!user) return false;
+  const getCardPaidStatus = useCallback(
+    (cardId: string): boolean => cardMonthlyStatus[cardId] || false,
+    [cardMonthlyStatus]
+  );
 
-    // Optimistic update
-    const tempId = `temp-${Date.now()}`;
-    const optimisticInvestment: Investment = {
-      id: tempId,
-      ...investment,
-    };
-    setInvestments((prev) => [...prev, optimisticInvestment]);
+  const setCardPaidStatus = useCallback(
+    async (cardId: string, paid: boolean): Promise<boolean> => {
+      if (!user) return false;
 
-    try {
-      await investmentsService.createInvestment({
-        ...investment,
-        userId: user.id,
-        yearMonth: currentMonth,
-        displayOrder: investments.length,
-      });
+      setMonthBundle((prev) => ({
+        ...prev,
+        cardMonthlyStatuses: { ...prev.cardMonthlyStatuses, [cardId]: paid },
+      }));
 
-      // Silently refresh to get actual ID
-      await fetchMonthData(currentMonth, false);
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao adicionar investimento');
-      // Rollback
-      setInvestments((prev) => prev.filter((i) => i.id !== tempId));
-      return false;
-    }
-  }, [user, currentMonth, investments.length, fetchMonthData]);
-
-  const updateInvestment = useCallback(async (id: string, updates: Partial<Investment>, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
-
-    // Optimistic update
-    const previousInvestments = [...investments];
-    setInvestments((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, ...updates } : i))
-    );
-
-    try {
-      await investmentsService.updateInvestment({
-        id,
-        userId: user.id,
-        updates,
-        applyToAllMonths,
-      });
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+      try {
+        await creditCardsService.setCardMonthlyStatus(
+          user.id,
+          cardId,
+          currentMonth,
+          paid
+        );
+        return true;
+      } catch {
+        setMonthBundle((prev) => ({
+          ...prev,
+          cardMonthlyStatuses: {
+            ...prev.cardMonthlyStatuses,
+            [cardId]: !paid,
+          },
+        }));
+        return false;
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao atualizar investimento');
-      // Rollback
-      setInvestments(previousInvestments);
-      return false;
-    }
-  }, [user, investments, currentMonth, fetchMonthData]);
+    },
+    [user, currentMonth, setMonthBundle]
+  );
 
-  const deleteInvestment = useCallback(async (id: string, applyToAllMonths = false): Promise<boolean> => {
-    if (!user) return false;
+  const addInvestment = useCallback(
+    async (investment: Omit<Investment, 'id'>): Promise<boolean> => {
+      if (!user) return false;
 
-    // Optimistic update
-    const previousInvestments = [...investments];
-    setInvestments((prev) => prev.filter((i) => i.id !== id));
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: Investment = { id: tempId, ...investment };
 
-    try {
-      await investmentsService.deleteInvestment(id, user.id, applyToAllMonths);
-      // Se aplicou em todos os meses, recarrega os dados
-      if (applyToAllMonths) {
-        await fetchMonthData(currentMonth, false);
+      setMonthBundle((prev) => ({
+        ...prev,
+        investments: [...prev.investments, optimistic],
+      }));
+
+      try {
+        const created = await investmentsService.createInvestment({
+          ...investment,
+          userId: user.id,
+          yearMonth: currentMonth,
+          displayOrder: investments.length,
+        });
+
+        setMonthBundle((prev) => ({
+          ...prev,
+          investments: prev.investments
+            .filter((i) => i.id !== tempId)
+            .concat(created),
+        }));
+
+        if (investment.repeatAllMonths) {
+          const months = calculateRemainingMonths(currentMonth);
+          await refreshYearMonths([currentMonth, ...months]);
+        }
+
+        return true;
+      } catch {
+        toast.error('Erro ao adicionar investimento');
+        setMonthBundle((prev) => ({
+          ...prev,
+          investments: prev.investments.filter((i) => i.id !== tempId),
+        }));
+        return false;
       }
-      return true;
-    } catch (_error) {
-      toast.error('Erro ao excluir investimento');
-      // Rollback
-      setInvestments(previousInvestments);
-      return false;
-    }
-  }, [user, investments, currentMonth, fetchMonthData]);
+    },
+    [user, currentMonth, investments.length, setMonthBundle, refreshYearMonths]
+  );
+
+  const updateInvestment = useCallback(
+    async (
+      id: string,
+      updates: Partial<Investment>,
+      applyToAllMonths = false
+    ): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.investments ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        investments: prev.investments.map((i) =>
+          i.id === id ? { ...i, ...updates } : i
+        ),
+      }));
+
+      try {
+        await investmentsService.updateInvestment({
+          id,
+          userId: user.id,
+          updates,
+          applyToAllMonths,
+        });
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao atualizar investimento');
+        setMonthBundle((prev) => ({ ...prev, investments: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.investments, setMonthBundle, invalidateCurrentMonth]
+  );
+
+  const deleteInvestment = useCallback(
+    async (id: string, applyToAllMonths = false): Promise<boolean> => {
+      if (!user) return false;
+
+      const previous = monthQuery.data?.investments ?? [];
+      setMonthBundle((prev) => ({
+        ...prev,
+        investments: prev.investments.filter((i) => i.id !== id),
+      }));
+
+      try {
+        await investmentsService.deleteInvestment(id, user.id, applyToAllMonths);
+        if (applyToAllMonths) {
+          await invalidateCurrentMonth();
+        }
+        return true;
+      } catch {
+        toast.error('Erro ao excluir investimento');
+        setMonthBundle((prev) => ({ ...prev, investments: previous }));
+        return false;
+      }
+    },
+    [user, monthQuery.data?.investments, setMonthBundle, invalidateCurrentMonth]
+  );
 
   const reorderInvestments = useCallback(
     async (newInvestments: Investment[]) => {
       if (!user) return;
-
-      setInvestments(newInvestments);
-
+      setMonthBundle((prev) => ({ ...prev, investments: newInvestments }));
       try {
         await investmentsService.reorderInvestments(newInvestments, user.id);
-      } catch (_error) {
+      } catch {
         toast.error('Erro ao reordenar investimentos');
       }
     },
-    [user]
+    [user, setMonthBundle]
   );
 
-  // Investment tags management
-  const addInvestmentTag = useCallback(async (tag: string) => {
-    if (!user) return;
-
-    const newTags = [...settings.investmentTags, tag];
-
-    try {
-      await settingsService.updateInvestmentTags(user.id, newTags);
-      setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-    } catch (_error) {
-      toast.error('Erro ao adicionar tag');
-    }
-  }, [user, settings.investmentTags]);
-
-  const updateInvestmentTag = useCallback(async (oldTag: string, newTag: string) => {
-    if (!user) return;
-
-    const newTags = settings.investmentTags.map((t) => (t === oldTag ? newTag : t));
-
-    try {
-      // Atualiza no backend
-      await settingsService.updateInvestmentTags(user.id, newTags);
-      await settingsService.updateInvestmentTagInInvestments(user.id, oldTag, newTag);
-
-      // Atualiza estado local imediatamente (sem reload global)
-      setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-      setInvestments((prev) =>
-        prev.map((investment) =>
-          investment.tag === oldTag ? { ...investment, tag: newTag } : investment
-        )
-      );
-    } catch (_error) {
-      toast.error('Erro ao atualizar tag');
-    }
-  }, [user, settings.investmentTags]);
-
-  const deleteInvestmentTag = useCallback(async (tag: string) => {
-    if (!user) return;
-
-    const newTags = settings.investmentTags.filter((t) => t !== tag);
-
-    try {
-      await settingsService.updateInvestmentTags(user.id, newTags);
-      setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-    } catch (_error) {
-      toast.error('Erro ao excluir tag');
-    }
-  }, [user, settings.investmentTags]);
-
-  // Income tags management
-  const addIncomeTag = useCallback(async (tag: string) => {
-    if (!user) return;
-
-    const newTags = [...settings.incomeTags, tag];
-
-    try {
-      await settingsService.updateIncomeTags(user.id, newTags);
-      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-    } catch (_error) {
-      toast.error('Erro ao adicionar categoria');
-    }
-  }, [user, settings.incomeTags]);
-
-  const updateIncomeTag = useCallback(async (oldTag: string, newTag: string) => {
-    if (!user) return;
-
-    const newTags = settings.incomeTags.map((t) => (t === oldTag ? newTag : t));
-
-    try {
-      // Atualiza no backend
-      await settingsService.updateIncomeTags(user.id, newTags);
-      await settingsService.updateIncomeTagInIncomes(user.id, oldTag, newTag);
-
-      // Atualiza estado local imediatamente (sem reload global)
-      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-      setIncomes((prev) =>
-        prev.map((income) =>
-          income.tag === oldTag ? { ...income, tag: newTag } : income
-        )
-      );
-    } catch (_error) {
-      toast.error('Erro ao atualizar categoria');
-    }
-  }, [user, settings.incomeTags]);
-
-  const deleteIncomeTag = useCallback(async (tag: string) => {
-    if (!user) return;
-
-    const newTags = settings.incomeTags.filter((t) => t !== tag);
-
-    try {
-      await settingsService.updateIncomeTags(user.id, newTags);
-      setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-    } catch (_error) {
-      toast.error('Erro ao excluir categoria');
-    }
-  }, [user, settings.incomeTags]);
-
-  // Expense categories management
-  const addExpenseCategory = useCallback(async (category: string) => {
-    if (!user) return;
-
-    const newCategories = [...settings.expenseCategories, category];
-
-    try {
-      await settingsService.updateExpenseCategories(user.id, newCategories);
-      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
-    } catch (error) {
-      toast.error('Erro ao adicionar categoria de gasto');
-      console.error(error);
-    }
-  }, [user, settings.expenseCategories]);
-
-  const updateExpenseCategory = useCallback(async (oldCategory: string, newCategory: string) => {
-    if (!user) return;
-
-    const newCategories = settings.expenseCategories.map((c) => (c === oldCategory ? newCategory : c));
-
-    try {
-      // Atualiza no backend
-      await settingsService.updateExpenseCategories(user.id, newCategories);
-      await settingsService.updateExpenseCategoryInExpenses(user.id, oldCategory, newCategory);
-
-      // Atualiza estado local imediatamente (sem reload global)
-      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
-      setExpenses((prev) =>
-        prev.map((expense) =>
-          expense.category === oldCategory ? { ...expense, category: newCategory } : expense
-        )
-      );
-    } catch (error) {
-      toast.error('Erro ao atualizar categoria de gasto');
-      console.error(error);
-    }
-  }, [user, settings.expenseCategories]);
-
-  const deleteExpenseCategory = useCallback(async (category: string) => {
-    if (!user) return;
-
-    const newCategories = settings.expenseCategories.filter((c) => c !== category);
-
-    try {
-      await settingsService.updateExpenseCategories(user.id, newCategories);
-      setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
-    } catch (error) {
-      toast.error('Erro ao excluir categoria de gasto');
-      console.error(error);
-    }
-  }, [user, settings.expenseCategories]);
-
-  // Get year data for statistics - carrega todos os meses em paralelo para melhor performance
-  const getYearData = useCallback(async (year: number): Promise<MonthData[]> => {
-    if (!user) return Array(12).fill(getEmptyMonthData());
-
-    // Carrega todos os meses em paralelo
-    const monthPromises = Array.from({ length: 12 }, async (_, index) => {
-      const m = index + 1;
-      const yearMonth = `${year}-${String(m).padStart(2, '0')}`;
-
+  const addInvestmentTag = useCallback(
+    async (tag: string) => {
+      if (!user) return;
+      const newTags = [...settings.investmentTags, tag];
       try {
-        const [incomesData, expensesData, investmentsData, cardStatuses] = await Promise.all([
-          incomesService.getIncomes(user.id, yearMonth),
-          expensesService.getExpenses(user.id, yearMonth),
-          investmentsService.getInvestments(user.id, yearMonth),
-          creditCardsService.getAllCardMonthlyStatuses(user.id, yearMonth, creditCards),
-        ]);
-
-        return {
-          incomes: incomesData,
-          expenses: expensesData,
-          investments: investmentsData,
-          cardMonthlyStatuses: cardStatuses,
-        };
-      } catch (error) {
-        console.error(`Error fetching data for ${yearMonth}:`, error);
-        return {
-          ...getEmptyMonthData(),
-          cardMonthlyStatuses: {},
-        };
+        await settingsService.updateInvestmentTags(user.id, newTags);
+        setSettings((prev) => ({ ...prev, investmentTags: newTags }));
+      } catch {
+        toast.error('Erro ao adicionar tag');
       }
-    });
+    },
+    [user, settings.investmentTags]
+  );
 
-    // Aguarda todos os meses serem carregados em paralelo
-    const monthsData = await Promise.all(monthPromises);
-    return monthsData;
-  }, [user, creditCards]);
+  const updateInvestmentTag = useCallback(
+    async (oldTag: string, newTag: string) => {
+      if (!user) return;
+      const newTags = settings.investmentTags.map((t) =>
+        t === oldTag ? newTag : t
+      );
+      try {
+        await settingsService.updateInvestmentTags(user.id, newTags);
+        await settingsService.updateInvestmentTagInInvestments(
+          user.id,
+          oldTag,
+          newTag
+        );
+        setSettings((prev) => ({ ...prev, investmentTags: newTags }));
+        setMonthBundle((prev) => ({
+          ...prev,
+          investments: prev.investments.map((inv) =>
+            inv.tag === oldTag ? { ...inv, tag: newTag } : inv
+          ),
+        }));
+      } catch {
+        toast.error('Erro ao atualizar tag');
+      }
+    },
+    [user, settings.investmentTags, setMonthBundle]
+  );
 
-  const monthData: MonthData = {
-    incomes,
-    expenses,
-    investments,
-  };
+  const deleteInvestmentTag = useCallback(
+    async (tag: string) => {
+      if (!user) return;
+      const newTags = settings.investmentTags.filter((t) => t !== tag);
+      try {
+        await settingsService.updateInvestmentTags(user.id, newTags);
+        setSettings((prev) => ({ ...prev, investmentTags: newTags }));
+      } catch {
+        toast.error('Erro ao excluir tag');
+      }
+    },
+    [user, settings.investmentTags]
+  );
+
+  const addIncomeTag = useCallback(
+    async (tag: string) => {
+      if (!user) return;
+      const newTags = [...settings.incomeTags, tag];
+      try {
+        await settingsService.updateIncomeTags(user.id, newTags);
+        setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+      } catch {
+        toast.error('Erro ao adicionar categoria');
+      }
+    },
+    [user, settings.incomeTags]
+  );
+
+  const updateIncomeTag = useCallback(
+    async (oldTag: string, newTag: string) => {
+      if (!user) return;
+      const newTags = settings.incomeTags.map((t) =>
+        t === oldTag ? newTag : t
+      );
+      try {
+        await settingsService.updateIncomeTags(user.id, newTags);
+        await settingsService.updateIncomeTagInIncomes(user.id, oldTag, newTag);
+        setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+        setMonthBundle((prev) => ({
+          ...prev,
+          incomes: prev.incomes.map((income) =>
+            income.tag === oldTag ? { ...income, tag: newTag } : income
+          ),
+        }));
+      } catch {
+        toast.error('Erro ao atualizar categoria');
+      }
+    },
+    [user, settings.incomeTags, setMonthBundle]
+  );
+
+  const deleteIncomeTag = useCallback(
+    async (tag: string) => {
+      if (!user) return;
+      const newTags = settings.incomeTags.filter((t) => t !== tag);
+      try {
+        await settingsService.updateIncomeTags(user.id, newTags);
+        setSettings((prev) => ({ ...prev, incomeTags: newTags }));
+      } catch {
+        toast.error('Erro ao excluir categoria');
+      }
+    },
+    [user, settings.incomeTags]
+  );
+
+  const addExpenseCategory = useCallback(
+    async (category: string) => {
+      if (!user) return;
+      const newCategories = [...settings.expenseCategories, category];
+      try {
+        await settingsService.updateExpenseCategories(user.id, newCategories);
+        setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+      } catch {
+        toast.error('Erro ao adicionar categoria de gasto');
+      }
+    },
+    [user, settings.expenseCategories]
+  );
+
+  const updateExpenseCategory = useCallback(
+    async (oldCategory: string, newCategory: string) => {
+      if (!user) return;
+      const newCategories = settings.expenseCategories.map((c) =>
+        c === oldCategory ? newCategory : c
+      );
+      try {
+        await settingsService.updateExpenseCategories(user.id, newCategories);
+        await settingsService.updateExpenseCategoryInExpenses(
+          user.id,
+          oldCategory,
+          newCategory
+        );
+        setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+        setMonthBundle((prev) => ({
+          ...prev,
+          expenses: prev.expenses.map((expense) =>
+            expense.category === oldCategory
+              ? { ...expense, category: newCategory }
+              : expense
+          ),
+        }));
+      } catch {
+        toast.error('Erro ao atualizar categoria de gasto');
+      }
+    },
+    [user, settings.expenseCategories, setMonthBundle]
+  );
+
+  const deleteExpenseCategory = useCallback(
+    async (category: string) => {
+      if (!user) return;
+      const newCategories = settings.expenseCategories.filter(
+        (c) => c !== category
+      );
+      try {
+        await settingsService.updateExpenseCategories(user.id, newCategories);
+        setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
+      } catch {
+        toast.error('Erro ao excluir categoria de gasto');
+      }
+    },
+    [user, settings.expenseCategories]
+  );
+
+  const monthData: MonthData = useMemo(
+    () => ({ incomes, expenses, investments }),
+    [incomes, expenses, investments]
+  );
+
+  const loading = !initialLoadDone || (monthQuery.isLoading && !monthQuery.data);
+  const monthLoading = monthQuery.isFetching && !!monthQuery.data;
+  const loadingYearData =
+    yearQuery.isLoading || (yearQuery.isFetching && yearData.length > 0);
 
   return {
     loading,
-    monthLoading, // Loading específico para mudanças de mês
+    monthLoading,
     currentMonth,
     setCurrentMonth,
     monthData,
     settings,
     creditCards,
-    // Income
+    cardMonthlyStatus,
+    yearData,
+    loadingYearData,
     addIncome,
     updateIncome,
     deleteIncome,
     reorderIncomes,
-    // Expense
     addExpense,
     updateExpense,
     deleteExpense,
     deleteInstallmentExpense,
     reorderExpenses,
-    // Credit Card
     addCreditCard,
     updateCreditCard,
     deleteCreditCard,
@@ -805,26 +983,21 @@ export const useSupabaseFinance = () => {
     cardNameExists,
     getCardPaidStatus,
     setCardPaidStatus,
-    // Investment
     addInvestment,
     updateInvestment,
     deleteInvestment,
     reorderInvestments,
-    // Investment tags
     addInvestmentTag,
     updateInvestmentTag,
     deleteInvestmentTag,
-    // Expense categories
     addExpenseCategory,
     updateExpenseCategory,
     deleteExpenseCategory,
-    // Income tags
     addIncomeTag,
     updateIncomeTag,
     deleteIncomeTag,
-    // Stats
     getYearData,
-    // Refresh
-    refreshData: () => fetchMonthData(currentMonth),
+    fetchMonthForYear,
+    refreshData: invalidateCurrentMonth,
   };
 };

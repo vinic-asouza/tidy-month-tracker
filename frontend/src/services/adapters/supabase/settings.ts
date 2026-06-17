@@ -17,6 +17,50 @@ function getDefaultSettings(): FinanceSettings {
   };
 }
 
+type SettingsColumn = 'income_tags' | 'expense_categories' | 'investment_tags' | 'payment_methods';
+
+function normalizeTagList(tags: string[]): string[] {
+  const seen = new Set<string>();
+  return tags
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      if (!tag) return false;
+      const key = tag.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+async function updateSettingsColumn(
+  userId: string,
+  column: SettingsColumn,
+  value: string[]
+): Promise<void> {
+  const normalized = normalizeTagList(value);
+  const { data, error } = await supabase
+    .from('finance_settings')
+    .update({ [column]: normalized })
+    .eq('user_id', userId)
+    .select('user_id');
+
+  throwIfError(error);
+
+  if (!data || data.length === 0) {
+    const defaults = getDefaultSettings();
+    const { error: insertError } = await supabase.from('finance_settings').insert({
+      user_id: userId,
+      income_tags: defaults.incomeTags,
+      expense_categories: defaults.expenseCategories,
+      investment_tags: defaults.investmentTags,
+      payment_methods: defaults.paymentMethods,
+      [column]: normalized,
+    });
+
+    throwIfError(insertError);
+  }
+}
+
 export async function getSettings(userId: string): Promise<FinanceSettings> {
   const { data, error } = await supabase
     .from('finance_settings')
@@ -36,14 +80,7 @@ export async function getSettings(userId: string): Promise<FinanceSettings> {
 }
 
 export async function updateInvestmentTags(userId: string, tags: string[]): Promise<void> {
-  const { error } = await supabase
-    .from('finance_settings')
-    .upsert(
-      { user_id: userId, investment_tags: tags },
-      { onConflict: 'user_id' }
-    );
-
-  throwIfError(error);
+  await updateSettingsColumn(userId, 'investment_tags', tags);
 }
 
 export async function updateInvestmentTagInInvestments(
@@ -61,14 +98,7 @@ export async function updateInvestmentTagInInvestments(
 }
 
 export async function updateIncomeTags(userId: string, tags: string[]): Promise<void> {
-  const { error } = await supabase
-    .from('finance_settings')
-    .upsert(
-      { user_id: userId, income_tags: tags },
-      { onConflict: 'user_id' }
-    );
-
-  throwIfError(error);
+  await updateSettingsColumn(userId, 'income_tags', tags);
 }
 
 export async function updateIncomeTagInIncomes(
@@ -89,14 +119,7 @@ export async function updateExpenseCategories(
   userId: string,
   categories: string[]
 ): Promise<void> {
-  const { error } = await supabase
-    .from('finance_settings')
-    .upsert(
-      { user_id: userId, expense_categories: categories },
-      { onConflict: 'user_id' }
-    );
-
-  throwIfError(error);
+  await updateSettingsColumn(userId, 'expense_categories', categories);
 }
 
 export async function updateExpenseCategoryInExpenses(

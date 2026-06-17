@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, memo } from 'react';
 import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,12 +40,23 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
+import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SelectionToggle } from '@/components/SelectionToggle';
+import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import { toast } from 'sonner';
+
+type PersistHandler = (data: Omit<Investment, 'id'>) => Promise<boolean> | boolean;
+type UpdateHandler = (
+  id: string,
+  updates: Partial<Investment>,
+  applyToAllMonths?: boolean
+) => Promise<boolean> | boolean;
 
 interface InvestmentSectionProps {
   investments: Investment[];
   tags: string[];
-  onAdd: (investment: Omit<Investment, 'id'>) => void;
-  onUpdate: (id: string, updates: Partial<Investment>, applyToAllMonths?: boolean) => void;
+  onAdd: PersistHandler;
+  onUpdate: UpdateHandler;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
   onAddTag: (tag: string) => void;
   onUpdateTag: (oldTag: string, newTag: string) => void;
@@ -177,7 +188,7 @@ const InstitutionSummaryItem = ({
   );
 };
 
-export const InvestmentSection = ({
+const InvestmentSectionComponent = ({
   investments,
   tags,
   onAdd,
@@ -193,6 +204,7 @@ export const InvestmentSection = ({
   variant = 'default',
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -295,7 +307,7 @@ export const InvestmentSection = ({
     setTagError(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
     
@@ -314,22 +326,34 @@ export const InvestmentSection = ({
     
     if (hasError) return;
 
-    if (editingId) {
-      onUpdate(editingId, { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths }, applyToAllMonths);
-      setApplyToAllMonths(false);
-    } else {
-      onAdd({
-        description: description.trim(),
-        value: numValue,
-        tag: selectedTag,
-        date: itemDate,
-        repeatAllMonths,
-        invested: false
-      });
+    setIsSubmitting(true);
+    try {
+      const success = editingId
+        ? await onUpdate(
+            editingId,
+            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths },
+            applyToAllMonths
+          )
+        : await onAdd({
+            description: description.trim(),
+            value: numValue,
+            tag: selectedTag,
+            date: itemDate,
+            repeatAllMonths,
+            invested: false,
+          });
+
+      if (success === false) return;
+
+      if (editingId) {
+        setApplyToAllMonths(false);
+      }
+      resetForm();
+      setIsOpen(false);
+      onAddDialogClose?.();
+    } finally {
+      setIsSubmitting(false);
     }
-    resetForm();
-    setIsOpen(false);
-    onAddDialogClose?.();
   };
 
   const handleEdit = (investment: Investment) => {
@@ -478,11 +502,12 @@ export const InvestmentSection = ({
   };
   
   const handleDeleteTag = async (tag: string) => {
-    // Check if any investment uses this tag
-    const hasInvestments = investments.some(i => i.tag === tag);
-    if (hasInvestments || isTagLoading) {
-      return; // Don't delete if in use
+    const hasInvestments = investments.some((i) => i.tag === tag);
+    if (hasInvestments) {
+      toast.error('Não é possível excluir: existem investimentos usando esta instituição');
+      return;
     }
+    if (isTagLoading) return;
 
     setIsTagLoading(true);
     try {
@@ -497,6 +522,15 @@ export const InvestmentSection = ({
     .filter(i => i.invested)
     .reduce((sum, i) => sum + i.value, 0);
 
+  const toggleItemSelection = (id: string, isSelected: boolean) => {
+    if (!onSelectionChange) return;
+    showSelectionHintIfNeeded();
+    const newSelection = new Set(selectedIds);
+    if (isSelected) newSelection.delete(id);
+    else newSelection.add(id);
+    onSelectionChange(newSelection);
+  };
+
   const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
 
   return (
@@ -509,22 +543,13 @@ export const InvestmentSection = ({
               <PiggyBank className="h-4 w-4 text-white" />
             </div>
           )}
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold tracking-tight">Investimentos</h3>
-            <div className="flex items-center gap-2">
-              <p className="text-base font-bold text-investment">
-                {formatCurrency(total)}
-              </p>
-              {investedTotal > 0 && (
-                <>
-                  <span className="text-xs text-muted-foreground">| Investido:</span>
-                  <p className="text-base font-bold text-investment">
-                    {formatCurrency(investedTotal)}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+          <SectionTotalsHeader
+            title="Investimentos"
+            plannedTotal={total}
+            effectiveTotal={investedTotal}
+            effectiveLabel="Investido"
+            colorClass="text-investment"
+          />
         </div>
       </div>
       <Dialog
@@ -760,12 +785,22 @@ export const InvestmentSection = ({
                     className="data-[state=checked]:bg-investment focus-visible:ring-investment"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Repete nos demais meses deste ano.
+                </p>
 
                 <Button 
-                  onClick={handleSubmit} 
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
                   className="w-full h-10 rounded-md gradient-investment hover:opacity-90 transition-opacity text-white border-0"
                 >
-                  {editingId ? 'Salvar Alterações' : 'Adicionar Investimento'}
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : editingId ? (
+                    'Salvar Alterações'
+                  ) : (
+                    'Adicionar Investimento'
+                  )}
                 </Button>
               </div>
             </DialogContent>
@@ -832,9 +867,15 @@ export const InvestmentSection = ({
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-investment-light mb-3">
             <PiggyBank className="h-6 w-6 text-investment" />
           </div>
-          <p className="text-muted-foreground text-sm">
-            Nenhum investimento registrado
-          </p>
+          <p className="text-muted-foreground text-sm mb-4">Nenhum investimento registrado</p>
+          <Button
+            onClick={() => setIsOpen(true)}
+            className="gradient-investment text-white hover:opacity-90"
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            Adicionar primeiro investimento
+          </Button>
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
@@ -843,12 +884,7 @@ export const InvestmentSection = ({
             const handleItemClick = (e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
               if (target.closest('button') || target.closest('[role="checkbox"]')) return;
-              if (onSelectionChange) {
-                const newSelection = new Set(selectedIds);
-                if (isSelected) newSelection.delete(investment.id);
-                else newSelection.add(investment.id);
-                onSelectionChange(newSelection);
-              }
+              toggleItemSelection(investment.id, isSelected);
             };
             return (
               <div
@@ -861,7 +897,7 @@ export const InvestmentSection = ({
                 )}
               >
                 <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
+                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} title="Marcar como investido" className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                   <span className="text-xs text-investment font-medium">{investment.tag}</span>
@@ -874,10 +910,18 @@ export const InvestmentSection = ({
                   <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
-                    <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {onSelectionChange && (
+                        <SelectionToggle
+                          isSelected={isSelected}
+                          onToggle={() => toggleItemSelection(investment.id, isSelected)}
+                        />
+                      )}
+                      <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
+                        <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -893,12 +937,7 @@ export const InvestmentSection = ({
                 const handleItemClick = (e: React.MouseEvent) => {
                   const target = e.target as HTMLElement;
                   if (target.closest('button') || target.closest('[role="checkbox"]')) return;
-                  if (onSelectionChange) {
-                    const newSelection = new Set(selectedIds);
-                    if (isSelected) newSelection.delete(investment.id);
-                    else newSelection.add(investment.id);
-                    onSelectionChange(newSelection);
-                  }
+                  toggleItemSelection(investment.id, isSelected);
                 };
                 return (
                   <div
@@ -913,7 +952,7 @@ export const InvestmentSection = ({
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
                   >
                     <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
+                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} title="Marcar como investido" className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                       <span className="text-xs text-investment font-medium">{investment.tag}</span>
@@ -926,10 +965,18 @@ export const InvestmentSection = ({
                       <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
-                        <div className="flex justify-end opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                        <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {onSelectionChange && (
+                            <SelectionToggle
+                              isSelected={isSelected}
+                              onToggle={() => toggleItemSelection(investment.id, isSelected)}
+                            />
+                          )}
+                          <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
+                            <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -977,7 +1024,16 @@ export const InvestmentSection = ({
         onOpenChange={(open) => !open && setDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="Excluir investimento"
-        description="Tem certeza que deseja excluir este investimento? Esta ação não pode ser desfeita."
+        description={
+          deleteId
+            ? (() => {
+                const item = investments.find((i) => i.id === deleteId);
+                return item
+                  ? `Excluir "${item.description}" (${formatCurrency(item.value)})? Esta ação não pode ser desfeita.`
+                  : 'Tem certeza que deseja excluir este investimento? Esta ação não pode ser desfeita.';
+              })()
+            : 'Tem certeza que deseja excluir este investimento? Esta ação não pode ser desfeita.'
+        }
       />
 
       {/* Apply to All Months Dialog */}
@@ -993,8 +1049,16 @@ export const InvestmentSection = ({
             : 'Este investimento se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
+        isDestructive={pendingAction === 'delete'}
+        itemSummary={
+          editingInvestment
+            ? `${editingInvestment.description} — ${formatCurrency(editingInvestment.value)}`
+            : undefined
+        }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
       />
     </div>
   );
 };
+
+export const InvestmentSection = memo(InvestmentSectionComponent);

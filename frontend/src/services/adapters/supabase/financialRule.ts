@@ -4,6 +4,7 @@ import type {
   CreateFinancialRuleInput,
   UpdateFinancialRuleInput,
 } from '@/types/domain';
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/types/finance';
 import { toFinancialRule } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
 
@@ -52,7 +53,8 @@ async function getExpenseCategories(userId: string): Promise<string[]> {
     .maybeSingle();
 
   throwIfError(error);
-  return data?.expense_categories || [];
+  const categories = data?.expense_categories || [];
+  return categories.length > 0 ? categories : [...DEFAULT_EXPENSE_CATEGORIES];
 }
 
 export async function getFinancialRule(): Promise<FinancialRule | null> {
@@ -82,9 +84,7 @@ export async function createFinancialRule(
   );
 
   const categories = await getExpenseCategories(userId);
-  if (categories.length > 0) {
-    validateCategoryMapping(data.categoryMapping, categories);
-  }
+  validateCategoryMapping(data.categoryMapping, categories);
 
   const { data: row, error } = await supabase
     .from('financial_rule')
@@ -132,9 +132,7 @@ export async function updateFinancialRule(
 
   if (data.categoryMapping) {
     const categories = await getExpenseCategories(userId);
-    if (categories.length > 0) {
-      validateCategoryMapping(updatedData.categoryMapping, categories);
-    }
+    validateCategoryMapping(updatedData.categoryMapping, categories);
   }
 
   const { data: row, error } = await supabase

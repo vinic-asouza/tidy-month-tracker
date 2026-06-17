@@ -5,20 +5,27 @@
  */
 
 import { useMemo } from 'react';
-import { AlertTriangle, Smile, Frown } from 'lucide-react';
+import { AlertTriangle, Smile, Frown, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import type { FinancialRule, MonthData, FinancialRuleStats } from '@/types/domain';
+import type { FinancialRule, MonthData, FinancialRuleStats, CreditCard } from '@/types/domain';
 import { calculateFinancialRuleStats } from '@/utils/financialRuleCalculations';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 interface FinancialRuleDisplayProps {
   rule: FinancialRule;
   monthData: MonthData;
+  creditCards?: CreditCard[];
+  onEditMapping?: () => void;
 }
 
-export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayProps) => {
-  const stats = useMemo(() => calculateFinancialRuleStats(rule, monthData), [rule, monthData]);
+export const FinancialRuleDisplay = ({ rule, monthData, creditCards = [], onEditMapping }: FinancialRuleDisplayProps) => {
+  const stats = useMemo(
+    () => calculateFinancialRuleStats(rule, monthData, creditCards, monthData.cardMonthlyStatuses),
+    [rule, monthData, creditCards]
+  );
 
   const CategoryAlerts = ({
     differencePercent,
@@ -266,8 +273,35 @@ export const FinancialRuleDisplay = ({ rule, monthData }: FinancialRuleDisplayPr
     );
   };
 
+  if (stats.totalIncome === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+        <Info className="h-8 w-8 text-muted-foreground/60" />
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Marque suas entradas como recebidas para calcular os percentuais da regra.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
+      {stats.unclassifiedValue > 0 && (
+        <Alert variant="destructive" className="py-2.5">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+            <span>
+              {formatCurrency(stats.unclassifiedValue)} em gastos não entram na regra — mapeie suas
+              categorias.
+            </span>
+            {onEditMapping && (
+              <Button variant="outline" size="sm" className="shrink-0 h-8" onClick={onEditMapping}>
+                Mapear categorias
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="space-y-2.5 sm:space-y-3">
         <ProgressBar
           current={stats.essentials.current}
