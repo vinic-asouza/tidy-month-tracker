@@ -1,16 +1,18 @@
 import { Square, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface SelectionToggleProps {
   isSelected: boolean;
   onToggle: () => void;
+  className?: string;
 }
 
-export const SelectionToggle = ({ isSelected, onToggle }: SelectionToggleProps) => (
+export const SelectionToggle = ({ isSelected, onToggle, className }: SelectionToggleProps) => (
   <Button
     variant="ghost"
     size="icon"
-    className="h-7 w-7 shrink-0"
+    className={cn('h-7 w-7 shrink-0', className)}
     onClick={(e) => {
       e.stopPropagation();
       onToggle();

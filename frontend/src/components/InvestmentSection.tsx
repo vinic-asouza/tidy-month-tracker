@@ -188,6 +188,104 @@ const InstitutionSummaryItem = ({
   );
 };
 
+const InvestmentListItem = ({
+  investment,
+  isSelected,
+  onItemClick,
+  onToggleInvested,
+  onToggleSelection,
+  showSelectionToggle,
+  onEdit,
+  onDelete,
+  className,
+  style,
+}: {
+  investment: Investment;
+  isSelected: boolean;
+  onItemClick: (e: React.MouseEvent) => void;
+  onToggleInvested: (investment: Investment) => void;
+  onToggleSelection: () => void;
+  showSelectionToggle: boolean;
+  onEdit: (investment: Investment) => void;
+  onDelete: (id: string) => void;
+  className?: string;
+  style?: React.CSSProperties;
+}) => {
+  const actionButtons = (
+    <>
+      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(investment)}>
+        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(investment.id)}>
+        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+      </Button>
+    </>
+  );
+
+  return (
+    <div
+      onClick={onItemClick}
+      className={cn(
+        'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
+        isSelected ? 'border-investment/60' : 'border-transparent',
+        investment.invested ? 'bg-investment-light hover:bg-investment-light/80' : 'bg-muted/30 hover:bg-muted/50',
+        className
+      )}
+      style={style}
+    >
+      <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={investment.invested}
+          onCheckedChange={() => onToggleInvested(investment)}
+          title="Marcar como investido"
+          className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white"
+        />
+      </div>
+      {/* Desktop */}
+      <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
+        <span className="text-xs text-investment font-medium">{investment.tag}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
+          {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+        </div>
+      </div>
+      <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
+        <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
+          <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {showSelectionToggle && (
+              <SelectionToggle isSelected={isSelected} onToggle={onToggleSelection} />
+            )}
+            <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
+              <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                {actionButtons}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Mobile */}
+      <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
+        <span className="text-xs text-investment font-medium">{investment.tag}</span>
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
+            {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+        </div>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
+          <div className="flex items-center gap-0.5 shrink-0">
+            {actionButtons}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const InvestmentSectionComponent = ({
   investments,
   tags,
@@ -887,46 +985,17 @@ const InvestmentSectionComponent = ({
               toggleItemSelection(investment.id, isSelected);
             };
             return (
-              <div
+              <InvestmentListItem
                 key={investment.id}
-                onClick={handleItemClick}
-                className={cn(
-                  'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
-                  isSelected ? 'border-investment/60' : 'border-transparent',
-                  investment.invested ? 'bg-investment-light hover:bg-investment-light/80' : 'bg-muted/30 hover:bg-muted/50'
-                )}
-              >
-                <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} title="Marcar como investido" className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                  <span className="text-xs text-investment font-medium">{investment.tag}</span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
-                    {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
-                  <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
-                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {onSelectionChange && (
-                        <SelectionToggle
-                          isSelected={isSelected}
-                          onToggle={() => toggleItemSelection(investment.id, isSelected)}
-                        />
-                      )}
-                      <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
-                        <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                investment={investment}
+                isSelected={isSelected}
+                onItemClick={handleItemClick}
+                onToggleInvested={handleToggleInvested}
+                onToggleSelection={() => toggleItemSelection(investment.id, isSelected)}
+                showSelectionToggle={!!onSelectionChange}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+              />
             );
           })}
           {restPartInv.length > 0 && (
@@ -940,48 +1009,19 @@ const InvestmentSectionComponent = ({
                   toggleItemSelection(investment.id, isSelected);
                 };
                 return (
-                  <div
+                  <InvestmentListItem
                     key={investment.id}
-                    onClick={handleItemClick}
-                    className={cn(
-                      'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2 cursor-pointer',
-                      isSelected ? 'border-investment/60' : 'border-transparent',
-                      investment.invested ? 'bg-investment-light hover:bg-investment-light/80' : 'bg-muted/30 hover:bg-muted/50',
-                      isNewlyExpanded && 'expand-in'
-                    )}
+                    investment={investment}
+                    isSelected={isSelected}
+                    onItemClick={handleItemClick}
+                    onToggleInvested={handleToggleInvested}
+                    onToggleSelection={() => toggleItemSelection(investment.id, isSelected)}
+                    showSelectionToggle={!!onSelectionChange}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteClick}
+                    className={isNewlyExpanded ? 'expand-in' : undefined}
                     style={isNewlyExpanded ? { animationDelay: `${index * 35}ms` } : undefined}
-                  >
-                    <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={investment.invested} onCheckedChange={() => handleToggleInvested(investment)} title="Marcar como investido" className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                      <span className="text-xs text-investment font-medium">{investment.tag}</span>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
-                        {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
-                      <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
-                        <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          {onSelectionChange && (
-                            <SelectionToggle
-                              isSelected={isSelected}
-                              onToggle={() => toggleItemSelection(investment.id, isSelected)}
-                            />
-                          )}
-                          <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
-                            <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleEdit(investment)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => handleDeleteClick(investment.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  />
                 );
               })}
             </div>

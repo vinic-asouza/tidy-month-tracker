@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
+import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard, Calendar } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
-import { MonthNavigator } from '@/components/MonthNavigator';
+import { MonthNavigator, getCurrentMonthKey, isCurrentMonthKey } from '@/components/MonthNavigator';
 import { BrandMark } from '@/components/brand/BrandMark';
 import {
   Popover,
@@ -246,19 +246,39 @@ const Index = () => {
         className="sticky top-0 z-50 w-full glass border-b border-border"
         style={{ '--header-height': '64px' } as React.CSSProperties}
       >
-        <div className="container mx-auto px-4 py-3 relative">
-          {/* Layout: Logo (esq) | Seletor de Mês (centro absoluto) | Navegação + Logout (dir) */}
-          <div className="flex items-center justify-between gap-4">
-            {/* Esquerda: Logo + Nome */}
-            <BrandMark className="hidden sm:flex" />
-            <BrandMark size="sm" showText={false} className="sm:hidden" />
+        <div className="container mx-auto px-4 py-2 sm:py-3 relative">
+          {/* Layout: Logo + Mês (esq mobile) | Mês centralizado (desktop) | Navegação (dir) */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Esquerda: Logo + Seletor de Mês (mobile) */}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-initial">
+              <BrandMark className="hidden sm:flex shrink-0" />
+              <BrandMark size="sm" showText={false} className="sm:hidden shrink-0" />
+              <div className="sm:hidden min-w-0 flex-1">
+                <MonthNavigator
+                  compact
+                  currentMonth={currentMonth}
+                  onMonthChange={setCurrentMonth}
+                />
+              </div>
+            </div>
 
-            {/* Centro: Seletor de Mês (centralizado no centro absoluto do header) */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            {/* Centro: Seletor de Mês + atalho mês atual (desktop) */}
+            <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-2">
               <MonthNavigator
                 currentMonth={currentMonth}
                 onMonthChange={setCurrentMonth}
               />
+              {!isCurrentMonthKey(currentMonth) && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setCurrentMonth(getCurrentMonthKey())}
+                  className="gap-2 rounded-md hover:bg-muted text-sm shrink-0"
+                  aria-label="Ir para mês atual"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Ir para mês atual
+                </Button>
+              )}
             </div>
 
             {/* Direita: Navegação + Logout */}
@@ -323,6 +343,18 @@ const Index = () => {
             {/* Mobile: atalho Mensal/Anual + menu */}
             <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
               <div className="flex md:hidden items-center gap-1.5">
+                {!isCurrentMonthKey(currentMonth) && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentMonth(getCurrentMonthKey())}
+                    className="h-9 w-9 rounded-md border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground"
+                    aria-label="Ir para mês atual"
+                    title="Mês atual"
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                )}
                 <div className="flex items-center gap-0.5 p-0.5 bg-muted/50 rounded-lg">
                   <Button
                     variant={view === 'dashboard' ? 'default' : 'ghost'}

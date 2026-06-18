@@ -464,6 +464,38 @@ const ExpenseItem = ({
   const PaymentIcon = !style.isCard && style.iconConfig ? style.iconConfig.Icon : null;
   const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
 
+  const paymentMethodBadge = (style.isCard || PaymentIcon) && (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex shrink-0">
+          {style.isCard ? (
+            <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
+              <CreditCard className="h-3.5 w-3.5" />
+            </Badge>
+          ) : PaymentIcon ? (
+            <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
+              <PaymentIcon className="h-3.5 w-3.5" />
+            </Badge>
+          ) : null}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {expense.paymentMethod}
+      </TooltipContent>
+    </Tooltip>
+  );
+
+  const actionButtons = (
+    <>
+      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(expense)}>
+        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(expense)}>
+        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+      </Button>
+    </>
+  );
+
   return (
     <div
       onClick={onItemClick}
@@ -491,8 +523,8 @@ const ExpenseItem = ({
           />
         )}
       </div>
-      {/* Col 2: categoria em cima, descrição + ícone reconhecimento embaixo */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+      {/* Desktop: colunas 2 e 3 */}
+      <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs text-expense font-medium">{expense.category}</span>
           {installmentText && (
@@ -511,45 +543,48 @@ const ExpenseItem = ({
           {expense.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
         </div>
       </div>
-      {/* Col 3 (direita): data em cima, valor + flag pagamento + ações (no desktop ações ocupam espaço só no hover e empurram valor/badge à esquerda) */}
-      <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+      <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
         <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(expense.date, expense.createdAt)}</span>
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-bold whitespace-nowrap text-sm text-expense tabular-nums shrink-0">{formatCurrency(expense.value)}</span>
-          {(style.isCard || PaymentIcon) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex shrink-0">
-                  {style.isCard ? (
-                    <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
-                      <CreditCard className="h-3.5 w-3.5" />
-                    </Badge>
-                  ) : PaymentIcon ? (
-                    <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
-                      <PaymentIcon className="h-3.5 w-3.5" />
-                    </Badge>
-                  ) : null}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {expense.paymentMethod}
-              </TooltipContent>
-            </Tooltip>
-          )}
+          {paymentMethodBadge}
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             {onToggleSelection && (
               <SelectionToggle isSelected={!!isSelected} onToggle={onToggleSelection} />
             )}
             <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
-            <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(expense)}>
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(expense)}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                {actionButtons}
+              </div>
             </div>
-            </div>
+          </div>
+        </div>
+      </div>
+      {/* Mobile: duas linhas */}
+      <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
+        <span className="text-xs text-expense font-medium">{expense.category}</span>
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className="text-sm font-medium truncate text-foreground">{expense.description}</span>
+            {installmentText && (
+              <Badge variant="secondary" className="text-xs rounded-md px-2 py-0.5 bg-muted text-muted-foreground border-0 cursor-default shrink-0">
+                {installmentText}
+              </Badge>
+            )}
+            {expense.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatItemDayMonth(expense.date, expense.createdAt)}</span>
+        </div>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {isLinkedToCard && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground">
+              Via fatura
+            </Badge>
+          )}
+          <span className="font-bold whitespace-nowrap text-sm text-expense tabular-nums shrink-0">{formatCurrency(expense.value)}</span>
+          {paymentMethodBadge}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {actionButtons}
           </div>
         </div>
       </div>

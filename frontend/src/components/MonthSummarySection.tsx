@@ -139,7 +139,7 @@ export const MonthSummarySection = ({
         </div>
 
         {/* Regra Financeira — coluna direita */}
-        <div className="min-w-0 md:border-l md:border-border/60 md:pl-5">
+        <div className="min-w-0 border-t border-border/60 pt-4 md:border-t-0 md:border-l md:pl-5 md:pt-0">
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />

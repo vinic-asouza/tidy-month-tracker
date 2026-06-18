@@ -1,9 +1,11 @@
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface MonthNavigatorProps {
   currentMonth: string;
   onMonthChange: (month: string) => void;
+  compact?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -11,7 +13,14 @@ const MONTH_NAMES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
-export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorProps) => {
+export const getCurrentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export const isCurrentMonthKey = (monthKey: string) => monthKey === getCurrentMonthKey();
+
+export const MonthNavigator = ({ currentMonth, onMonthChange, compact = false }: MonthNavigatorProps) => {
   const [year, month] = currentMonth.split('-').map(Number);
   
   const goToPrevMonth = () => {
@@ -26,55 +35,47 @@ export const MonthNavigator = ({ currentMonth, onMonthChange }: MonthNavigatorPr
     onMonthChange(`${newYear}-${String(newMonth).padStart(2, '0')}`);
   };
 
-  const goToCurrentMonth = () => {
-    const now = new Date();
-    onMonthChange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
-  };
-
-  const isCurrentMonth = () => {
-    const now = new Date();
-    return year === now.getFullYear() && month === now.getMonth() + 1;
-  };
-
   return (
-    <div className="bg-muted/50 rounded-lg p-2">
-      <div className="flex items-center justify-between gap-2">
+    <div className={cn('bg-muted/50 rounded-lg', compact ? 'p-1' : 'p-2')}>
+      <div className={cn('flex items-center justify-between', compact ? 'gap-1' : 'gap-2')}>
         <Button
           variant="ghost"
           size="icon"
           onClick={goToPrevMonth}
-          className="h-8 w-8 rounded-lg hover:bg-muted/50 transition-colors"
+          className={cn(
+            'rounded-lg hover:bg-muted/50 transition-colors',
+            compact ? 'h-7 w-7' : 'h-8 w-8'
+          )}
         >
-          <ChevronLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
         </Button>
         
-        <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+        <div className={cn('flex items-center flex-1 justify-center min-w-0', compact ? 'gap-1' : 'gap-2')}>
           <div className="text-center min-w-0">
-            <h2 className="text-base font-semibold tracking-tight text-foreground truncate">
+            <h2
+              className={cn(
+                'font-semibold tracking-tight text-foreground truncate',
+                compact ? 'text-sm' : 'text-base'
+              )}
+            >
               {MONTH_NAMES[month - 1]}
             </h2>
-            <p className="text-xs font-medium text-muted-foreground">{year}</p>
+            <p className={cn('font-medium text-muted-foreground', compact ? 'text-[10px]' : 'text-xs')}>
+              {year}
+            </p>
           </div>
-          {!isCurrentMonth() && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={goToCurrentMonth}
-              className="h-6 px-1.5 text-xs rounded-lg border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground transition-all flex-shrink-0"
-            >
-              <Calendar className="h-3 w-3" />
-              <span className="hidden sm:inline ml-1">Hoje</span>
-            </Button>
-          )}
         </div>
 
         <Button
           variant="ghost"
           size="icon"
           onClick={goToNextMonth}
-          className="h-8 w-8 rounded-lg hover:bg-muted/50 transition-colors"
+          className={cn(
+            'rounded-lg hover:bg-muted/50 transition-colors',
+            compact ? 'h-7 w-7' : 'h-8 w-8'
+          )}
         >
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
         </Button>
       </div>
     </div>
