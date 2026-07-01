@@ -1,16 +1,18 @@
-import { TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { TrendingUp, TrendingDown, PiggyBank, Gift } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { IncomeSection } from '@/components/IncomeSection';
 import { ExpenseSection } from '@/components/ExpenseSection';
 import { InvestmentSection } from '@/components/InvestmentSection';
+import { WishSection } from '@/components/WishSection';
 import { CreditCardStrip } from '@/components/CreditCardStrip';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { CreditCard, Expense, IncomeEntry, Investment } from '@/types/finance';
+import type { WishItem, CreateWishItemInput } from '@/types/domain';
 import { cn, formatRecordsMonthTitle } from '@/lib/utils';
 
-export type RecordsTab = 'income' | 'expense' | 'investment';
+export type RecordsTab = 'income' | 'expense' | 'investment' | 'wish';
 
 interface MonthRecordsSectionProps {
   currentMonth: string;
@@ -33,7 +35,7 @@ interface MonthRecordsSectionProps {
   addIncome: (income: Omit<IncomeEntry, 'id'>) => Promise<boolean> | boolean;
   updateIncome: (id: string, updates: Partial<IncomeEntry>, applyToAllMonths?: boolean) => Promise<boolean> | boolean;
   deleteIncome: (id: string, applyToAllMonths?: boolean) => void;
-  addExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<Expense | null> | Expense | null;
   updateExpense: (id: string, updates: Partial<Expense>, applyToAllMonths?: boolean) => Promise<boolean> | boolean;
   deleteExpense: (id: string, applyToAllMonths?: boolean) => void;
   deleteInstallmentExpense: (expense: Expense) => void;
@@ -57,8 +59,18 @@ interface MonthRecordsSectionProps {
   addInvestmentTag: (tag: string) => void;
   updateInvestmentTag: (oldTag: string, newTag: string) => void;
   deleteInvestmentTag: (tag: string) => void;
-  addDialogType: 'income' | 'expense' | 'investment' | 'card' | null;
+  addDialogType: 'income' | 'expense' | 'investment' | 'card' | 'wish' | null;
   onAddDialogClose: () => void;
+  expenseDraft?: Partial<Expense> | null;
+  onExpenseDraftConsumed?: () => void;
+  wishes: WishItem[];
+  wishesLoading?: boolean;
+  wishesRefetching?: boolean;
+  onAddWish: (data: CreateWishItemInput) => Promise<WishItem | null>;
+  onUpdateWish: (id: string, data: Partial<CreateWishItemInput>) => Promise<WishItem | null>;
+  onRemoveWish: (id: string) => Promise<boolean>;
+  onConquerWish: (wish: WishItem, options: { createExpense: boolean }) => void;
+  onRenewWish: (id: string, newTargetMonth: string) => Promise<WishItem | null>;
 }
 
 export const MonthRecordsSection = ({
@@ -108,6 +120,16 @@ export const MonthRecordsSection = ({
   deleteInvestmentTag,
   addDialogType,
   onAddDialogClose,
+  expenseDraft,
+  onExpenseDraftConsumed,
+  wishes,
+  wishesLoading,
+  wishesRefetching,
+  onAddWish,
+  onUpdateWish,
+  onRemoveWish,
+  onConquerWish,
+  onRenewWish,
 }: MonthRecordsSectionProps) => {
   const tabs = [
     {
@@ -131,15 +153,22 @@ export const MonthRecordsSection = ({
       count: investments.length,
       color: 'data-[state=active]:text-investment',
     },
+    {
+      value: 'wish' as const,
+      label: 'Desejos',
+      icon: Gift,
+      count: wishes.length,
+      color: 'data-[state=active]:text-primary',
+    },
   ];
 
   return (
     <SectionSurface
       title={formatRecordsMonthTitle(currentMonth)}
-      subtitle="Entradas, gastos e investimentos"
+      subtitle="Entradas, gastos, investimentos e desejos"
     >
       <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as RecordsTab)}>
-        <TabsList className="w-full h-auto p-1 bg-muted/50 rounded-lg grid grid-cols-3 gap-1 overflow-x-auto">
+        <TabsList className="w-full h-auto p-1 bg-muted/50 rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-1 overflow-x-auto">
           {tabs.map(({ value, label, icon: Icon, count, color }) => (
             <TabsTrigger
               key={value}
@@ -214,6 +243,8 @@ export const MonthRecordsSection = ({
                 onSelectionChange={onExpenseSelectionChange}
                 openAddDialog={addDialogType === 'expense'}
                 onAddDialogClose={onAddDialogClose}
+                expenseDraft={expenseDraft}
+                onExpenseDraftConsumed={onExpenseDraftConsumed}
               />
             </div>
           )}
@@ -232,6 +263,23 @@ export const MonthRecordsSection = ({
               selectedIds={selectedInvestmentIds}
               onSelectionChange={onInvestmentSelectionChange}
               openAddDialog={addDialogType === 'investment'}
+              onAddDialogClose={onAddDialogClose}
+            />
+          )}
+
+          {activeTab === 'wish' && (
+            <WishSection
+              variant="embedded"
+              currentMonth={currentMonth}
+              wishes={wishes}
+              loading={wishesLoading}
+              isRefetching={wishesRefetching}
+              onAdd={onAddWish}
+              onUpdate={onUpdateWish}
+              onRemove={onRemoveWish}
+              onConquer={onConquerWish}
+              onRenew={onRenewWish}
+              openAddDialog={addDialogType === 'wish'}
               onAddDialogClose={onAddDialogClose}
             />
           )}

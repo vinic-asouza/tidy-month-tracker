@@ -49,24 +49,33 @@ export function calculateFinancialRuleStats(
     .filter((inv) => inv.invested)
     .reduce((sum, inv) => sum + inv.value, 0);
 
-  // Calcular percentuais atuais
+  return buildFinancialRuleStats(
+    rule,
+    totalIncome,
+    totalEffectiveExpenses,
+    unclassifiedValue,
+    essentialsExpenses,
+    lifestyleExpenses,
+    totalInvestments
+  );
+}
+
+function buildFinancialRuleStats(
+  rule: FinancialRule,
+  totalIncome: number,
+  totalEffectiveExpenses: number,
+  unclassifiedValue: number,
+  essentialsExpenses: number,
+  lifestyleExpenses: number,
+  totalInvestments: number
+): FinancialRuleStats {
   const essentialsCurrent = totalIncome > 0 ? (essentialsExpenses / totalIncome) * 100 : 0;
   const lifestyleCurrent = totalIncome > 0 ? (lifestyleExpenses / totalIncome) * 100 : 0;
   const investmentsCurrent = totalIncome > 0 ? (totalInvestments / totalIncome) * 100 : 0;
 
-  // Calcular valores esperados (baseados na renda e percentuais da regra)
   const essentialsTargetValue = (totalIncome * rule.essentialsPercentage) / 100;
   const lifestyleTargetValue = (totalIncome * rule.lifestylePercentage) / 100;
   const investmentsTargetValue = (totalIncome * rule.investmentsPercentage) / 100;
-
-  // Calcular diferenças
-  const essentialsDifference = essentialsCurrent - rule.essentialsPercentage;
-  const lifestyleDifference = lifestyleCurrent - rule.lifestylePercentage;
-  const investmentsDifference = investmentsCurrent - rule.investmentsPercentage;
-
-  const essentialsDifferenceValue = essentialsExpenses - essentialsTargetValue;
-  const lifestyleDifferenceValue = lifestyleExpenses - lifestyleTargetValue;
-  const investmentsDifferenceValue = totalInvestments - investmentsTargetValue;
 
   return {
     totalIncome,
@@ -77,24 +86,67 @@ export function calculateFinancialRuleStats(
       current: essentialsCurrent,
       targetValue: essentialsTargetValue,
       currentValue: essentialsExpenses,
-      difference: essentialsDifference,
-      differenceValue: essentialsDifferenceValue,
+      difference: essentialsCurrent - rule.essentialsPercentage,
+      differenceValue: essentialsExpenses - essentialsTargetValue,
     },
     lifestyle: {
       target: rule.lifestylePercentage,
       current: lifestyleCurrent,
       targetValue: lifestyleTargetValue,
       currentValue: lifestyleExpenses,
-      difference: lifestyleDifference,
-      differenceValue: lifestyleDifferenceValue,
+      difference: lifestyleCurrent - rule.lifestylePercentage,
+      differenceValue: lifestyleExpenses - lifestyleTargetValue,
     },
     investments: {
       target: rule.investmentsPercentage,
       current: investmentsCurrent,
       targetValue: investmentsTargetValue,
       currentValue: totalInvestments,
-      difference: investmentsDifference,
-      differenceValue: investmentsDifferenceValue,
+      difference: investmentsCurrent - rule.investmentsPercentage,
+      differenceValue: totalInvestments - investmentsTargetValue,
     },
   };
+}
+
+/**
+ * Calcula as estatísticas da regra financeira consolidadas ao longo do ano.
+ * Agrega valores efetivados de todos os meses e deriva os percentuais anuais.
+ */
+export function calculateAnnualFinancialRuleStats(
+  rule: FinancialRule,
+  yearData: MonthData[],
+  creditCards: CreditCard[] = []
+): FinancialRuleStats {
+  let totalIncome = 0;
+  let totalEffectiveExpenses = 0;
+  let unclassifiedValue = 0;
+  let essentialsExpenses = 0;
+  let lifestyleExpenses = 0;
+  let totalInvestments = 0;
+
+  for (const monthData of yearData) {
+    const monthStats = calculateFinancialRuleStats(
+      rule,
+      monthData,
+      creditCards,
+      monthData.cardMonthlyStatuses
+    );
+
+    totalIncome += monthStats.totalIncome;
+    totalEffectiveExpenses += monthStats.totalEffectiveExpenses;
+    unclassifiedValue += monthStats.unclassifiedValue;
+    essentialsExpenses += monthStats.essentials.currentValue;
+    lifestyleExpenses += monthStats.lifestyle.currentValue;
+    totalInvestments += monthStats.investments.currentValue;
+  }
+
+  return buildFinancialRuleStats(
+    rule,
+    totalIncome,
+    totalEffectiveExpenses,
+    unclassifiedValue,
+    essentialsExpenses,
+    lifestyleExpenses,
+    totalInvestments
+  );
 }

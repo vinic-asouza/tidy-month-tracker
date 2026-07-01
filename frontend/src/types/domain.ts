@@ -70,6 +70,41 @@ export interface FinanceSettings {
   paymentMethods: string[];
 }
 
+export type WishUrgency = 'low' | 'medium' | 'high';
+export type WishStatus = 'active' | 'conquered' | 'expired';
+
+export interface WishItem {
+  id: string;
+  description: string;
+  value: number;
+  urgency: WishUrgency;
+  startMonth: string;
+  targetMonth: string;
+  status: WishStatus;
+  conqueredMonth?: string;
+  linkedExpenseId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateWishItemInput {
+  description: string;
+  value: number;
+  urgency: WishUrgency;
+  startMonth: string;
+  targetMonth: string;
+}
+
+export interface UpdateWishItemInput {
+  description?: string;
+  value?: number;
+  urgency?: WishUrgency;
+  targetMonth?: string;
+  status?: WishStatus;
+  conqueredMonth?: string | null;
+  linkedExpenseId?: string | null;
+}
+
 export interface FinancialRule {
   id: string;
   userId: string;

@@ -5,6 +5,7 @@ import type {
   FinancialRule,
   Income,
   Investment,
+  WishItem,
 } from '@/types/domain';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -89,6 +90,24 @@ export function toFinancialRule(row: FinancialRuleRow): FinancialRule {
     investmentsPercentage: Number(row.investments_percentage),
     categoryMapping: mapping || {},
     isCustom: row.is_custom,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+type WishItemRow = Database['public']['Tables']['wish_items']['Row'];
+
+export function toWishItem(row: WishItemRow): WishItem {
+  return {
+    id: row.id,
+    description: row.description,
+    value: Number(row.value),
+    urgency: row.urgency as WishItem['urgency'],
+    startMonth: row.start_month,
+    targetMonth: row.target_month,
+    status: row.status as WishItem['status'],
+    conqueredMonth: row.conquered_month ?? undefined,
+    linkedExpenseId: row.linked_expense_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

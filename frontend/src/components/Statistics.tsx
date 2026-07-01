@@ -4,13 +4,15 @@ import { SectionSurface } from '@/components/layout/SectionSurface';
 import { EffectiveTotalsLegend } from '@/components/layout/EffectiveTotalsLegend';
 import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
 import { calculateEffectiveMonthTotals } from '@/utils/business/monthTotals';
-import { MonthData, CreditCard } from '@/types/finance';
+import { MonthData, CreditCard, FinanceSettings } from '@/types/finance';
+import { AnnualFinancialRuleSection } from '@/components/AnnualFinancialRuleSection';
 
 interface StatisticsProps {
   yearData: MonthData[];
   currentYear: number;
   currentMonth: string;
   creditCards: CreditCard[];
+  settings: FinanceSettings;
   isLoading?: boolean;
 }
 
@@ -38,6 +40,7 @@ export const Statistics = ({
   currentYear,
   currentMonth,
   creditCards,
+  settings,
   isLoading = false,
 }: StatisticsProps) => {
   const currentMonthIndex = parseInt(currentMonth.split('-')[1], 10) - 1;
@@ -219,6 +222,13 @@ export const Statistics = ({
           </div>
         )}
       </SectionSurface>
+
+      <AnnualFinancialRuleSection
+        currentYear={currentYear}
+        yearData={yearData}
+        settings={settings}
+        creditCards={creditCards}
+      />
     </div>
   );
 };

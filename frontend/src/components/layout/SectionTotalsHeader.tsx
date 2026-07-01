@@ -4,8 +4,10 @@ import { cn } from '@/lib/utils';
 interface SectionTotalsHeaderProps {
   title: string;
   plannedTotal: number;
-  effectiveTotal: number;
-  effectiveLabel: string;
+  effectiveTotal?: number;
+  effectiveLabel?: string;
+  secondaryMetric?: { label: string; value: string };
+  hideEffective?: boolean;
   colorClass: string;
   className?: string;
 }
@@ -13,8 +15,10 @@ interface SectionTotalsHeaderProps {
 export const SectionTotalsHeader = ({
   title,
   plannedTotal,
-  effectiveTotal,
-  effectiveLabel,
+  effectiveTotal = 0,
+  effectiveLabel = '',
+  secondaryMetric,
+  hideEffective = false,
   colorClass,
   className,
 }: SectionTotalsHeaderProps) => (
@@ -27,12 +31,21 @@ export const SectionTotalsHeader = ({
           {formatCurrency(plannedTotal)}
         </span>
       </div>
-      <div className="flex items-baseline gap-1.5 flex-wrap">
-        <span className="text-xs text-muted-foreground">{effectiveLabel}:</span>
-        <span className={cn('text-sm font-semibold tabular-nums', colorClass)}>
-          {formatCurrency(effectiveTotal)}
-        </span>
-      </div>
+      {secondaryMetric ? (
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground">{secondaryMetric.label}:</span>
+          <span className={cn('text-sm font-semibold tabular-nums', colorClass)}>
+            {secondaryMetric.value}
+          </span>
+        </div>
+      ) : !hideEffective ? (
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground">{effectiveLabel}:</span>
+          <span className={cn('text-sm font-semibold tabular-nums', colorClass)}>
+            {formatCurrency(effectiveTotal)}
+          </span>
+        </div>
+      ) : null}
     </div>
   </div>
 );

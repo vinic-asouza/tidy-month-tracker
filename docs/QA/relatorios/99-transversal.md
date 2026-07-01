@@ -63,7 +63,7 @@
 
 ## 4. Feedback silencioso em ações bloqueadas
 
-**Módulos afetados:** 04, 05, 07, 08 — exclusão tag/categoria em uso
+**Módulos afetados:** 04, 05, 07, 08, **13** — exclusão tag/categoria em uso; formulário de desejos (valor/prazo)
 
 **Severidade:** Médio
 
@@ -109,6 +109,7 @@ Adaptadores em `services/adapters/api/` completos. Não auditados nesta rodada (
 5. INSERTs não atômicos parcelas (05)
 6. Matriz delete parcelas "este mês" (05)
 7. Mapeamento erros auth em inglês (01)
+8. ~~Conquista→gasto sem verificar sucesso da API (13, 05)~~ — corrigido; ver revalidação em [13-lista-desejos.md](./13-lista-desejos.md)
 
 ---
 
@@ -123,7 +124,21 @@ Adaptadores em `services/adapters/api/` completos. Não auditados nesta rodada (
 
 ---
 
+## 10. Integração Desejos ↔ Gastos (módulo 13)
+
+| Aspecto | Status (pós-revalidação) |
+|---------|--------------------------|
+| Desejos fora do saldo mensal | OK |
+| `expenseDraft` pré-preenche gasto variável | OK |
+| `linked_expense_id` no schema | Implementado via `handleAddExpense` |
+| Conquista adiada até salvar gasto | OK |
+| `pendingWishConquer` ao trocar de aba | Achado residual (Médio) |
+
+Ver [13-lista-desejos.md](./13-lista-desejos.md) — seção Revalidação.
+
+---
+
 ## Referências
 
 - [README QA](./README.md)
-- Relatórios [01](./relatorios/01-autenticacao.md) a [12](./relatorios/12-shell.md)
+- Relatórios [01](./relatorios/01-autenticacao.md) a [13](./relatorios/13-lista-desejos.md)

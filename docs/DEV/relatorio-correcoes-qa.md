@@ -259,6 +259,35 @@ Referência: [relatório UX/UI](../UX-UI/relatorio-ajustes-ux-ui.md)
 
 ---
 
+## Lista de Desejos
+
+Referência: [relatório QA 13](../QA/relatorios/13-lista-desejos.md)
+
+| Achado | Severidade | Solução |
+|--------|------------|---------|
+| Conquista com gasto prossegue se API falhar | Alto | Fluxo em duas etapas: `pendingWishConquer` em `Index.tsx`; conquista + `linked_expense_id` só após `addExpense` bem-sucedido |
+| Validação silenciosa no formulário | Médio | Erros inline (`descriptionError`, `valueError`, `targetMonthError`) + botão desabilitado quando inválido |
+| Regra de prazo na edição diverge | Médio | Edição valida `targetMonth >= startMonth`; criação valida `>= currentMonth` |
+| `linked_expense_id` nunca preenchido | Médio | `conquerWish` aceita `linkedExpenseId`; preenchido no wrapper `handleAddExpense` |
+| Expiração automática sem feedback | Médio | `toast.info` após batch `expireWishItems` |
+| Conquista irreversível antes do gasto | Médio | Conquista adiada até salvar gasto; toast ao cancelar dialog sem salvar |
+| Ordenação duplicada hook + seção | Baixo | Hook expõe só `filterWishesForMonth`; ordenação em `WishSection` |
+| Spinner em toda troca de mês | Baixo | Stale-while-revalidate: spinner fullscreen só na carga inicial; `isRefetching` com opacidade sutil |
+| `pendingWishConquer` persiste ao trocar aba (revalidação) | Médio | `useEffect` em `Index.tsx` limpa pendência ao sair da aba Gastos ou trocar de mês |
+| Copy do dialog de conquista imprecisa (revalidação) | Baixo | Texto atualizado: conquista com gasto só após salvar |
+
+**Arquivos:** `Index.tsx`, `useWishItems.ts`, `WishSection.tsx`, `useSupabaseFinance.ts`, `ExpenseSection.tsx`, `MonthRecordsSection.tsx`
+
+### Validação Lista de Desejos
+
+- [x] `npm run build` sem erros TypeScript
+- [x] Conquista + gasto: desejo permanece `active` se dialog fechado sem salvar
+- [x] Conquista + gasto: `linked_expense_id` preenchido após salvar
+- [x] Troca de aba ou mês com pendência ativa limpa `pendingWishConquer`
+- [ ] Testes manuais browser (fluxo conquista, expiração, edição de prazo)
+
+---
+
 ## Pendências (fora do escopo desta entrega)
 
 | Item | Motivo |

@@ -52,7 +52,7 @@ import { SelectionToggle } from '@/components/SelectionToggle';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
 
-type PersistHandler = (expense: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
+type PersistHandler = (expense: Omit<Expense, 'id'>) => Promise<Expense | null> | Expense | null;
 type UpdateHandler = (
   id: string,
   updates: Partial<Expense>,
@@ -78,6 +78,10 @@ interface ExpenseSectionProps {
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
+  /** Pré-preenche o formulário de novo gasto (ex.: conquista de desejo) */
+  expenseDraft?: Partial<Expense> | null;
+  /** Chamado após consumir o rascunho de gasto */
+  onExpenseDraftConsumed?: () => void;
   variant?: 'default' | 'embedded';
 }
 
@@ -719,15 +723,27 @@ const ExpenseSectionComponent = ({
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
+  expenseDraft,
+  onExpenseDraftConsumed,
   variant = 'default',
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [addDraft, setAddDraft] = useState<Partial<Expense> | null>(null);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
   }, [openAddDialog]);
+
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  useEffect(() => {
+    if (!expenseDraft) return;
+    setEditingExpense(null);
+    setAddDraft(expenseDraft);
+    setActiveTab(expenseDraft.type ?? 'variable');
+    setIsOpen(true);
+  }, [expenseDraft]);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
@@ -898,17 +914,39 @@ const ExpenseSectionComponent = ({
     return cardId ? getCardPaidStatus(cardId) : false;
   };
 
-  const handleSubmit = async (data: Omit<Expense, 'id'>) => {
-    const success = editingExpense
-      ? await onUpdate(editingExpense.id, data, applyToAllMonths)
-      : await onAdd(data);
+  const clearAddDialogState = () => {
+    setEditingExpense(null);
+    if (addDraft) {
+      setAddDraft(null);
+      onExpenseDraftConsumed?.();
+    }
+    onAddDialogClose?.();
+  };
 
-    if (success === false) return false;
+  const buildDraftExpense = (type: Expense['type'], draft: Partial<Expense>): Expense => ({
+    id: '',
+    type,
+    category: draft.category ?? '',
+    description: draft.description ?? '',
+    paymentMethod: draft.paymentMethod ?? '',
+    value: draft.value ?? 0,
+    paid: draft.paid ?? false,
+    date: draft.date,
+    repeatAllMonths: draft.repeatAllMonths,
+  });
+
+  const handleSubmit = async (data: Omit<Expense, 'id'>) => {
+    if (editingExpense) {
+      const success = await onUpdate(editingExpense.id, data, applyToAllMonths);
+      if (success === false) return false;
+    } else {
+      const created = await onAdd(data);
+      if (!created) return false;
+    }
 
     setApplyToAllMonths(false);
     setIsOpen(false);
-    setEditingExpense(null);
-    onAddDialogClose?.();
+    clearAddDialogState();
     return true;
   };
 
@@ -1234,10 +1272,7 @@ const ExpenseSectionComponent = ({
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
-          if (!open) {
-            setEditingExpense(null);
-            onAddDialogClose?.();
-          }
+          if (!open) clearAddDialogState();
         }}
       >
         <DialogContent className="rounded-lg max-w-md">
@@ -1270,12 +1305,20 @@ const ExpenseSectionComponent = ({
                 {(['fixed', 'variable', 'installment'] as const).map((type) => (
                   <TabsContent key={type} value={type}>
                     <ExpenseForm
+                      key={editingExpense?.id ?? (addDraft ? `draft-${type}` : `new-${type}`)}
                       type={type}
                       categories={categories}
                       paymentMethods={paymentMethods}
                       creditCards={creditCards}
                       onSubmit={handleSubmit}
-                      initialData={editingExpense?.type === type ? editingExpense : undefined}
+                      initialData={
+                        editingExpense?.type === type
+                          ? editingExpense
+                          : addDraft &&
+                              (addDraft.type === type || (!addDraft.type && type === 'variable'))
+                            ? buildDraftExpense(type, addDraft)
+                            : undefined
+                      }
                       categoryManagerSlot={
                         <Popover
                           open={isCategoryManagerOpenInModal}

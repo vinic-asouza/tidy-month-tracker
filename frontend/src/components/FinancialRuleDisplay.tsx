@@ -16,16 +16,28 @@ import { Button } from '@/components/ui/button';
 
 interface FinancialRuleDisplayProps {
   rule: FinancialRule;
-  monthData: MonthData;
+  monthData?: MonthData;
   creditCards?: CreditCard[];
+  stats?: FinancialRuleStats;
   onEditMapping?: () => void;
+  emptyStateMessage?: string;
 }
 
-export const FinancialRuleDisplay = ({ rule, monthData, creditCards = [], onEditMapping }: FinancialRuleDisplayProps) => {
-  const stats = useMemo(
-    () => calculateFinancialRuleStats(rule, monthData, creditCards, monthData.cardMonthlyStatuses),
-    [rule, monthData, creditCards]
-  );
+export const FinancialRuleDisplay = ({
+  rule,
+  monthData,
+  creditCards = [],
+  stats: statsProp,
+  onEditMapping,
+  emptyStateMessage = 'Marque suas entradas como recebidas para calcular os percentuais da regra.',
+}: FinancialRuleDisplayProps) => {
+  const stats = useMemo(() => {
+    if (statsProp) return statsProp;
+    if (!monthData) {
+      throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
+    }
+    return calculateFinancialRuleStats(rule, monthData, creditCards, monthData.cardMonthlyStatuses);
+  }, [statsProp, rule, monthData, creditCards]);
 
   const CategoryAlerts = ({
     differencePercent,
@@ -278,7 +290,7 @@ export const FinancialRuleDisplay = ({ rule, monthData, creditCards = [], onEdit
       <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
         <Info className="h-8 w-8 text-muted-foreground/60" />
         <p className="text-sm text-muted-foreground max-w-xs">
-          Marque suas entradas como recebidas para calcular os percentuais da regra.
+          {emptyStateMessage}
         </p>
       </div>
     );

@@ -351,8 +351,8 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
   );
 
   const addExpense = useCallback(
-    async (expense: Omit<Expense, 'id'>): Promise<boolean> => {
-      if (!user) return false;
+    async (expense: Omit<Expense, 'id'>): Promise<Expense | null> => {
+      if (!user) return null;
 
       const tempId = `temp-${Date.now()}`;
       const optimistic: Expense = { id: tempId, ...expense };
@@ -404,14 +404,14 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           }));
         }
 
-        return true;
+        return created;
       } catch {
         toast.error('Erro ao adicionar gasto');
         setMonthBundle((prev) => ({
           ...prev,
           expenses: prev.expenses.filter((e) => e.id !== tempId),
         }));
-        return false;
+        return null;
       }
     },
     [

@@ -332,6 +332,59 @@ export type Database = {
           },
         ]
       }
+      wish_items: {
+        Row: {
+          id: string
+          user_id: string
+          description: string
+          value: number
+          urgency: string
+          start_month: string
+          target_month: string
+          status: string
+          conquered_month: string | null
+          linked_expense_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          description: string
+          value?: number
+          urgency?: string
+          start_month: string
+          target_month: string
+          status?: string
+          conquered_month?: string | null
+          linked_expense_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          description?: string
+          value?: number
+          urgency?: string
+          start_month?: string
+          target_month?: string
+          status?: string
+          conquered_month?: string | null
+          linked_expense_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wish_items_linked_expense_id_fkey"
+            columns: ["linked_expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

@@ -11,6 +11,8 @@ import * as apiSettings from './api/settings';
 import * as supabaseSettings from './supabase/settings';
 import * as apiFinancialRule from './api/financialRule';
 import * as supabaseFinancialRule from './supabase/financialRule';
+import * as apiWishItems from './api/wishItems';
+import * as supabaseWishItems from './supabase/wishItems';
 
 const isSupabase = () => getDataProvider() === 'supabase';
 
@@ -28,3 +30,6 @@ export const settingsAdapter = () => (isSupabase() ? supabaseSettings : apiSetti
 
 export const financialRuleAdapter = () =>
   isSupabase() ? supabaseFinancialRule : apiFinancialRule;
+
+export const wishItemsAdapter = () =>
+  isSupabase() ? supabaseWishItems : apiWishItems;

@@ -1,6 +1,6 @@
 # Visão Geral do Sistema
 
-**Tidy Month Tracker** é um aplicativo de controle financeiro pessoal focado no acompanhamento mensal de entradas, gastos e investimentos, com suporte a cartões de crédito, regra financeira (50/30/20 ou personalizada) e visão anual estatística.
+**Tidy Month Tracker** é um aplicativo de controle financeiro pessoal focado no acompanhamento mensal de entradas, gastos, investimentos e lista de desejos, com suporte a cartões de crédito, regra financeira (50/30/20 ou personalizada) e visão anual estatística.
 
 **Escopo desta documentação:** apenas o **frontend** (`frontend/`), conforme a fase atual descrita em [`PLANO_FRONTEND_DIRETO_SUPABASE.md`](./PLANO_FRONTEND_DIRETO_SUPABASE.md), em que o app em produção (Vercel) acessa o **Supabase** diretamente, sem backend Express.
 
@@ -48,6 +48,7 @@ flowchart TB
         creditCards["creditCards.ts"]
         settings["settings.ts"]
         financialRule["financialRule.ts"]
+        wishItems["wishItems.ts"]
     end
 
     subgraph adapters [Adaptadores]
@@ -94,7 +95,7 @@ Os componentes **não** importam `supabase` nem `apiClient` diretamente; consome
 | `src/services/` | Facades + adaptadores |
 | `src/types/domain.ts` | Tipos de domínio |
 | `src/types/finance.ts` | Aliases + defaults (tags, categorias, cores) |
-| `src/utils/business/` | Lógica pura (parcelas, repetição mensal) |
+| `src/utils/business/` | Lógica pura (parcelas, repetição mensal, desejos) |
 | `src/utils/financialRuleCalculations.ts` | Cálculos da regra financeira |
 | `src/integrations/supabase/` | Cliente e tipos gerados do banco |
 | `src/api/client.ts` | Cliente HTTP (modo `api`) |
@@ -132,6 +133,7 @@ Evidência: `src/integrations/supabase/types.ts`, `PLANO_FRONTEND_DIRETO_SUPABAS
 | `credit_cards` | Cartões globais do usuário |
 | `credit_card_monthly_status` | Status "fatura paga" por cartão/mês |
 | `financial_rule` | Regra 50/30/20 ou personalizada + mapeamento de categorias |
+| `wish_items` | Lista de desejos (1 registro por item; visibilidade calculada por mês) |
 
 Conversão `snake_case` ↔ `camelCase` nos mappers: `src/services/adapters/mappers.ts`.
 
@@ -231,7 +233,7 @@ Tela principal pós-login: navegação por mês, resumo financeiro, registros e 
 - Alternar entre visão **Mensal** e **Anual**
 - Navegar meses (anterior/próximo/hoje)
 - Alternar tema claro/escuro
-- FAB "Adicionar item" (entrada, gasto, investimento, cartão)
+- FAB "Adicionar item" (entrada, gasto, investimento, cartão, desejo)
 - Barra inferior de itens selecionados (soma por tipo)
 - Logout
 
@@ -248,18 +250,18 @@ Tela principal pós-login: navegação por mês, resumo financeiro, registros e 
 
 1. `MonthNavigator` altera `currentMonth` (formato `YYYY-MM`)
 2. `monthLoading` ativa spinner no conteúdo principal
-3. Recarrega incomes, expenses, investments e status mensal dos cartões
+3. Recarrega incomes, expenses, investments, desejos (`useWishItems`) e status mensal dos cartões
 
 ### Regras de negócio
 
 - Mês padrão = mês calendário atual (`useSupabaseFinance.ts`)
 - FAB reposiciona-se quando há seleções (`pb-24` no layout)
-- Ao abrir dialog via FAB, a aba de registros muda automaticamente (`addDialogType` → `recordsTab`)
+- Ao abrir dialog via FAB, a aba de registros muda automaticamente (`addDialogType` → `recordsTab`, incl. `'wish'`)
 
 ### Dependências
 
 - `useSupabaseFinance`, `useAuth`, `useTheme` (next-themes)
-- Submódulos: Resumo, Registros, Estatísticas
+- Submódulos: Resumo, Registros (Entradas, Gastos, Investimentos, Desejos), Estatísticas
 
 ### Permissões
 
@@ -531,6 +533,126 @@ Usuário autenticado (RLS).
 
 ---
 
+## Módulo: Lista de Desejos
+
+### Objetivo
+
+Permitir planejar metas de consumo com valor estimado, urgência e prazo, acompanhando-as mês a mês até conquista, expiração ou renovação — sem impactar o saldo do resumo mensal.
+
+### Funcionalidades
+
+- Listar, criar, editar e excluir desejos
+- Urgência: **baixa**, **média** ou **alta**
+- Prazo obrigatório (`targetMonth`) via `MonthPicker`
+- Visibilidade automática entre `startMonth` e `targetMonth` (1 registro por desejo no banco)
+- Conquistar com modal: apenas marcar ou marcar + abrir gasto pré-preenchido
+- Expiração automática ao navegar para mês posterior ao prazo
+- Renovar prazo de desejo expirado (volta para `active`)
+- Ordenação (urgência, prazo, maior/menor valor, alfabética)
+- Cabeçalho com total planejado e contagem de itens (`SectionTotalsHeader` + `secondaryMetric`)
+- Expandir/recolher lista longa (limite inicial: 10 itens)
+- Aba **Desejos** em `MonthRecordsSection` + opção no FAB
+- Layout alinhado às seções de Entradas/Investimentos (`variant="embedded"`)
+
+### Fluxos de usuário
+
+**Criar desejo**
+
+1. FAB → "Desejo" ou botão na seção → dialog
+2. Preenche: descrição, valor estimado (> 0), urgência, mês limite ("Conquistar até")
+3. `addWish` → INSERT em `wish_items` com `startMonth = currentMonth`, `status = active`
+4. Item aparece no mês atual e nos meses seguintes até o prazo
+
+**Conquistar desejo**
+
+1. Checkbox na linha → `AlertDialog` pergunta se registra gasto
+2. "Só marcar conquistado" → `status = conquered`, `conqueredMonth = currentMonth`
+3. "Sim, incluir gasto" → idem + `expenseDraft` em `Index.tsx` (descrição, valor, tipo variável) e troca para aba Gastos
+4. Desejo conquistado **some de todos os meses**, inclusive o atual
+
+**Expirar (automático)**
+
+1. Ao carregar desejos (`useWishItems`), `shouldAutoExpireWish` detecta `active` com `viewingMonth > targetMonth`
+2. Batch `expireWishItems` → `status = expired`
+3. Desejo expirado aparece **somente** no mês do prazo (`targetMonth`), com ações Renovar / Remover
+
+**Renovar prazo**
+
+1. Botão "Renovar" em item expirado
+2. Dialog com novo `targetMonth` (≥ mês atual)
+3. `renewWish` → `status = active` + novo prazo
+
+**Editar desejo**
+
+1. Ícone lápis → mesmo dialog de criação, pré-preenchido
+2. Valor, descrição, urgência e prazo editáveis a qualquer momento
+3. `MonthPicker` com `min = startMonth` na edição (não permite prazo anterior ao início)
+
+### Regras de negócio
+
+- **Visibilidade** (`isWishVisibleInMonth` em `wishItems.ts`):
+  - `active`: visível se `startMonth ≤ viewingMonth ≤ targetMonth`
+  - `conquered`: nunca visível
+  - `expired`: visível apenas quando `viewingMonth === targetMonth`
+- Desejos de meses anteriores **permanecem visíveis** no mês atual enquanto `active` e dentro do prazo
+- **Não entram** no saldo nem nos totais de `MonthSummarySection` / regra financeira
+- Valor > 0 e descrição obrigatórios; prazo ≥ mês atual (criação) ou ≥ `startMonth` (edição)
+- Alerta visual (ícone âmbar) quando `viewingMonth === targetMonth` e status `active`
+- Campo `linked_expense_id` existe no schema, mas **não é preenchido** ao criar gasto pela conquista (rascunho manual)
+- Ordenação padrão: urgência (alta → baixa), depois prazo, depois maior valor
+
+### Dependências
+
+- Tabela `wish_items`
+- `useWishItems`, `WishSection`, `MonthRecordsSection`
+- Utils: `src/utils/business/wishItems.ts` (visibilidade, expiração, ordenação)
+- UI: `MonthPicker` (`components/ui/month-picker.tsx`), `CurrencyInput`
+- Integração conquista → gasto: `Index.tsx` (`expenseDraft`) + `ExpenseSection.tsx`
+
+### Endpoints (modo Supabase)
+
+| Operação | Tabela | Filtros / Ação |
+|----------|--------|----------------|
+| Listar | `wish_items` | `user_id`, order `created_at` |
+| Criar | `wish_items` | INSERT (`status = active`) |
+| Atualizar | `wish_items` | UPDATE por `id` (conquista, renovação, edição) |
+| Excluir | `wish_items` | DELETE por `id` |
+| Expirar em lote | `wish_items` | UPDATE `status = expired` por lista de IDs |
+
+### Endpoints (modo API — referência futura)
+
+| Método | URL | Objetivo |
+|--------|-----|----------|
+| GET | `/api/wish-items` | Listar todos do usuário |
+| POST | `/api/wish-items` | Criar |
+| PUT | `/api/wish-items/:id` | Atualizar |
+| DELETE | `/api/wish-items/:id` | Excluir |
+| POST | `/api/wish-items/expire` | Expirar em lote (`{ ids }`) |
+
+### Permissões
+
+Usuário autenticado; RLS restringe a `user_id` da sessão.
+
+### Estados e exceções
+
+| Estado | Comportamento |
+|--------|---------------|
+| Lista vazia no mês | Empty state com CTA "Adicionar primeiro desejo" |
+| `loading` | Spinner centralizado na seção |
+| Erro CRUD | Toast + lista preservada ou esvaziada conforme operação |
+| Desejo expirado | Destaque âmbar; ações Renovar / Remover (sem checkbox de conquista) |
+| Conquista + gasto | Troca de aba para Gastos com formulário pré-preenchido |
+
+### Evidência no código
+
+- Componente: `src/components/WishSection.tsx`
+- Hook: `src/hooks/useWishItems.ts`
+- Serviço: `src/services/wishItems.ts`
+- Migration: `supabase/migrations/create_wish_items.sql`
+- Testes unitários: `src/utils/business/__tests__/wishItems.test.ts`
+
+---
+
 ## Módulo: Cartões de Crédito
 
 ### Objetivo
@@ -778,7 +900,7 @@ O **resumo mensal** e a **regra financeira** usam totais brutos; a **visão anua
 
 ### Objetivo
 
-Exibir soma dos itens selecionados nas três seções para consulta rápida.
+Exibir soma dos itens selecionados nas seções de entradas, gastos e investimentos para consulta rápida (desejos **não** participam).
 
 ### Funcionalidades
 
@@ -825,7 +947,8 @@ Tidy Month Tracker (Frontend)
 │   │   ├── Gastos
 │   │   │   ├── Cartões de Crédito
 │   │   │   └── Despesas (fixo / variável / parcelado)
-│   │   └── Investimentos
+│   │   ├── Investimentos
+│   │   └── Desejos
 │   ├── FAB Adicionar Item
 │   └── Barra de Seleção
 ├── Estatísticas (visão anual no mesmo /)
@@ -842,8 +965,8 @@ Cadastro (/auth)
   → Dashboard carrega mês atual
   → [Opcional] Configurar Regra Financeira
   → [Opcional] Cadastrar cartões
-  → Registrar entradas / gastos / investimentos
-  → Marcar received / paid / invested
+  → Registrar entradas / gastos / investimentos / desejos
+  → Marcar received / paid / invested / conquistar desejo
   → Resumo e regra atualizam
   → Visão Anual reflete itens efetivados
 ```
@@ -868,6 +991,20 @@ Criar gasto fixo com repeatAllMonths
   → Editar "todos os meses" → update batch (gte year_month atual)
   → Desativar repetição → delete registros com base_expense_id
   → Excluir "todos" → delete batch
+```
+
+## Fluxo: desejo do prazo à conquista
+
+```
+Criar desejo no mês M (startMonth = M, targetMonth = T)
+  → Visível em M … T enquanto status = active
+  → Navegar meses futuros dentro do prazo: item permanece na lista
+  → No mês T: alerta de expiração (ícone âmbar)
+  → Navegar para mês > T: auto-expira (status = expired)
+  → Voltar ao mês T: item expirado com Renovar / Remover
+  → Renovar: status = active + novo targetMonth
+  → Conquistar: status = conquered → some de todos os meses
+  → [Opcional] Conquistar + gasto: rascunho na aba Gastos (sem linked_expense_id)
 ```
 
 ---
@@ -899,6 +1036,7 @@ Criar gasto fixo com repeatAllMonths
 | Reordenar registros | `reorderIncomes/Expenses/Investments` no hook — sem uso na UI |
 | Projeção da regra financeira | `calculateProjection` em `financialRuleCalculations.ts` — não importada em componentes |
 | Gerenciar métodos de pagamento | `paymentMethods` só lidos; sem CRUD na UI |
+| Vínculo desejo → gasto | `linked_expense_id` no banco; fluxo de conquista usa rascunho, sem persistir vínculo |
 | Tabela `profiles` | Existe no banco; frontend não lê/edita perfil |
 
 ## Código morto / legado
@@ -963,7 +1101,26 @@ Criar gasto fixo com repeatAllMonths
 - [ ] Botão "Hoje" aparece fora do mês atual
 - [ ] Troca de tema persiste após reload
 - [ ] Menu mobile funciona em viewport pequeno
-- [ ] FAB abre opções e direciona à aba correta
+- [ ] FAB abre opções e direciona à aba correta (incl. Desejos)
+
+## Desejos
+
+- [ ] Criar desejo com descrição, valor, urgência e prazo
+- [ ] Rejeitar valor ≤ 0 ou descrição vazia
+- [ ] Prazo não pode ser anterior ao mês atual (criação)
+- [ ] Desejo visível no mês de criação e meses seguintes até o prazo
+- [ ] Desejo de mês anterior ainda aparece se dentro do prazo
+- [ ] Editar valor, descrição, urgência e prazo
+- [ ] Ordenação (urgência, prazo, valor, alfabética)
+- [ ] Conquistar: some do mês atual e dos demais
+- [ ] Conquistar + incluir gasto: abre aba Gastos com rascunho
+- [ ] Conquistar sem gasto: apenas marca status
+- [ ] Expiração automática ao navegar para mês após o prazo
+- [ ] Desejo expirado visível só no mês do prazo, com Renovar / Remover
+- [ ] Renovar prazo reativa desejo nos meses corretos
+- [ ] Excluir desejo
+- [ ] Empty state e expandir lista (> 10 itens)
+- [ ] Totais de desejos não alteram saldo do resumo mensal
 
 ## Entradas
 
