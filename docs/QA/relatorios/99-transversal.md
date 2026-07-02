@@ -138,7 +138,23 @@ Ver [13-lista-desejos.md](./13-lista-desejos.md) — seção Revalidação.
 
 ---
 
+## 11. Carteiras — carry-forward e sincronização (módulo 14)
+
+| Aspecto | Status (pós C1–C6) |
+|---------|---------------------|
+| Totais efetivados no chip | OK |
+| Dois conceitos de saldo (C1) | OK — glossário + rótulos |
+| Movimentos não vinculados (C2) | OK — chip + modal + toast |
+| Copy saldo estimado (C3) | OK |
+| Carry-forward cross-year | OK — `earliestMovementMonth` + `touchEarliestMovementMonth` (C5) |
+| Estado local pós-`deleteAccount` | OK |
+| Transferências / fatura→carteira (C4/C6) | Backlog documentado |
+
+Ver [14-carteiras.md](./14-carteiras.md) — seções Revalidação e Validação C1–C6.
+
+---
+
 ## Referências
 
 - [README QA](./README.md)
-- Relatórios [01](./relatorios/01-autenticacao.md) a [13](./relatorios/13-lista-desejos.md)
+- Relatórios [01](./relatorios/01-autenticacao.md) a [14](./relatorios/14-carteiras.md)

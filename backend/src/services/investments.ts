@@ -192,7 +192,7 @@ export async function updateInvestment(
     updates.push(`tag = $${paramIndex++}`);
     values.push(data.tag);
   }
-  if (data.invested !== undefined) {
+  if (data.invested !== undefined && !applyToAllMonths) {
     updates.push(`invested = $${paramIndex++}`);
     values.push(data.invested);
   }

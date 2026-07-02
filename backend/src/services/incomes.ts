@@ -214,7 +214,7 @@ export async function updateIncome(
     updates.push(`tag = $${paramIndex++}`);
     values.push(data.tag);
   }
-  if (data.received !== undefined) {
+  if (data.received !== undefined && !applyToAllMonths) {
     updates.push(`received = $${paramIndex++}`);
     values.push(data.received);
   }

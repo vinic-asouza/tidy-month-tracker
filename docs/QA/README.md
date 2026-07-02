@@ -6,7 +6,7 @@ Processo de qualidade do frontend conforme [`qa-specialist.mdc`](./qa-specialist
 
 **Regra:** relatórios documentam achados para o agente desenvolvedor — nenhuma correção é feita nesta fase.
 
-**Conclusão:** 2026-06-17 — 13 módulos + relatório transversal concluídos.
+**Conclusão:** 2026-06-17 — 14 módulos + relatório transversal concluídos.
 
 ---
 
@@ -27,9 +27,10 @@ Processo de qualidade do frontend conforme [`qa-specialist.mdc`](./qa-specialist
 | 11 | Seleção de Itens | concluído | 2026-06-17 | 0 | 0 | 2 | 1 | [11-selecao.md](./relatorios/11-selecao.md) |
 | 12 | Shell / Preferências | concluído | 2026-06-17 | 0 | 0 | 2 | 2 | [12-shell.md](./relatorios/12-shell.md) |
 | 13 | Lista de Desejos | revalidado | 2026-06-17 | 0 | 0 | 1 | 2 | [13-lista-desejos.md](./relatorios/13-lista-desejos.md) |
+| 14 | Carteiras | revalidado (C1–C6) | 2026-07-02 | 0 | 0 | 0 | 2 | [14-carteiras.md](./relatorios/14-carteiras.md) |
 | 99 | Transversal | concluído | 2026-06-17 | 0 | — | — | — | [99-transversal.md](./relatorios/99-transversal.md) |
 
-**Totais por severidade (soma dos módulos 01–13, pós-revalidação módulo 13):** 0 Crítico · 12 Alto · 31 Médio · 19 Baixo
+**Totais por severidade (soma dos módulos 01–14, pós-revalidação módulo 14):** 0 Crítico · 12 Alto · 31 Médio · 18 Baixo
 
 ---
 
@@ -47,7 +48,7 @@ Ver seção 8 em [99-transversal.md](./relatorios/99-transversal.md).
 
 ## Ordem de execução
 
-1. Autenticação → 2. Dashboard → 3. Resumo → 4. Entradas → 5. Gastos → 6. Cartões → 7. Investimentos → 8. Configurações → 9. Regra Financeira → 10. Estatísticas → 11. Seleção → 12. Shell → 13. Lista de Desejos → 99. Transversal
+1. Autenticação → … → 13. Lista de Desejos → **14. Carteiras** → 99. Transversal
 
 ---
 

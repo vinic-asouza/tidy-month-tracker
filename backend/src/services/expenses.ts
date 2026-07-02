@@ -290,7 +290,7 @@ export async function updateExpense(
     updates.push(`value = $${paramIndex++}`);
     values.push(data.value);
   }
-  if (data.paid !== undefined) {
+  if (data.paid !== undefined && !applyToAllMonths) {
     updates.push(`paid = $${paramIndex++}`);
     values.push(data.paid);
   }
@@ -362,7 +362,7 @@ export async function updateExpense(
         sharedUpdates.push(`value = $${p++}`);
         sharedValues.push(data.value);
       }
-      if (data.paid !== undefined) {
+      if (data.paid !== undefined && !applyToAllMonths) {
         sharedUpdates.push(`paid = $${p++}`);
         sharedValues.push(data.paid);
       }

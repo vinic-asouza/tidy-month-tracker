@@ -2,26 +2,26 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Data** | 2026-06-17 |
+| **Data** | 2026-07-02 |
 | **Agente** | Business Rules Auditor (`docs/BUSINESS/business-specialist.mdc`) |
-| **Escopo** | Produto financeiro pessoal — frontend Supabase pós-correções QA/Dev |
-| **Referências** | [QA 01–12](../QA/relatorios/), [Dev](../DEV/relatorio-correcoes-qa.md), [Validação](../VALIDATION/relatorio-validacao-correcoes-qa.md), [ANALISE](../ANALISE_FRONTEND_QA.md) |
+| **Escopo** | Produto financeiro pessoal — frontend Supabase pós-correções QA/Dev, incluindo **Lista de Desejos** e **Carteiras** |
+| **Referências** | [QA 01–14](../QA/relatorios/), [Dev](../DEV/relatorio-correcoes-qa.md), [Validação](../VALIDATION/relatorio-validacao-correcoes-qa.md), [ANALISE](../ANALISE_FRONTEND_QA.md), [Proposta Carteiras](../DEV/proposta-feature-contas.md) |
 
 ---
 
 ## Resumo executivo
 
-O produto controla **entradas, gastos e investimentos** por mês, com cartões de crédito, regra financeira 50/30/20 (ou personalizada) e visão anual. Após as correções recentes, a taxonomia **efetivados** (recebido / pago / investido) foi unificada no resumo mensal, na regra financeira, na seleção e nas estatísticas anuais — avanço relevante de consistência.
+O produto controla **entradas, gastos e investimentos** por mês, com cartões de crédito, **carteiras** (organização e saldo estimado por conta), **lista de desejos** (metas de consumo fora do fluxo de caixa), regra financeira 50/30/20 (ou personalizada) e visão anual. Após as correções recentes, a taxonomia **efetivados** (recebido / pago / investido) foi unificada no resumo mensal, na regra financeira, na seleção, nas estatísticas anuais e nas **métricas de carteira** — avanço relevante de consistência.
 
 | Classificação | Quantidade |
 |---------------|------------|
-| Regras corretas e consistentes | 14 áreas |
-| Inconsistências / lacunas | 12 achados |
-| Decisões de produto pendentes | 5 |
+| Regras corretas e consistentes | 27 áreas |
+| Inconsistências / lacunas | 18 achados |
+| Decisões de produto pendentes | 8 |
 
 ### Veredito geral
 
-**Aprovado com ressalvas para uso pessoal / beta fechado.** O núcleo financeiro (saldo, cartões, efetivados) é coerente na maior parte dos fluxos. Persistem lacunas que podem produzir **números que o usuário não consegue reconciliar** entre resumo, listas, regra e visão anual — especialmente em categorias não mapeadas, operações “todos os meses” e diferença entre totais planejados vs efetivados nas seções de lista.
+**Aprovado com ressalvas para uso pessoal / beta fechado.** O núcleo financeiro (saldo, cartões, efetivados, carteiras) é coerente na maior parte dos fluxos. A **lista de desejos** está corretamente isolada do saldo mensal. Persistem lacunas que podem produzir **números que o usuário não consegue reconciliar** entre resumo, listas, regra, visão anual e **chips de carteira** — especialmente em categorias não mapeadas, operações “todos os meses”, diferença entre totais planejados vs efetivados nas seções de lista, e **dois conceitos de saldo** (mês vs carteira) sem glossário unificado.
 
 ---
 
@@ -30,8 +30,10 @@ O produto controla **entradas, gastos e investimentos** por mês, com cartões d
 | Conceito | Definição no produto | Onde se aplica |
 |----------|---------------------|----------------|
 | **Efetivado** | Entrada com `received`, gasto com `paid` (ou fatura de cartão paga), investimento com `invested` | Resumo mensal, regra financeira, seleção, estatísticas anuais |
-| **Planejado / nominal** | Valor lançado independente das flags | Headers das seções Entradas/Gastos/Investimentos; total do chip do cartão |
+| **Planejado / nominal** | Valor lançado independente das flags | Headers das seções Entradas/Gastos/Investimentos; total do chip do cartão; total da seção Desejos |
 | **Saldo do mês** | Entradas efetivadas − Gastos efetivados − Investimentos efetivados | `MonthSummarySection` |
+| **Saldo da carteira** | Saldo declarado (início do mês) + variação líquida efetiva (entrou − saiu + aportado) | Chips em `AccountStrip` |
+| **Desejo** | Meta de consumo com prazo; **não** é movimento financeiro | Aba Desejos; ausente do resumo e da regra |
 
 Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou investido"* (resumo e visão anual).
 
@@ -45,16 +47,20 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
                     │ (listas/seções) │
                     └────────┬────────┘
                              │ total bruto + subtotal efetivado
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-      ┌──────────────┐ ┌──────────┐ ┌─────────────┐
-      │ Resumo mês   │ │  Regra   │ │ Estatística │
-      │ (efetivados) │ │ 50/30/20 │ │   anual     │
-      └──────┬───────┘ └────┬─────┘ └──────┬──────┘
-             │              │               │
-             └──────────────┴───────────────┘
-                    monthTotals.ts
+              ┌──────────────┼──────────────┬──────────────┐
+              ▼              ▼              ▼              ▼
+      ┌──────────────┐ ┌──────────┐ ┌─────────────┐ ┌─────────────┐
+      │ Resumo mês   │ │  Regra   │ │ Estatística │ │  Carteiras  │
+      │ (efetivados) │ │ 50/30/20 │ │   anual     │ │ (efetivados)│
+      └──────┬───────┘ └────┬─────┘ └──────┬──────┘ └──────┬──────┘
+             │              │               │               │
+             └──────────────┴───────────────┴───────────────┘
+                    monthTotals.ts / accounts.ts
                     (mesma lógica de pago em cartão)
+
+      ┌─────────────────┐
+      │ Lista Desejos   │  ← isolada (não alimenta resumo/regra/carteiras)
+      └─────────────────┘
 ```
 
 | Par cruzado | Consistente? | Observação |
@@ -62,9 +68,14 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 | Resumo ↔ Estatísticas anuais | **Sim** | Mesmo critério efetivado + status de cartão |
 | Resumo ↔ Regra financeira | **Parcial** | Gastos em categorias não mapeadas entram no resumo mas não nas barras |
 | Resumo ↔ Headers das seções | **Parcial** | Seções destacam total bruto; resumo só efetivados |
+| Resumo ↔ Carteiras (métricas) | **Sim** | `getAccountMonthTotals` usa `isExpenseEffectivelyPaid` e flags efetivadas |
+| Resumo ↔ Saldo do chip carteira | **Parcial** | Resumo = fluxo do mês; chip = saldo cumulativo estimado com carry-forward |
 | Chip do cartão ↔ Resumo gastos | **Parcial** | Chip soma todos os gastos do cartão; resumo só conta se fatura paga |
 | Seleção ↔ Resumo | **Sim** | Ambos usam efetivados; ver achado de UX na seleção |
 | Parcelas ↔ Visão anual | **Parcial** | Criação multi-mês atualiza ano; edição/exclusão “todos os meses” pode não atualizar |
+| Desejos ↔ Resumo / Regra / Carteiras | **Sim (isolamento)** | Desejos não entram em nenhum total financeiro — por design |
+| Desejo conquistado ↔ Gasto | **Parcial** | Vínculo `linked_expense_id` após salvar gasto; valores e efetivação podem divergir |
+| Movimento sem carteira ↔ Resumo | **Parcial** | Entra no resumo geral; ignorado em todos os chips de carteira |
 
 ---
 
@@ -86,6 +97,19 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 | 12 | Excluir parcela “todas” | Remove série completa pelo `base_expense_id` | **Correto** |
 | 13 | Uma regra por usuário | Apenas uma configuração de regra financeira ativa | **Correto** |
 | 14 | Isolamento por usuário | Dados filtrados por `user_id` (RLS no banco) | **Correto** |
+| 15 | Desejos fora do fluxo de caixa | Não entram no resumo, na regra, nas estatísticas nem nas carteiras | **Correto** |
+| 16 | Visibilidade de desejos | `active` visível entre `startMonth` e `targetMonth`; `conquered` some de todos os meses; `expired` só no mês do prazo | **Correto** |
+| 17 | Expiração automática de desejos | Ao navegar para mês posterior ao prazo, `active` vira `expired` em lote | **Correto** |
+| 18 | Valor mínimo em desejos | Descrição obrigatória e valor > 0 | **Correto** |
+| 19 | Conquista com gasto em duas etapas | Desejo só é marcado `conquered` após gasto salvo com sucesso; `linked_expense_id` preenchido | **Correto** |
+| 20 | Métricas de carteira | Entrou/Saiu/Aportado usam critério efetivado, alinhado ao resumo mensal | **Correto** |
+| 21 | Aporte na carteira | Investimento efetivado **soma** na carteira vinculada (não subtrai) | **Correto** |
+| 22 | Vínculo carteira em movimentos | Opcional em entradas e gastos; **obrigatório** em investimentos | **Correto** |
+| 23 | Exclusão de carteira | `ON DELETE SET NULL` — movimentos permanecem, apenas desvinculados | **Correto** |
+| 24 | Saldo declarado vs carry-forward | Declaração manual = abertura do mês; sem declaração, carry-forward dos meses anteriores | **Correto** |
+| 25 | Variação líquida da carteira | `inflow − outflow + invested` (aportes entram, não saem) | **Correto** |
+| 26 | Alerta ao declarar saldo | Aviso contextual quando há movimentações efetivadas no mês | **Correto** |
+| 27 | Gasto em cartão na carteira | Só conta como saída efetivada quando fatura do cartão está paga | **Correto** |
 
 ---
 
@@ -387,6 +411,238 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 
 ---
 
+### 13. Gasto da conquista nasce não efetivado — desejo “realizado” mas saldo intacto
+
+**Severidade:** Médio
+
+**Regra analisada:** Conquistar desejo com gasto deve refletir o impacto financeiro da realização.
+
+**Comportamento atual:**
+- Fluxo “Sim, incluir gasto” pré-preenche o formulário com `paid: false`.
+- O desejo só é marcado `conquered` após salvar o gasto, mas o gasto **não entra no saldo** até ser marcado pago (ou fatura paga, se cartão).
+- Usuário pode interpretar conquista como “já gastei”.
+
+**Comportamento esperado:**
+- Ou o gasto da conquista nasce efetivado (`paid: true`), ou a UI deixa explícito que a conquista é planejamento e o gasto ainda precisa ser efetivado para impactar o saldo.
+
+**Impacto:**
+- **Usuário:** marca desejo como conquistado, mas resumo mensal não muda — sensação de inconsistência.
+- **Negócio:** desconexão entre módulo de desejos e fluxo de caixa.
+- **Dados:** `linked_expense_id` existe, mas gasto pode permanecer não efetivado indefinidamente.
+
+**Evidências:** `Index.tsx` `expenseDraft` com `paid: false`; critério efetivado em `monthTotals.ts`.
+
+**Recomendação:** Definir política de produto para conquista com gasto (efetivar automaticamente vs. manter planejado com rótulo claro). Comunicar no dialog de conquista.
+
+---
+
+### 14. Valor do gasto pode divergir do valor do desejo na conquista
+
+**Severidade:** Médio
+
+**Regra analisada:** Realização de um desejo deve ser rastreável em relação ao valor planejado.
+
+**Comportamento atual:**
+- O rascunho de gasto herda descrição e valor do desejo, mas o usuário pode alterar livremente antes de salvar.
+- `linked_expense_id` vincula os registros, mas não há validação de que os valores coincidem.
+- Total da seção Desejos (soma dos valores planejados) não se reconcilia automaticamente com o gasto efetivo.
+
+**Comportamento esperado:**
+- Usuário deve conseguir entender a diferença entre “planejei R$ X” e “gastei R$ Y”, ou o sistema deve alertar quando houver divergência relevante.
+
+**Impacto:**
+- **Usuário:** planejamento de desejos perde confiabilidade como meta de consumo.
+- **Negócio:** módulo de desejos deixa de servir como controle de orçamento por item.
+- **Dados:** vínculo existe, mas sem regra de reconciliação de valores.
+
+**Evidências:** `Index.tsx` `handleWishConquer` → `expenseDraft`; `WishSection` total planejado vs gasto editável em `ExpenseSection`.
+
+**Recomendação:** Exibir diferença planejado vs. realizado ao salvar, ou bloquear edição de valor no fluxo de conquista (decisão de produto).
+
+---
+
+### 15. Dois conceitos de “saldo” sem glossário unificado
+
+**Severidade:** Alto
+
+**Regra analisada:** Números financeiros exibidos devem ter significado único e comparável.
+
+**Comportamento atual:**
+- **Saldo do mês** (resumo): entradas − gastos − investimentos **efetivados** no mês corrente.
+- **Saldo da carteira** (chip): saldo declarado ou carry-forward + variação efetiva acumulada — número **cumulativo** por conta.
+- Não há painel que explique a relação entre os dois.
+
+**Comportamento esperado:**
+- Usuário deve entender que saldo do mês ≠ saldo na conta corrente, ou o produto deve oferecer visão que una as duas leituras.
+
+**Impacto:**
+- **Usuário:** “Meu saldo do mês é R$ 2.000, mas a carteira Nubank mostra R$ 8.500” — parece erro se não houver educação.
+- **Negócio:** promessa de “organizar onde está o dinheiro” exige clareza conceitual.
+- **Dados:** ambos corretos sob definições distintas, mas **semanticamente conflitantes** na mesma tela.
+
+**Evidências:** `MonthSummarySection` vs `AccountStrip` + `getAccountClosingBalance`; proposta de feature (nível 1 vs 2).
+
+**Recomendação:** Glossário na UI (já parcial em `FinancialGlossaryDialog`) e rótulos distintos (“Saldo do mês” vs “Saldo estimado na carteira”). Decidir se o produto promete saldo real ou apenas organização.
+
+---
+
+### 16. Movimentos sem carteira entram no resumo mas em nenhum chip
+
+**Severidade:** Médio
+
+**Regra analisada:** Totais por carteira devem cobrir ou explicitar movimentos não classificados.
+
+**Comportamento atual:**
+- `account_id` é opcional em entradas e gastos.
+- Movimentos sem carteira entram normalmente no resumo mensal e na regra.
+- Nenhum chip de carteira os contabiliza; soma dos chips pode ser **menor** que o fluxo efetivo do mês.
+
+**Comportamento esperado:**
+- Usuário que adota carteiras espera que “tudo que passou por contas” apareça nos chips, ou que haja indicador de “sem carteira”.
+
+**Impacto:**
+- **Usuário:** adota carteiras mas parte do dinheiro “some” da visão por conta.
+- **Negócio:** incentivo fraco a vincular todos os movimentos.
+- **Dados:** gap de classificação não quantificado na UI.
+
+**Evidências:** `getAccountMonthTotals` filtra por `accountId`; seletor opcional em `IncomeSection` e `ExpenseSection`.
+
+**Recomendação:** Chip ou linha “Não vinculado” com total efetivado sem carteira, ou lembrete ao salvar movimento sem carteira quando o usuário já tem carteiras cadastradas.
+
+---
+
+### 17. Saldo estimado da carteira depende de declaração e histórico carregado
+
+**Severidade:** Médio
+
+**Regra analisada:** Saldo exibido na carteira deve refletir a realidade financeira do usuário.
+
+**Comportamento atual:**
+- Sem declaração manual, o saldo é carry-forward de meses anteriores com movimentos efetivados vinculados.
+- O intervalo histórico buscado depende de âncoras de saldo declarado e do `earliestMovementMonth`.
+- Se o primeiro movimento vinculado ocorrer na sessão atual, o carry-forward cross-year pode ficar impreciso até reload.
+
+**Comportamento esperado:**
+- Saldo cumulativo deve incluir toda a cadeia desde o primeiro movimento, ou o produto deve exigir declaração explícita com UX orientativa.
+
+**Impacto:**
+- **Usuário:** saldo no chip pode estar subestimado em cenários de longa data ou primeira vinculação na sessão.
+- **Negócio:** decisões baseadas em saldo estimado incorreto.
+- **Dados:** número derivado sensível a escopo de fetch, não a ledger completo.
+
+**Evidências:** `getAccountOpeningBalance`, `getAccountHistoryFetchRange`, `fetchEarliestMovementMonth` em `useSupabaseFinance`.
+
+**Recomendação:** Atualizar `earliestMovementMonth` ao vincular primeiro movimento na sessão; comunicar que saldo é **estimado** e depende de declarações periódicas.
+
+---
+
+### 18. Sem transferências entre carteiras — risco de dupla contagem manual
+
+**Severidade:** Baixo
+
+**Regra analisada:** Movimentação entre contas do mesmo usuário não deve distorcer totais globais.
+
+**Comportamento atual:**
+- Transferir R$ 500 da conta A para B exige registrar saída em A e entrada em B manualmente.
+- Resumo mensal: impacto líquido zero se ambos efetivados no mesmo mês.
+- Chips: A diminui e B aumenta — correto por carteira.
+- Regra 50/30/20: entrada e gasto podem classificar em categorias diferentes, distorcendo buckets.
+
+**Comportamento esperado:**
+- Produtos com carteiras tipicamente oferecem “transferência interna” que não afeta saldo consolidado nem categorias de gasto.
+
+**Impacto:**
+- **Usuário:** trabalho extra e risco de classificar transferência como gasto real.
+- **Negócio:** limitação aceitável no MVP (nível 1–2 da proposta).
+- **Dados:** sem entidade de transferência; depende de disciplina do usuário.
+
+**Evidências:** Proposta de feature — sem ledger nem transferências; CRUD de movimentos independentes.
+
+**Recomendação:** Documentar limitação. Avaliar tipo de lançamento “transferência” em evolução futura se carteiras forem adotadas massivamente.
+
+---
+
+## Módulo: Lista de Desejos
+
+| Campo | Valor |
+|-------|-------|
+| **Objetivo** | Planejar metas de consumo com valor, urgência e prazo, sem impactar fluxo de caixa |
+| **Posicionamento** | Aba mensal em Registros; isolada do resumo, regra, estatísticas e carteiras |
+| **Referência QA** | [13-lista-desejos.md](../QA/relatorios/13-lista-desejos.md) |
+
+### Veredito do módulo
+
+**Aprovado com ressalvas.** O isolamento financeiro está correto e as regras de visibilidade, expiração e conquista são previsíveis. As ressalvas concentram-se na **ponte desejo → gasto** (efetivação, divergência de valor) e na **reconciliação planejado vs. realizado**.
+
+### Regras de negócio validadas
+
+| Regra | Resultado |
+|-------|-----------|
+| Desejos não alteram saldo mensal | Correto — ausentes de `MonthSummarySection` e `monthTotals` |
+| Visibilidade `active` entre meses | Correto — desejo criado em jan/2026 visível em mar/2026 se prazo ≥ mar |
+| Conquista remove de todos os meses | Correto — `status = conquered` → `isWishVisibleInMonth` false |
+| Expiração automática | Correto — batch no load; feedback via toast |
+| Expirado só no mês do prazo | Correto — permite renovar ou excluir |
+| Renovação reativa item | Correto — `expired` → `active` com novo `targetMonth` |
+| Conquista adiada até gasto salvo | Correto — fluxo em duas etapas pós-correção QA |
+| Cancelamento limpa pendência | Correto — troca de aba/mês cancela `pendingWishConquer` |
+
+### Lacunas de negócio específicas
+
+| # | Lacuna | Severidade |
+|---|--------|------------|
+| D1 | Gasto da conquista não efetivado (achado #13) | Médio |
+| D2 | Valor do gasto editável vs. valor planejado (achado #14) | Médio |
+| D3 | Desejo sem sugestão de carteira no rascunho de gasto | Baixo |
+| D4 | Gasto salvo com falha na conquista — expense órfão, wish `active` | Baixo |
+| D5 | Total da seção = soma planejada; não há “realizado” agregado | Baixo |
+
+**D3 — Detalhe:** ao conquistar com gasto, o rascunho não pré-seleciona carteira. Usuário que organiza por contas precisa vincular manualmente — gap de continuidade entre planejamento e execução.
+
+**D5 — Detalhe:** `SectionTotalsHeader` exibe total planejado e contagem de itens. Não há métrica “conquistado no mês” ou “valor efetivamente gasto via desejos” — aceitável se desejos forem só planejamento, mas limita visão de execução.
+
+---
+
+## Módulo: Carteiras
+
+| Campo | Valor |
+|-------|-------|
+| **Objetivo** | Organizar movimentos por conta e exibir saldo estimado cumulativo com declaração manual |
+| **Posicionamento** | Faixa global (`AccountStrip`) entre resumo e registros; vínculo em Entradas/Gastos/Investimentos |
+| **Referência QA** | [14-carteiras.md](../QA/relatorios/14-carteiras.md), [proposta-feature-contas.md](../DEV/proposta-feature-contas.md) |
+
+### Veredito do módulo
+
+**Aprovado com ressalvas.** Critério efetivado alinhado ao resumo, investimentos obrigatoriamente vinculados e carry-forward cross-year corrigidos na maior parte dos cenários. Ressalvas em **dois saldos na mesma tela**, **movimentos sem carteira** e **dependência de declaração/histórico** para precisão do chip.
+
+### Regras de negócio validadas
+
+| Regra | Resultado |
+|-------|-----------|
+| Entrou / Saiu / Aportado = efetivados | Correto — paridade com resumo mensal |
+| Aporte soma na carteira | Correto — `inflow − outflow + invested` |
+| Investimento exige carteira | Correto — validação + empty state com atalho |
+| Exclusão desvincula (SET NULL) | Correto — movimentos preservados |
+| Saldo declarado = início do mês | Correto — copy e alertas em Fase 2.2 |
+| Carry-forward cross-year | Correto com ressalva — `earliestMovementMonth` |
+| Gasto em cartão na carteira | Correto — só conta quando fatura paga |
+| `account_id` em repetições | Correto — propagado; status efetivado não |
+
+### Lacunas de negócio específicas
+
+| # | Lacuna | Severidade |
+|---|--------|------------|
+| C1 | Dois conceitos de saldo (achado #15) | Alto |
+| C2 | Movimentos sem carteira invisíveis nos chips (achado #16) | Médio |
+| C3 | Saldo estimado sensível a histórico/declaração (achado #17) | Médio |
+| C4 | Sem transferências internas (achado #18) | Baixo |
+| C5 | `earliestMovementMonth` stale na sessão | Baixo |
+| C6 | Cartão de crédito sem vínculo com carteira pagadora | Baixo |
+
+**C6 — Detalhe:** decisão de produto adiada na proposta — fatura paga não debita automaticamente de uma carteira. Usuário que paga fatura do Nubank com débito no Nubank precisa marcar fatura paga **e** ter gastos vinculados à carteira — dupla operação sem reconciliação automática fatura ↔ conta.
+
+---
+
 ## Cenários extremos validados
 
 | Cenário | Resultado | Observação |
@@ -399,6 +655,14 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 | Dezembro + repetição mensal | Janeiro seguinte sem cópia | Ver achado #4 |
 | Categoria nova usada antes de mapear | Entra no saldo, não na regra | Ver achado #1 |
 | Usuário com muitos lançamentos | Cálculos permanecem corretos | Performance é outro domínio |
+| Desejo com prazo no mês atual | Alerta âmbar; expira ao mudar de mês | Correto; renovação disponível |
+| Conquistar desejo sem gasto | Some da lista; saldo inalterado | Correto — isolamento financeiro |
+| Conquistar com gasto, não marcar pago | Desejo conquered; saldo não reflete gasto | Ver achado #13 |
+| Carteira sem movimentos vinculados | Chip mostra só saldo declarado ou zero | Correto |
+| Movimento efetivado sem `accountId` | Entra no resumo; ignorado nos chips | Ver achado #16 |
+| Declarar saldo com movimentos no mês | Alerta + preview de fechamento | Correto |
+| Excluir carteira com movimentos | Movimentos permanecem; `accountId` null no DB | Correto; estado local sincronizado pós-correção |
+| Investimento sem carteira (legado) | Fallback por `tag`; edição exige carteira | Migração gradual aceitável |
 
 ---
 
@@ -411,6 +675,9 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 | 3 | **Repetição mensal** deve cruzar ano? | A) Sim, indefinida B) Não, só ano civil (atual) C) Perguntar ao usuário |
 | 4 | **Investimentos** são fluxo de caixa ou posição? | A) Fluxo (atual) B) Posição com vínculo resgate C) Híbrido |
 | 5 | **Métodos de pagamento** customizáveis? | A) Sim B) Não no MVP |
+| 6 | **Conquista com gasto** deve efetivar o gasto automaticamente? | A) Sim (`paid: true`) B) Não — usuário efetiva depois (atual) C) Perguntar no dialog |
+| 7 | **Carteiras** prometem saldo real ou organização? | A) Organização + estimativa (atual) B) Saldo real com declaração obrigatória C) Ledger completo |
+| 8 | **Movimentos sem carteira** quando usuário tem carteiras? | A) Permitir silenciosamente B) Alertar ao salvar C) Exigir vínculo |
 
 ---
 
@@ -421,15 +688,22 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 | **P1** | Categorias não mapeadas vs regra (#1) | Regra de produto + comunicação |
 | **P1** | Visão anual desatualizada em apply-to-all (#2) | Correção de consistência |
 | **P1** | Resumo efetivado vs listas brutas (#3) | Alinhamento de UX/regra |
+| **P1** | Dois conceitos de saldo (#15) | Glossário + decisão de produto |
 | **P2** | Repetição não cruza ano (#4) | Decisão de produto |
 | **P2** | Seleção vs efetivados (#6) | Clarificação de comportamento |
 | **P2** | Chip cartão vs resumo (#9) | Rótulos e educação |
 | **P2** | Planejado vs realizado (#10) | Decisão de produto |
+| **P2** | Gasto da conquista não efetivado (#13) | Regra de produto |
+| **P2** | Movimentos sem carteira (#16) | Indicador ou alerta |
+| **P3** | Valor desejo vs gasto (#14) | Reconciliação ou bloqueio |
+| **P3** | Saldo carteira vs histórico (#17) | Hardening carry-forward |
 | **P3** | Vínculo cartão por nome (#5) | Integridade de dados |
 | **P3** | Métodos de pagamento (#7) | Backlog feature |
 | **P3** | Resgate vs investimento (#8) | Documentação / feature |
 | **P4** | Validação só no client (#11) | Risco aceito ou hardening |
 | **P4** | deleteRule sem UI (#12) | Backlog |
+| **P4** | Transferências entre carteiras (#18) | Backlog / documentação |
+| **P4** | Desejo sem carteira no rascunho (D3) | Melhoria de fluxo |
 
 ---
 
@@ -437,14 +711,16 @@ Legenda exibida ao usuário: *"Apenas itens marcados como recebido, pago ou inve
 
 ### **Aprovado com ressalvas**
 
-As regras centrais de **efetivados**, **cartões**, **saldo** e **regra 50/30/20** estão alinhadas após as correções recentes. O produto produz resultados **corretos e previsíveis** na maioria dos fluxos de uso diário.
+As regras centrais de **efetivados**, **cartões**, **saldo mensal**, **carteiras** e **regra 50/30/20** estão alinhadas após as correções recentes. A **lista de desejos** cumpre corretamente seu papel de planejamento isolado do fluxo de caixa. O produto produz resultados **corretos e previsíveis** na maioria dos fluxos de uso diário.
 
 As ressalvas concentram-se em:
-1. **Reconciliação** entre resumo, listas e regra financeira.
+1. **Reconciliação** entre resumo, listas, regra financeira e carteiras.
 2. **Consistência da visão anual** em operações multi-mês.
-3. **Decisões de produto** ainda não formalizadas (planejado vs realizado, recorrência anual, categorias não mapeadas).
+3. **Dois saldos na mesma tela** (mês vs carteira) sem educação suficiente.
+4. **Ponte desejo → gasto** (efetivação e divergência de valores).
+5. **Decisões de produto** ainda não formalizadas (planejado vs realizado, recorrência anual, categorias não mapeadas, promessa de saldo em carteiras).
 
-Nenhuma inconsistência identificada é **crítica** para uso pessoal individual, mas devem ser endereçadas antes de posicionar o produto como ferramenta confiável de relatório anual e planejamento financeiro estruturado.
+Nenhuma inconsistência identificada é **crítica** para uso pessoal individual, mas devem ser endereçadas antes de posicionar o produto como ferramenta confiável de relatório anual, planejamento financeiro estruturado e **controle patrimonial por conta**.
 
 ---
 
@@ -452,6 +728,9 @@ Nenhuma inconsistência identificada é **crítica** para uso pessoal individual
 
 - [Business Specialist](./business-specialist.mdc)
 - [ANALISE Frontend](../ANALISE_FRONTEND_QA.md) — *nota: seções de resumo/regra desatualizadas quanto a efetivados; código prevalece*
+- [QA Lista de Desejos](../QA/relatorios/13-lista-desejos.md)
+- [QA Carteiras](../QA/relatorios/14-carteiras.md)
+- [Proposta Carteiras](../DEV/proposta-feature-contas.md)
 - [QA Transversal](../QA/relatorios/99-transversal.md)
 - [Validação](../VALIDATION/relatorio-validacao-correcoes-qa.md)
 - [Performance](../PERFORMANCE/relatorio-performance-frontend.md)

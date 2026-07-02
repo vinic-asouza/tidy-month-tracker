@@ -489,9 +489,11 @@ Usuário autenticado (RLS).
 
 ## Módulo: Investimentos
 
+> **Status:** Fase 2.1 ✅ — acoplado a Carteiras
+
 ### Objetivo
 
-CRUD de aportes/investimentos mensais com tags (instituições), repetição e marcação de realizado.
+CRUD de aportes/investimentos mensais vinculados a **Carteira** (`account_id`), repetição e marcação de realizado.
 
 ### Funcionalidades
 
@@ -499,20 +501,23 @@ CRUD de aportes/investimentos mensais com tags (instituições), repetição e m
 - Marcar como **investido** (`invested`)
 - Repetição mensal (`repeatAllMonths`)
 - Escopo apply-to-all (mesmo padrão de entradas)
-- Gerenciar tags de instituição
-- Ordenação e visão resumo por instituição
+- Select **Carteira obrigatório** (substitui "Instituição"); `tag` derivada do nome da carteira no submit (compatibilidade DB)
+- Empty state no dialog quando não há carteiras + atalho "Criar carteira"
+- Ordenação e visão resumo por **carteira** (fallback `tag` para investimentos legados sem `accountId`)
 - Seleção múltipla
 
 ### Regras de negócio
 
-- Valor > 0, descrição e tag obrigatórios
+- Valor > 0, descrição e **carteira** obrigatórios
 - Novo investimento com `invested: false`
-- Repetição: mesma lógica de entradas (`base_investment_id`)
-- Excluir tag bloqueado se tag em uso
+- Repetição: mesma lógica de entradas (`base_investment_id`); `account_id` propagado nas cópias
+- Aporte efetivado (`invested`) **soma** no saldo estimado da carteira vinculada
+- Dados legados sem `accountId`: exibidos com fallback `tag`; edição exige escolher carteira
 
 ### Dependências
 
-- Tabelas `investments`, `finance_settings.investment_tags`
+- Tabelas `investments`, `accounts`
+- `finance_settings.investment_tags` permanece no banco (não alimenta mais o formulário)
 
 ### Endpoints (modo Supabase)
 
@@ -650,6 +655,97 @@ Usuário autenticado; RLS restringe a `user_id` da sessão.
 - Serviço: `src/services/wishItems.ts`
 - Migration: `supabase/migrations/create_wish_items.sql`
 - Testes unitários: `src/utils/business/__tests__/wishItems.test.ts`
+
+---
+
+## Módulo: Carteiras (Accounts)
+
+> **Status:** Fase 1 ✅ · Fase 2 ✅ · Fase 2.1 ✅ · Fase 2.2 ✅
+
+### Fase 1 — Organização
+
+**Entidade:** `Account` — entidade global do usuário (não mensal), definida em `types/domain.ts`.
+
+**Tabela Supabase:** `public.accounts` — colunas: `id, user_id, name, type (checking|savings|investment|cash|other), color, display_order, created_at, updated_at`. RLS habilitada com 4 policies.
+
+**Vinculação:** Tabelas `incomes`, `expenses` e `investments` possuem coluna `account_id UUID REFERENCES accounts(id) ON DELETE SET NULL` — vínculo opcional; excluir a carteira desvincula sem apagar movimentos.
+
+**Camada de serviço:**
+- Facade: `services/accounts.ts`
+- Adapter Supabase: `services/adapters/supabase/accounts.ts`
+- Adapter API: `services/adapters/api/accounts.ts`
+- Registrado em: `services/adapters/select.ts` via `accountsAdapter()`
+- Mapper: `toAccount()` em `services/adapters/mappers.ts`
+
+**Hook:** `useSupabaseFinance` — estado `accounts`, carregado em `loadInitialData`; handlers `addAccount`, `updateAccount`, `deleteAccount`, `accountNameExists`. Segue mesmo padrão de `creditCards`.
+
+**Lógica de negócio:** `utils/business/accounts.ts` — `getAccountMonthTotals(accountId, monthData, creditCards, cardMonthlyStatuses)` retorna `{ inflow, outflow, invested }` **efetivados** (received / paid ou fatura paga / invested), alinhado ao resumo mensal via `isExpenseEffectivelyPaid`. Coberto por testes unitários em `__tests__/accounts.test.ts`.
+
+**UI:** `components/AccountStrip.tsx` — seção em `SectionSurface` (mesmo padrão de Resumo e Registros), com faixa horizontal de chips, ícone de tipo, cor, métricas mensais efetivadas (Entrou/Saiu/Aportado), ordenação no header, CRUD via dialog (nome, tipo, cor) e confirmação de exclusão (alertando sobre SET NULL). Renderizada entre `MonthSummarySection` e `MonthRecordsSection` em `Index.tsx`. FAB global inclui item "Carteira".
+
+**Seletor nos formulários:** `IncomeSection` e `ExpenseSection` exibem Select opcional "Carteira (opcional)" quando há carteiras cadastradas. `InvestmentSection` exibe Select **Carteira obrigatório** (Fase 2.1).
+
+**Tipos:**
+- `Account`, `AccountType`, `CreateAccountInput`, `UpdateAccountInput` em `types/domain.ts`
+- `DEFAULT_ACCOUNT_TYPES`, `AccountTypeConfig` em `types/finance.ts`
+- Tipos Supabase: `integrations/supabase/types.ts` (tabela `accounts`, colunas `account_id` em movimentos)
+
+### Fase 2 — Saldo Declarado (Snapshot Mensal)
+
+**Entidade:** `AccountBalance` — snapshot informado manualmente pelo usuário, por carteira e mês.
+
+**Tabela Supabase:** `public.account_balances` — colunas: `id, account_id (FK accounts ON DELETE CASCADE), user_id, year_month, balance, created_at, updated_at`. Constraint `UNIQUE(account_id, year_month)`. Índice em `(user_id, year_month)`. RLS com 4 policies.
+
+**Camada de serviço:**
+- Facade: `services/accountBalances.ts` — `getAccountBalances(userId)`, `upsertAccountBalance(params)`, `deleteAccountBalance(accountId, yearMonth)`
+- Adapter Supabase: `services/adapters/supabase/accountBalances.ts` — usa UPSERT com `onConflict('account_id,year_month')`
+- Adapter API: `services/adapters/api/accountBalances.ts`
+- Registrado em: `services/adapters/select.ts` via `accountBalancesAdapter()`
+- Mapper: `toAccountBalance()` em `services/adapters/mappers.ts`
+
+**Hook:** `useSupabaseFinance` — estado `accountBalances: AccountBalance[]`, carregado em `loadInitialData` junto de `fetchAccounts`; handler `upsertAccountBalance(accountId, yearMonth, balance)` com update otimista.
+
+**Lógica de negócio:** `utils/business/accounts.ts` (Fase 2):
+- `getAccountDeclaredBalance(accountId, yearMonth, balances)` — saldo exato do mês ou null
+- `getAccountLastKnownBalance(accountId, yearMonth, balances)` — último saldo anterior ao mês (exibição "desatualizado")
+- `getAccountNetVariation(accountId, monthData, creditCards, cardMonthlyStatuses)` — variação líquida efetiva: `inflow − outflow + invested` (aporte soma na carteira)
+- `getAccountProjectedBalance(baseBalance, ...)` — saldo estimado = saldo declarado + variação efetiva
+- Itens recorrentes: cada mês é linha independente com seu próprio status; `account_id` propagado nas cópias ao ativar repeat (adapters Supabase). Status efetivo (`received`/`paid`/`invested`) **não** propaga em edição com `applyToAllMonths` (`omitEffectiveStatus` nos adapters; formulário de gasto não reenvia `paid` na edição)
+Cobertos por testes unitários em `__tests__/accounts.test.ts`.
+
+### Fase 2.1 — Investimentos acoplados a Carteiras
+
+- Formulário de investimento: apenas Carteira obrigatória; `tag` = nome da carteira (compat DB)
+- `getAccountNetVariation`: aporte efetivado **soma** (`+ invested`) no saldo estimado da carteira
+- Lista/resumo/ordenação por carteira; legados sem `accountId` exibem `tag` como fallback
+- `onRequestAddAccount` no dialog quando não há carteiras cadastradas
+
+### Fase 2.2 — Saldo cumulativo entre meses
+
+**Lógica de negócio** (`accounts.ts`):
+- `getAccountOpeningBalance` — saldo no início do mês (declaração ou carry-forward)
+- `getAccountClosingBalance` — saldo ao fim do mês (inicial + variação efetiva)
+- `getMonthsInRange`, `getAccountHistoryFetchRange` — utilitários para cadeia entre meses
+
+**Dados históricos:**
+- `fetchMonthsRange` em `financeQueries.ts` — busca movimentos entre mês âncora e mês anterior ao atual
+- `useSupabaseFinance` — query `accountHistoryMonths` (mesclada com mês corrente)
+
+**UI — `AccountStrip.tsx` (Fase 2.2):**
+- Saldo atual em destaque + linha "Início: R$ …"
+- Indicador "declarado" quando opening veio de declaração manual; "↳ mês anterior" quando carry-forward
+- Removido label "desatual."
+- Dialog "Declarar saldo": copy esclarece saldo no **início** do mês
+- **Alerta contextual** quando a carteira já tem movimentações efetivadas no mês: avisa que a declaração redefine o saldo inicial (substitui carry-forward), que as movimentações do mês continuam valendo, e exibe preview reativo do saldo atual estimado ao digitar (`getBalanceDeclarationWarning`)
+
+**UI — `AccountStrip.tsx` (Fase 2):**
+- **Dialog de criação:** campo opcional "Saldo inicial" — ao criar com valor preenchido, dispara `upsertAccountBalance` após o account ser persistido (via `useEffect` que monitora `accounts` pelo nome da carteira criada e `pendingInitialBalance`).
+- **Menu do chip:** nova opção "Declarar saldo" → abre dialog com label "Saldo de [nome] em [mês/ano]" e input numérico.
+- **Renderização do chip (Fase 2 — substituída na 2.2):**
+  - ~~Saldo estimado com tag "desatual."~~ → ver Fase 2.2
+  - Breakdown Entrou/Saiu/Aportado (efetivados) separado por linha divisória quando há saldo
+
+**Props adicionadas ao `AccountStrip`:** `accountBalances`, `accountHistoryMonths`, `currentMonth`, `onUpsertBalance`, `creditCards`, `cardMonthlyStatuses`.
 
 ---
 
@@ -1163,7 +1259,10 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 - [ ] CRUD completo
 - [ ] Repetição mensal e apply-to-all
 - [ ] Marcar investido
-- [ ] Tags (mesmos cenários de entradas)
+- [ ] Carteira obrigatória no formulário (Fase 2.1)
+- [ ] Empty state sem carteiras + atalho criar carteira
+- [ ] Resumo/ordenação por carteira
+- [ ] Aporte investido aumenta saldo estimado da carteira
 
 ## Regra financeira
 

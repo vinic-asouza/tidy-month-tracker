@@ -275,8 +275,14 @@ Referência: [relatório QA 13](../QA/relatorios/13-lista-desejos.md)
 | Spinner em toda troca de mês | Baixo | Stale-while-revalidate: spinner fullscreen só na carga inicial; `isRefetching` com opacidade sutil |
 | `pendingWishConquer` persiste ao trocar aba (revalidação) | Médio | `useEffect` em `Index.tsx` limpa pendência ao sair da aba Gastos ou trocar de mês |
 | Copy do dialog de conquista imprecisa (revalidação) | Baixo | Texto atualizado: conquista com gasto só após salvar |
+| D1 — Gasto da conquista não efetivado (negócio) | Médio | `ExpenseForm`: `paid: true` automático quando forma de pagamento não é cartão |
+| D2 — Valor planejado vs. real (negócio) | Médio | Alert com valor planejado; campo valor vazio com label "Valor real gasto" |
+| D3 — Sem sugestão de carteira no rascunho (negócio) | Baixo | `accountId` pré-selecionado quando há exatamente 1 carteira |
+| D4 — Gasto órfão se conquista falhar (negócio) | Baixo | Toast orientando conquista manual ou exclusão do gasto |
+| D5 — Sem métrica realizado no header (negócio) | Baixo | `getWishRealizedMetrics` + `SectionTotalsHeader` com total realizado |
+| Listagem de desejos conquistados (feature) | — | `filterWishesForMonthDisplay` + toggle Este mês/Ano até aqui; itens marcados com checkbox desabilitado |
 
-**Arquivos:** `Index.tsx`, `useWishItems.ts`, `WishSection.tsx`, `useSupabaseFinance.ts`, `ExpenseSection.tsx`, `MonthRecordsSection.tsx`
+**Arquivos:** `Index.tsx`, `useWishItems.ts`, `WishSection.tsx`, `ExpenseSection.tsx`, `MonthRecordsSection.tsx`, `wishItems.ts`
 
 ### Validação Lista de Desejos
 
@@ -284,7 +290,55 @@ Referência: [relatório QA 13](../QA/relatorios/13-lista-desejos.md)
 - [x] Conquista + gasto: desejo permanece `active` se dialog fechado sem salvar
 - [x] Conquista + gasto: `linked_expense_id` preenchido após salvar
 - [x] Troca de aba ou mês com pendência ativa limpa `pendingWishConquer`
+- [x] Lacunas de negócio D1–D5 (efetivação condicional, valor planejado/real, carteira, toast órfão, métrica realizado)
+- [x] Listagem de conquistados com toggle de escopo e filtro por ano do mês selecionado
+- [x] Testes unitários `wishItems.test.ts` (14 casos, incl. visibilidade de conquistados)
 - [ ] Testes manuais browser (fluxo conquista, expiração, edição de prazo)
+
+---
+
+## Carteiras (Accounts)
+
+Referência: [relatório QA 14](../QA/relatorios/14-carteiras.md)
+
+| Achado | Severidade | Solução |
+|--------|------------|---------|
+| Carry-forward ignorando anos anteriores | Alto | `getEarliestAccountMovementMonth` + `getAccountHistoryFetchRange` estendido com `earliestMovementMonth` |
+| Exclusão não sincroniza estado local | Médio | `deleteAccount` zera `accountId` no cache, remove balances locais, invalida mês e histórico |
+| Saldo inicial sem await/erro | Médio | `addAccount` retorna `Account`; saldo inicial via `onUpsertBalance(created.id)` com toast em falha |
+| Dialog declaração fecha em falha | Médio | Fecha só quando `onUpsertBalance` retorna `true` |
+| Create sem validação de duplicata no adapter | Médio | Checagem `ilike` em `createAccount` (Supabase) |
+| Preview só quando valor > 0 | Baixo | Preview com `balanceInput.trim() !== ''` (inclui R$ 0,00) |
+| displayOrder fixo na UI | Baixo | Removido `displayOrder: 0` redundante; hook usa `accounts.length` |
+| Saldo inicial por nome | Baixo | Resolvido com retorno de `Account` por id |
+| `earliestMovementMonth` stale na sessão | Baixo (revalidação) | `fetchEarliestMovementMonth` após add/update de movimentos com `accountId` (substitui `touchEarliestMovementMonth` impreciso) |
+| Saldo inicial R$ 0,00 na criação | Baixo (revalidação) | Removido guard `balance > 0` em `AccountStrip`; upsert quando `initialBalance.trim()` |
+
+### Lacunas de negócio (relatório regras de negócio)
+
+Referência: [relatorio-regras-negocio.md](../BUSINESS/relatorio-regras-negocio.md) — módulo Carteiras C1–C6
+
+| Lacuna | Severidade | Solução |
+|--------|------------|---------|
+| C1 — Dois conceitos de saldo (#15) | Alto | Glossário (`Saldo do mês` vs `Saldo estimado na carteira`); chip `Saldo estimado`; link ao glossário na `AccountStrip` |
+| C2 — Movimentos sem carteira (#16) | Médio | Chip `Não vinculados` + `UnlinkedMovementsDialog`; toast info ao criar entrada/gasto sem carteira |
+| C3 — Saldo estimado vs histórico (#17) | Médio | Copy reforçada (`estimado do mês anterior`, declaração ancora saldo); glossário explica dependência de declaração |
+| C4 — Sem transferências internas (#18) | Baixo | **Backlog MVP** — limitação aceita; transferência manual (saída em A + entrada em B). Ver [proposta-feature-contas.md](proposta-feature-contas.md) |
+| C5 — `earliestMovementMonth` stale | Baixo | **Fechado** — refetch via `fetchEarliestMovementMonth` após vínculo de carteira (corrige edge case de repetição cross-year) |
+| C6 — Cartão sem carteira pagadora | Baixo | **Decisão adiada** — marcar fatura paga não debita carteira; gastos precisam estar vinculados à carteira |
+
+**Arquivos (negócio):** `FinancialGlossaryDialog.tsx`, `AccountStrip.tsx`, `UnlinkedMovementsDialog.tsx`, `accounts.ts`, `IncomeSection.tsx`, `ExpenseSection.tsx`, `MonthSummarySection.tsx`
+
+**Arquivos:** `accounts.ts` (business + adapter), `useSupabaseFinance.ts`, `AccountStrip.tsx`, `services/accounts.ts`
+
+### Validação Carteiras
+
+- [x] `npm run build` sem erros TypeScript
+- [x] Testes unitários `accounts.test.ts` (45+ casos, incl. cross-year e não vinculados)
+- [x] Lacunas de negócio C1–C3 (glossário, chip não vinculados, copy estimado)
+- [x] C5 confirmado fechado; C4/C6 documentados como backlog
+- [x] Revalidação QA 14: 2 achados Baixos residuais corrigidos (`earliestMovementMonth`, saldo inicial zero)
+- [ ] Testes manuais browser (exclusão, declaração de saldo, carry-forward multi-ano)
 
 ---
 
