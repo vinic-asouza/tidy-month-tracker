@@ -27,7 +27,7 @@ export async function getMonthItemCount(
 }
 
 export async function getGlobalItemCount(
-  table: 'credit_cards',
+  table: 'credit_cards' | 'accounts',
   userId: string
 ): Promise<number> {
   const { count, error } = await supabase

@@ -3,4 +3,6 @@ export const financeKeys = {
     ['finance', 'month', userId, yearMonth] as const,
   year: (userId: string, year: number) =>
     ['finance', 'year', userId, year] as const,
+  accountHistory: (userId: string, from: string, to: string) =>
+    ['finance', 'accountHistory', userId, from, to] as const,
 };

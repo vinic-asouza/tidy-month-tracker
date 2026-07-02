@@ -1,5 +1,6 @@
 import type { CreditCard, MonthData } from '@/types/domain';
 import { getEmptyMonthData } from '@/types/finance';
+import { getMonthsInRange } from '@/utils/business/accounts';
 import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
 import * as investmentsService from '@/services/investments';
@@ -53,4 +54,35 @@ export async function fetchYearData(
   });
 
   return Promise.all(monthPromises);
+}
+
+export async function fetchMonthsRange(
+  userId: string,
+  fromYearMonth: string,
+  toYearMonth: string,
+  creditCards: CreditCard[]
+): Promise<Record<string, MonthData>> {
+  const months = getMonthsInRange(fromYearMonth, toYearMonth);
+  if (months.length === 0) return {};
+
+  const bundles = await Promise.all(
+    months.map(async (yearMonth) => {
+      try {
+        const bundle = await fetchMonthBundle(userId, yearMonth, creditCards);
+        return {
+          yearMonth,
+          data: {
+            incomes: bundle.incomes,
+            expenses: bundle.expenses,
+            investments: bundle.investments,
+            cardMonthlyStatuses: bundle.cardMonthlyStatuses,
+          } satisfies MonthData,
+        };
+      } catch {
+        return { yearMonth, data: getEmptyMonthData() };
+      }
+    })
+  );
+
+  return Object.fromEntries(bundles.map(({ yearMonth, data }) => [yearMonth, data]));
 }

@@ -48,6 +48,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SelectionToggle } from '@/components/SelectionToggle';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
@@ -81,8 +82,11 @@ interface ExpenseSectionProps {
   /** Pré-preenche o formulário de novo gasto (ex.: conquista de desejo) */
   expenseDraft?: Partial<Expense> | null;
   /** Chamado após consumir o rascunho de gasto */
-  onExpenseDraftConsumed?: () => void;
+  onExpenseDraftConsumed?: (cancelled?: boolean) => void;
+  /** Valor planejado do desejo ao conquistar com gasto */
+  wishConquerPlannedValue?: number;
   variant?: 'default' | 'embedded';
+  accounts?: import('@/types/domain').Account[];
 }
 
 type ViewMode = 'general' | 'summary';
@@ -111,6 +115,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'lowest', label: 'Menor Valor' },
 ];
 
+const NO_ACCOUNT = 'none';
+
 const ExpenseForm = ({
   type,
   categories,
@@ -119,6 +125,8 @@ const ExpenseForm = ({
   onSubmit,
   initialData,
   categoryManagerSlot,
+  accounts = [],
+  wishConquerPlannedValue,
 }: {
   type: Expense['type'];
   categories: string[];
@@ -127,12 +135,22 @@ const ExpenseForm = ({
   onSubmit: (data: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
   initialData?: Expense;
   categoryManagerSlot?: ReactNode;
+  accounts?: import('@/types/domain').Account[];
+  wishConquerPlannedValue?: number;
 }) => {
+  const isWishConquerFlow = wishConquerPlannedValue != null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState(initialData?.category || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [paymentMethod, setPaymentMethod] = useState(initialData?.paymentMethod || '');
-  const [value, setValue] = useState(initialData ? formatValueForInput(initialData.value) : '');
+  const [value, setValue] = useState(
+    isWishConquerFlow
+      ? ''
+      : initialData
+        ? formatValueForInput(initialData.value)
+        : ''
+  );
+  const [selectedAccountId, setSelectedAccountId] = useState(initialData?.accountId ?? NO_ACCOUNT);
   const [itemDate, setItemDate] = useState(
     initialData?.date ?? formatDateToYYYYMMDD(new Date())
   );
@@ -189,6 +207,9 @@ const ExpenseForm = ({
 
     if (hasError) return;
 
+    const isCardPayment = creditCards.some((c) => c.name === paymentMethod);
+    const paid = isWishConquerFlow ? !isCardPayment : (initialData?.paid ?? false);
+
     setIsSubmitting(true);
     try {
       const result = await onSubmit({
@@ -198,10 +219,11 @@ const ExpenseForm = ({
         paymentMethod,
         value: numValue,
         date: itemDate,
-        paid: initialData?.paid || false,
+        paid,
         repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
         currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
         totalInstallments: type === 'installment' ? parseInt(totalInstallments) || 12 : undefined,
+        accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined,
       });
       if (result === false) return;
     } finally {
@@ -211,6 +233,14 @@ const ExpenseForm = ({
 
   return (
     <div className="space-y-4 pt-4">
+      {isWishConquerFlow && (
+        <Alert className="rounded-md border-primary/30 bg-primary/5">
+          <AlertDescription className="text-sm">
+            Valor planejado:{' '}
+            <span className="font-semibold tabular-nums">{formatCurrency(wishConquerPlannedValue)}</span>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Category */}
       <div>
         <label className="text-sm font-medium mb-2 block text-muted-foreground">Categoria</label>
@@ -279,7 +309,11 @@ const ExpenseForm = ({
         </div>
         <div className="col-span-2">
           <label className="text-sm font-medium mb-2 block text-muted-foreground">
-            {type === 'installment' ? 'Valor da parcela' : 'Valor'}
+            {isWishConquerFlow
+              ? 'Valor real gasto'
+              : type === 'installment'
+                ? 'Valor da parcela'
+                : 'Valor'}
           </label>
           <CurrencyInput
             value={value}
@@ -318,6 +352,28 @@ const ExpenseForm = ({
         </Select>
         {paymentError && <p className="text-destructive text-sm mt-1">{paymentError}</p>}
       </div>
+
+      {/* Account / Carteira */}
+      {accounts.length > 0 && (
+        <div>
+          <label className="text-sm font-medium mb-2 block text-muted-foreground">
+            Carteira (opcional)
+          </label>
+          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+            <SelectTrigger className="rounded-md h-10">
+              <SelectValue placeholder="Nenhuma carteira" />
+            </SelectTrigger>
+            <SelectContent className="rounded-md">
+              <SelectItem value={NO_ACCOUNT} className="rounded-lg">Nenhuma</SelectItem>
+              {accounts.map((acc) => (
+                <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
+                  {acc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Installments for parcelado */}
       {type === 'installment' && (
@@ -725,10 +781,13 @@ const ExpenseSectionComponent = ({
   onAddDialogClose,
   expenseDraft,
   onExpenseDraftConsumed,
+  wishConquerPlannedValue,
   variant = 'default',
+  accounts = [],
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<Partial<Expense> | null>(null);
+  const submitSucceededRef = useRef(false);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -914,11 +973,11 @@ const ExpenseSectionComponent = ({
     return cardId ? getCardPaidStatus(cardId) : false;
   };
 
-  const clearAddDialogState = () => {
+  const clearAddDialogState = (cancelled = true) => {
     setEditingExpense(null);
     if (addDraft) {
       setAddDraft(null);
-      onExpenseDraftConsumed?.();
+      onExpenseDraftConsumed?.(cancelled);
     }
     onAddDialogClose?.();
   };
@@ -937,16 +996,20 @@ const ExpenseSectionComponent = ({
 
   const handleSubmit = async (data: Omit<Expense, 'id'>) => {
     if (editingExpense) {
-      const success = await onUpdate(editingExpense.id, data, applyToAllMonths);
+      const { paid: _omitPaid, ...updates } = data;
+      const success = await onUpdate(editingExpense.id, updates, applyToAllMonths);
       if (success === false) return false;
     } else {
       const created = await onAdd(data);
       if (!created) return false;
+      if (accounts.length > 0 && !data.accountId) {
+        toast.info('Salvo sem carteira — não aparecerá nos chips de conta.');
+      }
     }
 
     setApplyToAllMonths(false);
+    submitSucceededRef.current = true;
     setIsOpen(false);
-    clearAddDialogState();
     return true;
   };
 
@@ -1272,7 +1335,10 @@ const ExpenseSectionComponent = ({
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
-          if (!open) clearAddDialogState();
+          if (!open) {
+            clearAddDialogState(!submitSucceededRef.current);
+            submitSucceededRef.current = false;
+          }
         }}
       >
         <DialogContent className="rounded-lg max-w-md">
@@ -1311,6 +1377,13 @@ const ExpenseSectionComponent = ({
                       paymentMethods={paymentMethods}
                       creditCards={creditCards}
                       onSubmit={handleSubmit}
+                      accounts={accounts}
+                      wishConquerPlannedValue={
+                        addDraft &&
+                        (addDraft.type === type || (!addDraft.type && type === 'variable'))
+                          ? wishConquerPlannedValue
+                          : undefined
+                      }
                       initialData={
                         editingExpense?.type === type
                           ? editingExpense

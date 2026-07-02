@@ -23,8 +23,12 @@ const GLOSSARY_SECTIONS = [
     body: 'Total de compras no cartão no mês. O pagamento é registrado marcando a fatura como paga, não item a item.',
   },
   {
-    title: 'Saldo em caixa',
-    body: 'Entradas efetivadas menos gastos efetivados e investimentos efetivados no mês.',
+    title: 'Saldo do mês',
+    body: 'Entradas efetivadas menos gastos efetivados e investimentos efetivados no mês. É o resultado líquido do mês corrente — não representa o saldo acumulado de uma conta bancária.',
+  },
+  {
+    title: 'Saldo estimado na carteira',
+    body: 'Saldo declarado ou estimado do mês anterior, mais a variação efetiva acumulada na carteira. Não é o mesmo que o saldo do mês no resumo. Melhora com declarações periódicas e pode divergir do extrato bancário.',
   },
   {
     title: 'Regra 50/30/20',

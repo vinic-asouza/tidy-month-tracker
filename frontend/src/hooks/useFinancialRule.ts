@@ -2,7 +2,7 @@
  * Hook para gerenciar regra financeira
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { FinancialRule, CreateFinancialRuleInput, UpdateFinancialRuleInput } from '@/types/domain';
@@ -10,22 +10,29 @@ import * as financialRuleService from '@/services/financialRule';
 
 export const useFinancialRule = () => {
   const { user } = useAuth();
+  const userId = user?.id;
   const [loading, setLoading] = useState(true);
   const [rule, setRule] = useState<FinancialRule | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  // Carregar regra ao montar ou quando user mudar
+  // Carregar regra ao montar ou quando userId mudar
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setRule(null);
       setLoading(false);
+      hasLoadedRef.current = false;
       return;
     }
 
     const loadRule = async () => {
+      const isInitialLoad = !hasLoadedRef.current;
       try {
-        setLoading(true);
+        if (isInitialLoad) {
+          setLoading(true);
+        }
         const data = await financialRuleService.getFinancialRule();
         setRule(data);
+        hasLoadedRef.current = true;
       } catch (error) {
         // Se não houver regra, é normal (retorna null)
         setRule(null);
@@ -35,7 +42,7 @@ export const useFinancialRule = () => {
     };
 
     loadRule();
-  }, [user]);
+  }, [userId]);
 
   // Criar regra
   const createRule = useCallback(async (data: CreateFinancialRuleInput): Promise<FinancialRule> => {

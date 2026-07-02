@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, memo } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, Settings, List, LayoutGrid, ArrowUpDown, Repeat, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, List, LayoutGrid, ArrowUpDown, Repeat, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,7 @@ import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { SelectionToggle } from '@/components/SelectionToggle';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
-import { toast } from 'sonner';
+import type { Account } from '@/types/domain';
 
 type PersistHandler = (data: Omit<Investment, 'id'>) => Promise<boolean> | boolean;
 type UpdateHandler = (
@@ -54,19 +54,18 @@ type UpdateHandler = (
 
 interface InvestmentSectionProps {
   investments: Investment[];
-  tags: string[];
+  accounts: Account[];
   onAdd: PersistHandler;
   onUpdate: UpdateHandler;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
-  onAddTag: (tag: string) => void;
-  onUpdateTag: (oldTag: string, newTag: string) => void;
-  onDeleteTag: (tag: string) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   /** Abre o dialog de novo investimento (controlado pelo FAB global) */
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
+  /** Abre o dialog de nova carteira quando não há carteiras cadastradas */
+  onRequestAddAccount?: () => void;
   variant?: 'default' | 'embedded';
 }
 
@@ -90,13 +89,21 @@ const formatValueForInput = (value: number): string => {
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Data' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
-  { value: 'institution', label: 'Instituição' },
+  { value: 'institution', label: 'Carteira' },
   { value: 'highest', label: 'Maior Valor' },
   { value: 'lowest', label: 'Menor Valor' },
 ];
 
-// Sorting function
-const sortInvestments = (investments: Investment[], sortOption: SortOption): Investment[] => {
+const NO_ACCOUNT = 'none';
+
+const getAccountLabel = (investment: Investment, accounts: Account[]): string =>
+  accounts.find((a) => a.id === investment.accountId)?.name ?? investment.tag ?? '—';
+
+const sortInvestments = (
+  investments: Investment[],
+  sortOption: SortOption,
+  accounts: Account[]
+): Investment[] => {
   const sorted = [...investments];
   const getSortDate = (i: Investment) => i.date ?? (i.createdAt ? i.createdAt.split('T')[0] : '');
 
@@ -104,7 +111,9 @@ const sortInvestments = (investments: Investment[], sortOption: SortOption): Inv
     case 'alphabetic':
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
     case 'institution':
-      return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
+      return sorted.sort((a, b) =>
+        getAccountLabel(a, accounts).localeCompare(getAccountLabel(b, accounts), 'pt-BR')
+      );
     case 'date':
       return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
     case 'highest':
@@ -115,13 +124,17 @@ const sortInvestments = (investments: Investment[], sortOption: SortOption): Inv
   return sorted;
 };
 
-// Group investments by institution and calculate totals
-const groupByInstitution = (investments: Investment[], sortOption: SortOption): { institution: string; total: number }[] => {
+const groupByAccount = (
+  investments: Investment[],
+  sortOption: SortOption,
+  accounts: Account[]
+): { institution: string; total: number }[] => {
   const grouped = investments.reduce((acc, investment) => {
-    if (!acc[investment.tag]) {
-      acc[investment.tag] = 0;
+    const label = getAccountLabel(investment, accounts);
+    if (!acc[label]) {
+      acc[label] = 0;
     }
-    acc[investment.tag] += investment.value;
+    acc[label] += investment.value;
     return acc;
   }, {} as Record<string, number>);
 
@@ -190,6 +203,7 @@ const InstitutionSummaryItem = ({
 
 const InvestmentListItem = ({
   investment,
+  accountLabel,
   isSelected,
   onItemClick,
   onToggleInvested,
@@ -201,6 +215,7 @@ const InvestmentListItem = ({
   style,
 }: {
   investment: Investment;
+  accountLabel: string;
   isSelected: boolean;
   onItemClick: (e: React.MouseEvent) => void;
   onToggleInvested: (investment: Investment) => void;
@@ -243,7 +258,7 @@ const InvestmentListItem = ({
       </div>
       {/* Desktop */}
       <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-investment font-medium">{investment.tag}</span>
+        <span className="text-xs text-investment font-medium">{accountLabel}</span>
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
           {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -267,7 +282,7 @@ const InvestmentListItem = ({
       </div>
       {/* Mobile */}
       <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-investment font-medium">{investment.tag}</span>
+        <span className="text-xs text-investment font-medium">{accountLabel}</span>
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
@@ -288,21 +303,20 @@ const InvestmentListItem = ({
 
 const InvestmentSectionComponent = ({
   investments,
-  tags,
+  accounts,
   onAdd,
   onUpdate,
   onDelete,
-  onAddTag,
-  onUpdateTag,
-  onDeleteTag,
   selectedIds = new Set(),
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
+  onRequestAddAccount,
   variant = 'default',
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(NO_ACCOUNT);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -311,7 +325,6 @@ const InvestmentSectionComponent = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
   const [itemDate, setItemDate] = useState(() => formatDateToYYYYMMDD(new Date()));
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -321,24 +334,22 @@ const InvestmentSectionComponent = ({
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
-  
-  // Tag management
-  const [isTagsOpen, setIsTagsOpen] = useState(false);
-  const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
-  const [newTag, setNewTag] = useState('');
-  const [editingTag, setEditingTag] = useState<string | null>(null);
-  const [editingTagValue, setEditingTagValue] = useState('');
-  const [isTagLoading, setIsTagLoading] = useState(false);
-  
+
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
-  const [tagError, setTagError] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
 
   const INITIAL_ITEMS_LIMIT = 10;
 
   // Apply sorting and grouping
-  const sortedInvestments = useMemo(() => sortInvestments(investments, sortOption), [investments, sortOption]);
-  const groupedByInstitution = useMemo(() => groupByInstitution(investments, sortOption), [investments, sortOption]);
+  const sortedInvestments = useMemo(
+    () => sortInvestments(investments, sortOption, accounts),
+    [investments, sortOption, accounts]
+  );
+  const groupedByAccount = useMemo(
+    () => groupByAccount(investments, sortOption, accounts),
+    [investments, sortOption, accounts]
+  );
 
   const [showAllInvestments, setShowAllInvestments] = useState(false);
   const [isCollapsingInvestments, setIsCollapsingInvestments] = useState(false);
@@ -396,19 +407,19 @@ const InvestmentSectionComponent = ({
   const resetForm = () => {
     setDescription('');
     setValue('');
-    setSelectedTag('');
     setItemDate(formatDateToYYYYMMDD(new Date()));
     setRepeatAllMonths(false);
     setEditingId(null);
+    setSelectedAccountId(NO_ACCOUNT);
     setDescriptionError(null);
     setValueError(null);
-    setTagError(null);
+    setAccountError(null);
   };
 
   const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
-    
+
     if (!description.trim()) {
       setDescriptionError('Descrição é obrigatória');
       hasError = true;
@@ -417,28 +428,39 @@ const InvestmentSectionComponent = ({
       setValueError('Valor deve ser maior que zero');
       hasError = true;
     }
-    if (!selectedTag) {
-      setTagError('Selecione uma instituição');
+    if (selectedAccountId === NO_ACCOUNT) {
+      setAccountError('Selecione uma carteira');
       hasError = true;
     }
-    
+
     if (hasError) return;
+
+    const account = accounts.find((a) => a.id === selectedAccountId);
+    const tag = account?.name ?? '';
 
     setIsSubmitting(true);
     try {
       const success = editingId
         ? await onUpdate(
             editingId,
-            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths },
+            {
+              description: description.trim(),
+              value: numValue,
+              tag,
+              date: itemDate,
+              repeatAllMonths,
+              accountId: selectedAccountId,
+            },
             applyToAllMonths
           )
         : await onAdd({
             description: description.trim(),
             value: numValue,
-            tag: selectedTag,
+            tag,
             date: itemDate,
             repeatAllMonths,
             invested: false,
+            accountId: selectedAccountId,
           });
 
       if (success === false) return;
@@ -468,9 +490,9 @@ const InvestmentSectionComponent = ({
       setEditingId(investment.id);
       setDescription(investment.description);
       setValue(formatValueForInput(investment.value));
-      setSelectedTag(investment.tag);
       setItemDate(investment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(investment.repeatAllMonths || false);
+      setSelectedAccountId(investment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
     }
   };
@@ -480,9 +502,9 @@ const InvestmentSectionComponent = ({
       setEditingId(editingInvestment.id);
       setDescription(editingInvestment.description);
       setValue(formatValueForInput(editingInvestment.value));
-      setSelectedTag(editingInvestment.tag);
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
       setEditingInvestment(null);
       setPendingAction(null);
@@ -495,9 +517,9 @@ const InvestmentSectionComponent = ({
       setEditingId(editingInvestment.id);
       setDescription(editingInvestment.description);
       setValue(formatValueForInput(editingInvestment.value));
-      setSelectedTag(editingInvestment.tag);
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setApplyToAllMonths(true);
       setIsOpen(true);
       setEditingInvestment(null);
@@ -556,68 +578,9 @@ const InvestmentSectionComponent = ({
       });
     });
   };
-  
-  // Tag management handlers
-  const handleAddTag = async () => {
-    const trimmed = newTag.trim();
-    if (!trimmed || tags.includes(trimmed) || isTagLoading) return;
-
-    setIsTagLoading(true);
-    try {
-      await onAddTag(trimmed);
-      setNewTag('');
-      // Se a tag foi adicionada no modal, seleciona ela automaticamente
-      if (isTagsOpenInModal) {
-        setSelectedTag(trimmed);
-      }
-    } finally {
-      setIsTagLoading(false);
-    }
-  };
-  
-  const handleSaveTagEdit = async () => {
-    if (!editingTag) {
-      setEditingTag(null);
-      setEditingTagValue('');
-      return;
-    }
-
-    const trimmed = editingTagValue.trim();
-    if (!trimmed || trimmed === editingTag || isTagLoading) {
-      setEditingTag(null);
-      setEditingTagValue('');
-      return;
-    }
-
-    setIsTagLoading(true);
-    try {
-      await onUpdateTag(editingTag, trimmed);
-    } finally {
-      setIsTagLoading(false);
-      setEditingTag(null);
-      setEditingTagValue('');
-    }
-  };
-  
-  const handleDeleteTag = async (tag: string) => {
-    const hasInvestments = investments.some((i) => i.tag === tag);
-    if (hasInvestments) {
-      toast.error('Não é possível excluir: existem investimentos usando esta instituição');
-      return;
-    }
-    if (isTagLoading) return;
-
-    setIsTagLoading(true);
-    try {
-      await onDeleteTag(tag);
-    } finally {
-      setIsTagLoading(false);
-    }
-  };
-
   const total = investments.reduce((sum, i) => sum + i.value, 0);
   const investedTotal = investments
-    .filter(i => i.invested)
+    .filter((i) => i.invested)
     .reduce((sum, i) => sum + i.value, 0);
 
   const toggleItemSelection = (id: string, isSelected: boolean) => {
@@ -667,147 +630,28 @@ const InvestmentSectionComponent = ({
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-5 pt-4">
-                {/* Tag Selection */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                    Instituição
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
-                        <SelectTrigger
-                          className={`rounded-md h-10 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
-                        >
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-md">
-                          {tags.map((tag) => (
-                            <SelectItem
-                              key={tag}
-                              value={tag}
-                              className="rounded-lg focus:bg-investment-light focus:text-investment hover:bg-investment-light/50"
-                            >
-                              {tag}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Popover open={isTagsOpenInModal} onOpenChange={setIsTagsOpenInModal}>
-                      <PopoverTrigger asChild>
-                        <Button 
-                          type="button"
-                          size="sm" 
-                          variant="ghost"
-                          className="rounded-md h-10 w-11 text-investment hover:bg-investment-light hover:text-investment focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 rounded-md p-4 bg-background border shadow-lg" align="end">
-                        <h4 className="font-semibold mb-3 text-sm">Gerenciar Instituições</h4>
-                        
-                        {/* Add new tag */}
-                        <div className="flex gap-2 mb-3">
-                          <Input
-                            value={newTag}
-                            onChange={(e) => setNewTag(e.target.value)}
-                            placeholder="Nova instituição..."
-                            className="rounded-lg h-9 text-sm focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                            disabled={isTagLoading}
-                          />
-                          <Button 
-                            size="sm" 
-                            onClick={handleAddTag}
-                            className="rounded-lg h-9 px-3 bg-investment hover:bg-investment/90 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
-                            disabled={isTagLoading || !newTag.trim() || tags.includes(newTag.trim())}
-                          >
-                            {isTagLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Plus className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        
-                        {/* List of tags */}
-                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {tags.map((tag) => {
-                            const isUsed = investments.some(i => i.tag === tag);
-                            const isEditing = editingTag === tag;
-                            
-                            return (
-                              <div 
-                                key={tag} 
-                                className="flex items-center gap-2 p-2 rounded-lg bg-investment-light/40 hover:bg-investment-light"
-                              >
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1 flex-1">
-                                    <Input
-                                      value={editingTagValue}
-                                      onChange={(e) => setEditingTagValue(e.target.value)}
-                                      className="h-7 text-sm rounded-md flex-1 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
-                                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
-                                      autoFocus
-                                      disabled={isTagLoading}
-                                    />
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 rounded-md text-investment hover:bg-investment-light flex-shrink-0"
-                                      onClick={handleSaveTagEdit}
-                                      title="Confirmar edição"
-                                      disabled={isTagLoading}
-                                    >
-                                      {isTagLoading ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : (
-                                        <Check className="h-3.5 w-3.5" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <span className="flex-1 text-sm truncate">{tag}</span>
-                                )}
-                                
-                                {!isEditing && (
-                                  <div className="flex gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 rounded-md text-investment hover:bg-investment-light"
-                                      onClick={() => {
-                                        setEditingTag(tag);
-                                        setEditingTagValue(tag);
-                                      }}
-                                    >
-                                      <Pencil className="h-3 w-3 text-investment" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 rounded-md hover:bg-investment-light"
-                                      onClick={() => handleDeleteTag(tag)}
-                                      disabled={isUsed}
-                                      title={isUsed ? 'Esta instituição está em uso' : 'Excluir'}
-                                    >
-                                      <Trash2 className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/40' : 'text-investment'}`} />
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                {accounts.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Cadastre uma carteira antes de registrar investimentos.
+                    </p>
+                    {onRequestAddAccount && (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setIsOpen(false);
+                          onAddDialogClose?.();
+                          onRequestAddAccount();
+                        }}
+                        className="gradient-investment text-white hover:opacity-90"
+                      >
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Criar carteira
+                      </Button>
+                    )}
                   </div>
-                  {tagError && (
-                    <p className="text-destructive text-sm mt-1">{tagError}</p>
-                  )}
-                </div>
-
+                ) : (
+                  <>
                 {/* Data do item */}
                 <div>
                   <label className="text-sm font-medium mb-2 block text-muted-foreground">
@@ -868,6 +712,36 @@ const InvestmentSectionComponent = ({
                   </div>
                 </div>
 
+                {/* Carteira */}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
+                    Carteira
+                  </label>
+                  <Select
+                    value={selectedAccountId}
+                    onValueChange={(v) => {
+                      setSelectedAccountId(v);
+                      setAccountError(null);
+                    }}
+                  >
+                    <SelectTrigger
+                      className={`rounded-md h-10 ${accountError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                    >
+                      <SelectValue placeholder="Selecione uma carteira" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-md">
+                      {accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
+                          {acc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {accountError && (
+                    <p className="text-destructive text-sm mt-1">{accountError}</p>
+                  )}
+                </div>
+
                 {/* Repeat All Months */}
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2">
@@ -900,6 +774,8 @@ const InvestmentSectionComponent = ({
                     'Adicionar Investimento'
                   )}
                 </Button>
+                  </>
+                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -988,6 +864,7 @@ const InvestmentSectionComponent = ({
               <InvestmentListItem
                 key={investment.id}
                 investment={investment}
+                accountLabel={getAccountLabel(investment, accounts)}
                 isSelected={isSelected}
                 onItemClick={handleItemClick}
                 onToggleInvested={handleToggleInvested}
@@ -1012,6 +889,7 @@ const InvestmentSectionComponent = ({
                   <InvestmentListItem
                     key={investment.id}
                     investment={investment}
+                    accountLabel={getAccountLabel(investment, accounts)}
                     isSelected={isSelected}
                     onItemClick={handleItemClick}
                     onToggleInvested={handleToggleInvested}
@@ -1046,7 +924,7 @@ const InvestmentSectionComponent = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {groupedByInstitution.map(({ institution, total: institutionTotal }) => (
+          {groupedByAccount.map(({ institution, total: institutionTotal }) => (
             <InstitutionSummaryItem
               key={institution}
               institution={institution}

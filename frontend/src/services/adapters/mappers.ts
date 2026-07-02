@@ -1,4 +1,6 @@
 import type {
+  Account,
+  AccountBalance,
   CreditCard,
   Expense,
   FinanceSettings,
@@ -9,12 +11,38 @@ import type {
 } from '@/types/domain';
 import type { Database } from '@/integrations/supabase/types';
 
+type AccountRow = Database['public']['Tables']['accounts']['Row'];
+type AccountBalanceRow = Database['public']['Tables']['account_balances']['Row'];
 type IncomeRow = Database['public']['Tables']['incomes']['Row'];
 type ExpenseRow = Database['public']['Tables']['expenses']['Row'];
 type InvestmentRow = Database['public']['Tables']['investments']['Row'];
 type CreditCardRow = Database['public']['Tables']['credit_cards']['Row'];
 type FinanceSettingsRow = Database['public']['Tables']['finance_settings']['Row'];
 type FinancialRuleRow = Database['public']['Tables']['financial_rule']['Row'];
+
+export function toAccount(row: AccountRow): Account {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type as Account['type'],
+    color: row.color,
+    displayOrder: row.display_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function toAccountBalance(row: AccountBalanceRow): AccountBalance {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    userId: row.user_id,
+    yearMonth: row.year_month,
+    balance: Number(row.balance),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export function toIncome(row: IncomeRow): Income {
   return {
@@ -26,6 +54,7 @@ export function toIncome(row: IncomeRow): Income {
     received: row.received || false,
     repeatAllMonths: row.repeat_all_months,
     baseIncomeId: row.base_income_id || undefined,
+    accountId: row.account_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }
@@ -44,6 +73,7 @@ export function toExpense(row: ExpenseRow): Expense {
     baseExpenseId: row.base_expense_id || undefined,
     currentInstallment: row.current_installment ?? undefined,
     totalInstallments: row.total_installments ?? undefined,
+    accountId: row.account_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }
@@ -58,6 +88,7 @@ export function toInvestment(row: InvestmentRow): Investment {
     invested: row.invested || false,
     repeatAllMonths: row.repeat_all_months,
     baseInvestmentId: row.base_investment_id || undefined,
+    accountId: row.account_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }

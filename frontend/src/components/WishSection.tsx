@@ -11,6 +11,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -51,6 +52,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { MonthPicker } from '@/components/ui/month-picker';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
@@ -61,14 +63,18 @@ import {
   formatShortYearMonth,
   isWishExpiringInMonth,
   compareYearMonth,
-  sortWishesByOption,
+  filterWishesForMonthDisplay,
+  sortWishesForDisplay,
   type WishSortOption,
+  type ConqueredWishScope,
 } from '@/utils/business/wishItems';
 import { cn, formatCurrency } from '@/lib/utils';
 
 interface WishSectionProps {
   currentMonth: string;
   wishes: WishItem[];
+  realizedTotal?: number;
+  realizedCount?: number;
   loading?: boolean;
   isRefetching?: boolean;
   onAdd: (data: CreateWishItemInput) => Promise<WishItem | null>;
@@ -113,13 +119,27 @@ const WishListItem = ({
   className?: string;
   style?: CSSProperties;
 }) => {
+  const isConquered = wish.status === 'conquered';
   const isExpired = wish.status === 'expired';
   const isExpiring = isWishExpiringInMonth(wish, currentMonth);
   const fromPreviousMonth = wish.startMonth !== currentMonth;
 
-  const deadlineLabel = fromPreviousMonth && !isExpired
-    ? `Desde ${formatShortYearMonth(wish.startMonth)} · até ${formatShortYearMonth(wish.targetMonth)}`
-    : formatShortYearMonth(wish.targetMonth);
+  const deadlineLabel = isConquered && wish.conqueredMonth
+    ? `Conquistado em ${formatShortYearMonth(wish.conqueredMonth)}`
+    : fromPreviousMonth && !isExpired
+      ? `Desde ${formatShortYearMonth(wish.startMonth)} · até ${formatShortYearMonth(wish.targetMonth)}`
+      : formatShortYearMonth(wish.targetMonth);
+
+  const deleteOnlyAction = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 rounded-md hover:bg-muted shrink-0"
+      onClick={() => onDelete(wish)}
+    >
+      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+    </Button>
+  );
 
   const expiredActions = (
     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -167,9 +187,11 @@ const WishListItem = ({
     <div
       className={cn(
         'group flex items-stretch gap-3 py-2 px-2.5 rounded-lg transition-all duration-200 border-2',
-        isExpired
-          ? 'border-amber-500/40 bg-amber-500/5'
-          : 'border-transparent bg-muted/30 hover:bg-muted/50',
+        isConquered
+          ? 'border-emerald-500/30 bg-emerald-500/5'
+          : isExpired
+            ? 'border-amber-500/40 bg-amber-500/5'
+            : 'border-transparent bg-muted/30 hover:bg-muted/50',
         className
       )}
       style={style}
@@ -177,20 +199,30 @@ const WishListItem = ({
       {!isExpired && (
         <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
-            checked={false}
-            onCheckedChange={() => onConquer(wish)}
-            title="Marcar como conquistado"
-            aria-label={`Conquistar ${wish.description}`}
-            className="h-4 w-4 rounded border-2 border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground"
+            checked={isConquered}
+            disabled={isConquered}
+            onCheckedChange={isConquered ? undefined : () => onConquer(wish)}
+            title={isConquered ? 'Desejo conquistado' : 'Marcar como conquistado'}
+            aria-label={isConquered ? `${wish.description} conquistado` : `Conquistar ${wish.description}`}
+            className="h-4 w-4 rounded border-2 border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground disabled:opacity-100"
           />
         </div>
       )}
 
       {/* Desktop */}
       <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-primary font-medium">{WISH_URGENCY_LABELS[wish.urgency]}</span>
+        <span className={cn('text-xs font-medium', isConquered ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary')}>
+          {isConquered ? 'Conquistado' : WISH_URGENCY_LABELS[wish.urgency]}
+        </span>
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-sm font-medium truncate text-foreground">{wish.description}</span>
+          <span className={cn('text-sm font-medium truncate', isConquered ? 'text-muted-foreground' : 'text-foreground')}>
+            {wish.description}
+          </span>
+          {isConquered && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
+              Conquistado
+            </Badge>
+          )}
           {isExpiring && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -204,15 +236,27 @@ const WishListItem = ({
         </div>
       </div>
       <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
-        <span className={cn('text-xs tabular-nums', isExpiring ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground')}>
+        <span className={cn(
+          'text-xs tabular-nums',
+          isConquered
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : isExpiring
+              ? 'text-amber-600 dark:text-amber-400 font-medium'
+              : 'text-muted-foreground'
+        )}>
           {deadlineLabel}
         </span>
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-bold text-primary whitespace-nowrap text-sm tabular-nums shrink-0">
+          <span className={cn(
+            'font-bold whitespace-nowrap text-sm tabular-nums shrink-0',
+            isConquered ? 'text-muted-foreground' : 'text-primary'
+          )}>
             {formatCurrency(wish.value)}
           </span>
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {isExpired ? (
+            {isConquered ? (
+              deleteOnlyAction
+            ) : isExpired ? (
               expiredActions
             ) : (
               <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
@@ -227,24 +271,43 @@ const WishListItem = ({
 
       {/* Mobile */}
       <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-primary font-medium">{WISH_URGENCY_LABELS[wish.urgency]}</span>
+        <span className={cn('text-xs font-medium', isConquered ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary')}>
+          {isConquered ? 'Conquistado' : WISH_URGENCY_LABELS[wish.urgency]}
+        </span>
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span className="text-sm font-medium truncate text-foreground">{wish.description}</span>
+            <span className={cn('text-sm font-medium truncate', isConquered ? 'text-muted-foreground' : 'text-foreground')}>
+              {wish.description}
+            </span>
+            {isConquered && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
+                Conquistado
+              </Badge>
+            )}
             {isExpiring && (
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             )}
           </div>
-          <span className={cn('text-xs tabular-nums shrink-0', isExpiring ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
+          <span className={cn(
+            'text-xs tabular-nums shrink-0',
+            isConquered
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : isExpiring
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-muted-foreground'
+          )}>
             {deadlineLabel}
           </span>
         </div>
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <span className="font-bold text-primary whitespace-nowrap text-sm tabular-nums shrink-0">
+          <span className={cn(
+            'font-bold whitespace-nowrap text-sm tabular-nums shrink-0',
+            isConquered ? 'text-muted-foreground' : 'text-primary'
+          )}>
             {formatCurrency(wish.value)}
           </span>
           <div className="flex items-center gap-0.5 shrink-0">
-            {isExpired ? expiredActions : actionButtons}
+            {isConquered ? deleteOnlyAction : isExpired ? expiredActions : actionButtons}
           </div>
         </div>
       </div>
@@ -255,6 +318,8 @@ const WishListItem = ({
 export const WishSection = ({
   currentMonth,
   wishes,
+  realizedTotal = 0,
+  realizedCount = 0,
   loading = false,
   isRefetching = false,
   onAdd,
@@ -272,6 +337,9 @@ export const WishSection = ({
   const [conquerWish, setConquerWish] = useState<WishItem | null>(null);
   const [renewWish, setRenewWish] = useState<WishItem | null>(null);
   const [sortOption, setSortOption] = useState<WishSortOption>('urgency');
+  const [conqueredScope, setConqueredScope] = useState<ConqueredWishScope>('currentMonth');
+
+  const viewingYear = currentMonth.slice(0, 4);
 
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
@@ -294,6 +362,10 @@ export const WishSection = ({
   const expandAnimationPlayedRef = useRef(false);
 
   useEffect(() => {
+    setConqueredScope('currentMonth');
+  }, [currentMonth]);
+
+  useEffect(() => {
     if (openAddDialog) {
       setEditingWish(null);
       setDescription('');
@@ -304,10 +376,21 @@ export const WishSection = ({
     }
   }, [openAddDialog, currentMonth]);
 
-  const totalValue = wishes.reduce((sum, w) => sum + w.value, 0);
+  const displayedWishesFiltered = useMemo(
+    () => filterWishesForMonthDisplay(wishes, currentMonth, conqueredScope),
+    [wishes, currentMonth, conqueredScope]
+  );
+
+  const plannedTotal = useMemo(
+    () => displayedWishesFiltered
+      .filter((w) => w.status === 'active')
+      .reduce((sum, w) => sum + w.value, 0),
+    [displayedWishesFiltered]
+  );
+
   const sortedWishes = useMemo(
-    () => sortWishesByOption(wishes, sortOption),
-    [wishes, sortOption]
+    () => sortWishesForDisplay(displayedWishesFiltered, sortOption),
+    [displayedWishesFiltered, sortOption]
   );
 
   const isExpandedOrCollapsing = showAll || isCollapsing;
@@ -450,8 +533,9 @@ export const WishSection = ({
       <div className="flex items-center justify-between mb-5">
         <SectionTotalsHeader
           title="Desejos"
-          plannedTotal={totalValue}
-          secondaryMetric={{ label: 'Itens', value: String(wishes.length) }}
+          plannedTotal={plannedTotal}
+          effectiveTotal={realizedTotal}
+          effectiveLabel={`Realizado (${realizedCount})`}
           colorClass="text-primary"
         />
         {isRefetching && (
@@ -556,8 +640,34 @@ export const WishSection = ({
         </DialogContent>
       </Dialog>
 
-      {wishes.length > 0 && (
-        <div className="flex items-center justify-end mb-4 gap-2">
+      {(displayedWishesFiltered.length > 0 || wishes.some((w) => w.status === 'conquered')) && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+          <div className="flex flex-col gap-1 min-w-0">
+            <ToggleGroup
+              type="single"
+              value={conqueredScope}
+              onValueChange={(value) => value && setConqueredScope(value as ConqueredWishScope)}
+              className="bg-primary/10 rounded-lg p-0.5 w-fit"
+            >
+              <ToggleGroupItem
+                value="currentMonth"
+                aria-label="Conquistas deste mês"
+                className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm text-primary hover:bg-primary/20"
+              >
+                Este mês
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="yearToDate"
+                aria-label="Conquistas do ano até este mês"
+                className="rounded-md px-2.5 py-1 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm text-primary hover:bg-primary/20"
+              >
+                Ano até aqui
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <p className="text-[11px] text-muted-foreground">
+              Conquistas exibidas referem-se ao ano de {viewingYear}.
+            </p>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -589,12 +699,12 @@ export const WishSection = ({
         </div>
       )}
 
-      {wishes.length === 0 ? (
+      {displayedWishesFiltered.length === 0 ? (
         <div className="text-center py-10">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-3">
             <Gift className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-muted-foreground text-sm mb-4">Nenhum desejo ativo neste mês</p>
+          <p className="text-muted-foreground text-sm mb-4">Nenhum desejo neste mês</p>
           <Button
             onClick={() => {
               resetForm();
@@ -676,6 +786,7 @@ export const WishSection = ({
                 <>
                   <strong>{conquerWish.description}</strong>. Deseja registrar como gasto deste mês?
                   O desejo só será marcado como conquistado após salvar o gasto.
+                  Gastos em débito ou dinheiro serão marcados como pagos; no cartão, o impacto ocorre ao pagar a fatura.
                 </>
               )}
             </AlertDialogDescription>

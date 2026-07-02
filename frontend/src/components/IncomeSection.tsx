@@ -67,6 +67,7 @@ interface IncomeSectionProps {
   openAddDialog?: boolean;
   onAddDialogClose?: () => void;
   variant?: 'default' | 'embedded';
+  accounts?: import('@/types/domain').Account[];
 }
 
 type ViewMode = 'general' | 'summary';
@@ -93,6 +94,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'highest', label: 'Maior Valor' },
   { value: 'lowest', label: 'Menor Valor' },
 ];
+
+const NO_ACCOUNT = 'none';
 
 // Sorting function
 const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntry[] => {
@@ -299,9 +302,11 @@ const IncomeSectionComponent = ({
   openAddDialog,
   onAddDialogClose,
   variant = 'default',
+  accounts = [],
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(NO_ACCOUNT);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -459,6 +464,7 @@ const IncomeSectionComponent = ({
     setItemDate(formatDateToYYYYMMDD(new Date()));
     setRepeatAllMonths(false);
     setEditingId(null);
+    setSelectedAccountId(NO_ACCOUNT);
     setDescriptionError(null);
     setValueError(null);
     setTagError(null);
@@ -488,7 +494,7 @@ const IncomeSectionComponent = ({
       const success = editingId
         ? await onUpdate(
             editingId,
-            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths },
+            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths, accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined },
             applyToAllMonths
           )
         : await onAdd({
@@ -498,9 +504,14 @@ const IncomeSectionComponent = ({
             date: itemDate,
             repeatAllMonths,
             received: false,
+            accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined,
           });
 
       if (success === false) return;
+
+      if (!editingId && accounts.length > 0 && selectedAccountId === NO_ACCOUNT) {
+        toast.info('Salvo sem carteira — não aparecerá nos chips de conta.');
+      }
 
       if (editingId) {
         setApplyToAllMonths(false);
@@ -530,6 +541,7 @@ const IncomeSectionComponent = ({
       setSelectedTag(income.tag);
       setItemDate(income.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(income.repeatAllMonths || false);
+      setSelectedAccountId(income.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
     }
   };
@@ -542,6 +554,7 @@ const IncomeSectionComponent = ({
       setSelectedTag(editingIncome.tag);
       setItemDate(editingIncome.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingIncome.repeatAllMonths || false);
+      setSelectedAccountId(editingIncome.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
       setEditingIncome(null);
       setPendingAction(null);
@@ -867,6 +880,28 @@ const IncomeSectionComponent = ({
                     {valueError && <p className="text-destructive text-sm mt-1">{valueError}</p>}
                   </div>
                 </div>
+
+                {/* Account / Carteira */}
+                {accounts.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
+                      Carteira (opcional)
+                    </label>
+                    <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                      <SelectTrigger className="rounded-md h-10">
+                        <SelectValue placeholder="Nenhuma carteira" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        <SelectItem value={NO_ACCOUNT} className="rounded-lg">Nenhuma</SelectItem>
+                        {accounts.map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
+                            {acc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Repeat All Months */}
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">

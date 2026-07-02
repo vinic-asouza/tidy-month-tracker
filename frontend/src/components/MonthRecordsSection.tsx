@@ -9,7 +9,7 @@ import { WishSection } from '@/components/WishSection';
 import { CreditCardStrip } from '@/components/CreditCardStrip';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { CreditCard, Expense, IncomeEntry, Investment } from '@/types/finance';
-import type { WishItem, CreateWishItemInput } from '@/types/domain';
+import type { Account, WishItem, CreateWishItemInput } from '@/types/domain';
 import { cn, formatRecordsMonthTitle } from '@/lib/utils';
 
 export type RecordsTab = 'income' | 'expense' | 'investment' | 'wish';
@@ -25,6 +25,7 @@ interface MonthRecordsSectionProps {
   expenseCategories: string[];
   paymentMethods: string[];
   investmentTags: string[];
+  accounts: Account[];
   creditCards: CreditCard[];
   selectedIncomeIds: Set<string>;
   selectedExpenseIds: Set<string>;
@@ -59,11 +60,16 @@ interface MonthRecordsSectionProps {
   addInvestmentTag: (tag: string) => void;
   updateInvestmentTag: (oldTag: string, newTag: string) => void;
   deleteInvestmentTag: (tag: string) => void;
-  addDialogType: 'income' | 'expense' | 'investment' | 'card' | 'wish' | null;
+  addDialogType: 'income' | 'expense' | 'investment' | 'card' | 'wish' | 'account' | null;
   onAddDialogClose: () => void;
+  onRequestAddAccount?: () => void;
   expenseDraft?: Partial<Expense> | null;
-  onExpenseDraftConsumed?: () => void;
-  wishes: WishItem[];
+  onExpenseDraftConsumed?: (cancelled?: boolean) => void;
+  wishConquerPlannedValue?: number;
+  wishRealizedTotal?: number;
+  wishRealizedCount?: number;
+  allWishes: WishItem[];
+  pendingWishCount: number;
   wishesLoading?: boolean;
   wishesRefetching?: boolean;
   onAddWish: (data: CreateWishItemInput) => Promise<WishItem | null>;
@@ -101,6 +107,7 @@ export const MonthRecordsSection = ({
   addInvestment,
   updateInvestment,
   deleteInvestment,
+  accounts,
   addCreditCard,
   updateCreditCard,
   deleteCreditCard,
@@ -120,9 +127,14 @@ export const MonthRecordsSection = ({
   deleteInvestmentTag,
   addDialogType,
   onAddDialogClose,
+  onRequestAddAccount,
   expenseDraft,
   onExpenseDraftConsumed,
-  wishes,
+  wishConquerPlannedValue,
+  wishRealizedTotal = 0,
+  wishRealizedCount = 0,
+  allWishes,
+  pendingWishCount,
   wishesLoading,
   wishesRefetching,
   onAddWish,
@@ -157,7 +169,7 @@ export const MonthRecordsSection = ({
       value: 'wish' as const,
       label: 'Desejos',
       icon: Gift,
-      count: wishes.length,
+      count: pendingWishCount,
       color: 'data-[state=active]:text-primary',
     },
   ];
@@ -206,6 +218,7 @@ export const MonthRecordsSection = ({
               onSelectionChange={onIncomeSelectionChange}
               openAddDialog={addDialogType === 'income'}
               onAddDialogClose={onAddDialogClose}
+              accounts={accounts}
             />
           )}
 
@@ -245,6 +258,8 @@ export const MonthRecordsSection = ({
                 onAddDialogClose={onAddDialogClose}
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={onExpenseDraftConsumed}
+                wishConquerPlannedValue={wishConquerPlannedValue}
+                accounts={accounts}
               />
             </div>
           )}
@@ -253,17 +268,15 @@ export const MonthRecordsSection = ({
             <InvestmentSection
               variant="embedded"
               investments={investments}
-              tags={investmentTags}
+              accounts={accounts}
               onAdd={addInvestment}
               onUpdate={updateInvestment}
               onDelete={deleteInvestment}
-              onAddTag={addInvestmentTag}
-              onUpdateTag={updateInvestmentTag}
-              onDeleteTag={deleteInvestmentTag}
               selectedIds={selectedInvestmentIds}
               onSelectionChange={onInvestmentSelectionChange}
               openAddDialog={addDialogType === 'investment'}
               onAddDialogClose={onAddDialogClose}
+              onRequestAddAccount={onRequestAddAccount}
             />
           )}
 
@@ -271,7 +284,9 @@ export const MonthRecordsSection = ({
             <WishSection
               variant="embedded"
               currentMonth={currentMonth}
-              wishes={wishes}
+              wishes={allWishes}
+              realizedTotal={wishRealizedTotal}
+              realizedCount={wishRealizedCount}
               loading={wishesLoading}
               isRefetching={wishesRefetching}
               onAdd={onAddWish}

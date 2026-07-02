@@ -8,7 +8,10 @@ import type {
   Investment as DomainInvestment,
   MonthData as DomainMonthData,
   FinanceSettings as DomainFinanceSettings,
+  AccountType,
 } from './domain';
+
+export type { Account, AccountType } from './domain';
 
 // Aliases para manter compatibilidade com código existente
 export type IncomeEntry = Income;
@@ -75,6 +78,20 @@ export const DEFAULT_PAYMENT_METHODS = [
   'Pix',
   'Débito',
   'Boleto',
+];
+
+export interface AccountTypeConfig {
+  value: AccountType;
+  label: string;
+  icon: string;
+}
+
+export const DEFAULT_ACCOUNT_TYPES: AccountTypeConfig[] = [
+  { value: 'checking', label: 'Conta Corrente', icon: 'building-2' },
+  { value: 'savings', label: 'Poupança', icon: 'piggy-bank' },
+  { value: 'investment', label: 'Corretora / Investimentos', icon: 'trending-up' },
+  { value: 'cash', label: 'Dinheiro', icon: 'banknote' },
+  { value: 'other', label: 'Outro', icon: 'wallet' },
 ];
 
 export const CARD_COLORS = [

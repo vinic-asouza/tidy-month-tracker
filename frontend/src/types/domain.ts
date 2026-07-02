@@ -9,6 +9,48 @@
  * em finance.ts. Eventualmente podemos remover finance.ts e usar apenas domain.ts.
  */
 
+export type AccountType = 'checking' | 'savings' | 'investment' | 'cash' | 'other';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  color: string | null;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AccountBalance {
+  id: string;
+  accountId: string;
+  userId: string;
+  yearMonth: string;
+  balance: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpsertAccountBalanceInput {
+  accountId: string;
+  userId: string;
+  yearMonth: string;
+  balance: number;
+}
+
+export interface CreateAccountInput {
+  name: string;
+  type: AccountType;
+  color?: string | null;
+  displayOrder?: number;
+}
+
+export interface UpdateAccountInput {
+  name?: string;
+  type?: AccountType;
+  color?: string | null;
+}
+
 export interface Income {
   id: string;
   description: string;
@@ -18,6 +60,7 @@ export interface Income {
   received: boolean;
   repeatAllMonths?: boolean;
   baseIncomeId?: string;
+  accountId?: string;
   createdAt?: string;
 }
 
@@ -34,6 +77,7 @@ export interface Expense {
   baseExpenseId?: string;
   currentInstallment?: number;
   totalInstallments?: number;
+  accountId?: string;
   createdAt?: string;
 }
 
@@ -53,6 +97,7 @@ export interface Investment {
   invested: boolean;
   repeatAllMonths?: boolean;
   baseInvestmentId?: string;
+  accountId?: string;
   createdAt?: string;
 }
 

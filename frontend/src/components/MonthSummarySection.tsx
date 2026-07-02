@@ -64,7 +64,7 @@ export const MonthSummarySection = ({
       icon: Wallet,
       color: balance >= 0 ? 'text-income' : 'text-expense',
       bg: balance >= 0 ? 'bg-income-light' : 'bg-expense-light',
-      hint: balance < 0 ? 'Com base no que já entrou e saiu de fato neste mês' : undefined,
+      hint: 'Saldo do mês — resultado líquido efetivado deste mês (diferente do saldo estimado na carteira)',
     },
   ];
 

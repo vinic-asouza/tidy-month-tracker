@@ -4,6 +4,7 @@ import type { CreateInvestmentParams, UpdateInvestmentParams } from '@/services/
 import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
 import { toInvestment } from '../mappers';
 import { getAuthUserId, getMonthItemCount, throwIfError } from './helpers';
+import { omitEffectiveStatus } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -42,6 +43,7 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
       invested: false,
       repeat_all_months: investmentData.repeatAllMonths || false,
       display_order: displayOrder,
+      account_id: investmentData.accountId ?? null,
     })
     .select('*')
     .single();
@@ -63,6 +65,7 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: createdInvestment.id,
         display_order: 0,
+        account_id: investmentData.accountId ?? null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -78,7 +81,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
 
   const { data: currentRows, error: fetchError } = await supabase
     .from('investments')
-    .select('id, base_investment_id, repeat_all_months, year_month, description, value, tag, date, invested')
+    .select('id, base_investment_id, repeat_all_months, year_month, description, value, tag, date, invested, account_id')
     .eq('id', id)
     .eq('user_id', userId)
     .single();
@@ -106,6 +109,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: id,
         display_order: 0,
+        account_id: updates.accountId ?? currentRows.account_id ?? null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -129,6 +133,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
   if (updates.invested !== undefined) row.invested = updates.invested;
   if (updates.repeatAllMonths !== undefined) row.repeat_all_months = updates.repeatAllMonths;
   if (updates.date !== undefined) row.date = updates.date;
+  if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
 
   if (Object.keys(row).length === 0) return;
 
@@ -147,7 +152,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
 
     const { error: updateError } = await supabase
       .from('investments')
-      .update(row)
+      .update(omitEffectiveStatus(row))
       .in('id', targetIds)
       .eq('user_id', userId);
 

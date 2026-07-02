@@ -1,4 +1,8 @@
 import { getDataProvider } from './provider';
+import * as apiAccountBalances from './api/accountBalances';
+import * as supabaseAccountBalances from './supabase/accountBalances';
+import * as apiAccounts from './api/accounts';
+import * as supabaseAccounts from './supabase/accounts';
 import * as apiCreditCards from './api/creditCards';
 import * as supabaseCreditCards from './supabase/creditCards';
 import * as apiIncomes from './api/incomes';
@@ -15,6 +19,12 @@ import * as apiWishItems from './api/wishItems';
 import * as supabaseWishItems from './supabase/wishItems';
 
 const isSupabase = () => getDataProvider() === 'supabase';
+
+export const accountBalancesAdapter = () =>
+  isSupabase() ? supabaseAccountBalances : apiAccountBalances;
+
+export const accountsAdapter = () =>
+  isSupabase() ? supabaseAccounts : apiAccounts;
 
 export const creditCardsAdapter = () =>
   isSupabase() ? supabaseCreditCards : apiCreditCards;

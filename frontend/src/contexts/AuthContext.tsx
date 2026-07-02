@@ -47,6 +47,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        // Refresh de token: atualiza sessão internamente sem trocar referência de user
+        if (event === 'TOKEN_REFRESHED' && newSession) {
+          sessionRef.current = newSession;
+          setSession(newSession);
+          setLoading(false);
+          return;
+        }
+
         // Só atualizar estado se a sessão realmente mudou (evita re-render e “reload” ao focar na aba)
         const prev = sessionRef.current;
         const sameSession =

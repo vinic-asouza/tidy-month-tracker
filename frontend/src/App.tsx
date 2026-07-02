@@ -12,7 +12,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 60_000, retry: 1 },
+    queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
   },
 });
 

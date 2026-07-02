@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { AccountStrip } from '@/components/AccountStrip';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
 import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
@@ -21,7 +22,9 @@ import type { WishItem } from '@/types/domain';
 import type { Expense } from '@/types/finance';
 import { toast } from 'sonner';
 import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import { getWishRealizedMetrics } from '@/utils/business/wishItems';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import { cn } from '@/lib/utils';
 
 const Statistics = lazy(() =>
   import('@/components/Statistics').then((m) => ({ default: m.Statistics }))
@@ -39,7 +42,7 @@ const Index = () => {
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
 
   // FAB: tipo de registro a adicionar (abre o dialog da seção correspondente)
-  type AddDialogType = 'income' | 'expense' | 'investment' | 'card' | 'wish' | null;
+  type AddDialogType = 'income' | 'expense' | 'investment' | 'card' | 'wish' | 'account' | null;
   const [addDialogType, setAddDialogType] = useState<AddDialogType>(null);
   const [expenseDraft, setExpenseDraft] = useState<Partial<Expense> | null>(null);
   const [pendingWishConquer, setPendingWishConquer] = useState<WishItem | null>(null);
@@ -73,17 +76,26 @@ const Index = () => {
     else if (addDialogType === 'expense' || addDialogType === 'card') setRecordsTab('expense');
     else if (addDialogType === 'investment') setRecordsTab('investment');
     else if (addDialogType === 'wish') setRecordsTab('wish');
+    // 'account' não muda aba — abre o AccountStrip diretamente
   }, [addDialogType]);
   
   const {
     loading,
-    monthLoading, // Loading específico para mudanças de mês
+    monthRefetching,
     currentMonth,
     setCurrentMonth,
     monthData,
     settings,
+    accounts,
+    accountBalances,
+    accountHistoryMonths,
     creditCards,
     cardMonthlyStatus,
+    addAccount,
+    updateAccount,
+    deleteAccount,
+    accountNameExists,
+    upsertAccountBalance,
     addIncome,
     updateIncome,
     deleteIncome,
@@ -116,6 +128,7 @@ const Index = () => {
   } = useSupabaseFinance({ statisticsEnabled: view === 'statistics' });
 
   const {
+    wishes,
     visibleWishes,
     loading: wishesLoading,
     isRefetching: wishesRefetching,
@@ -126,22 +139,28 @@ const Index = () => {
     renewWish,
   } = useWishItems(currentMonth);
 
+  const wishRealizedMetrics = useMemo(
+    () => getWishRealizedMetrics(wishes, currentMonth, monthData.expenses),
+    [wishes, currentMonth, monthData.expenses]
+  );
+
+  const wishConquerPlannedValue = pendingWishConquer?.value;
+
   const handleWishConquer = useCallback(
     async (wish: WishItem, options: { createExpense: boolean }) => {
       if (options.createExpense) {
         setPendingWishConquer(wish);
         setExpenseDraft({
           description: wish.description,
-          value: wish.value,
           type: 'variable',
-          paid: false,
+          ...(accounts.length === 1 ? { accountId: accounts[0].id } : {}),
         });
         setRecordsTab('expense');
       } else {
         await conquerWish(wish.id, currentMonth);
       }
     },
-    [conquerWish, currentMonth]
+    [conquerWish, currentMonth, accounts]
   );
 
   const handleAddExpense = useCallback(
@@ -157,7 +176,7 @@ const Index = () => {
         );
         if (!conquered) {
           toast.error(
-            'Gasto registrado, mas não foi possível marcar o desejo como conquistado.'
+            'Gasto salvo, mas o desejo não foi marcado como conquistado. Você pode conquistá-lo manualmente ou excluir o gasto.'
           );
           return created;
         }
@@ -169,8 +188,8 @@ const Index = () => {
     [addExpense, pendingWishConquer, conquerWish, currentMonth]
   );
 
-  const handleExpenseDraftConsumed = useCallback(() => {
-    if (pendingWishConquer) {
+  const handleExpenseDraftConsumed = useCallback((cancelled = true) => {
+    if (cancelled && pendingWishConquer) {
       toast.info('Registro de gasto cancelado. O desejo continua ativo.');
       setPendingWishConquer(null);
     }
@@ -192,7 +211,7 @@ const Index = () => {
   const currentYear = parseInt(currentMonth.split('-')[0]);
 
   useEffect(() => {
-    if (!monthLoading && currentMonth) {
+    if (!monthRefetching && currentMonth) {
       const [year, month] = currentMonth.split('-');
       const monthNames = [
         'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -200,7 +219,7 @@ const Index = () => {
       ];
       setMonthAnnouncer(`${monthNames[parseInt(month, 10) - 1]} de ${year}`);
     }
-  }, [currentMonth, monthLoading]);
+  }, [currentMonth, monthRefetching]);
 
   const handleClearAllSelections = useCallback(() => {
     setSelectedIncomeIds(new Set());
@@ -564,13 +583,18 @@ const Index = () => {
       {/* Conteúdo - scrollável, loading apenas aqui */}
       <main className="container mx-auto px-4 py-6" aria-live="polite" aria-atomic="true">
         <span className="sr-only">{monthAnnouncer}</span>
+        {monthRefetching && (
+          <div
+            className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Atualizando dados do mês…
+          </div>
+        )}
         {view === 'dashboard' ? (
-          monthLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="animate-fade-in space-y-5">
+            <div className={cn('space-y-5', monthRefetching && 'opacity-60 transition-opacity')}>
               <MonthSummarySection
                 currentMonth={currentMonth}
                 monthData={monthData}
@@ -578,7 +602,24 @@ const Index = () => {
                 creditCards={creditCards}
                 cardMonthlyStatuses={cardMonthlyStatus}
               />
-              <MonthRecordsSection
+              <AccountStrip
+            accounts={accounts}
+            accountBalances={accountBalances}
+            accountHistoryMonths={accountHistoryMonths}
+            currentMonth={currentMonth}
+            monthData={monthData}
+            creditCards={creditCards}
+            cardMonthlyStatuses={cardMonthlyStatus}
+            onAdd={addAccount}
+            onUpdate={updateAccount}
+            onDelete={deleteAccount}
+            onUpsertBalance={upsertAccountBalance}
+            accountNameExists={accountNameExists}
+            openAddDialog={addDialogType === 'account'}
+            onAddDialogClose={() => setAddDialogType(null)}
+          />
+
+          <MonthRecordsSection
                 currentMonth={currentMonth}
                 activeTab={recordsTab}
                 onTabChange={setRecordsTab}
@@ -589,6 +630,7 @@ const Index = () => {
                 expenseCategories={settings.expenseCategories}
                 paymentMethods={settings.paymentMethods}
                 investmentTags={settings.investmentTags}
+                accounts={accounts}
                 creditCards={creditCards}
                 selectedIncomeIds={selectedIncomeIds}
                 selectedExpenseIds={selectedExpenseIds}
@@ -625,9 +667,14 @@ const Index = () => {
                 deleteInvestmentTag={deleteInvestmentTag}
                 addDialogType={addDialogType}
                 onAddDialogClose={() => setAddDialogType(null)}
+                onRequestAddAccount={() => setAddDialogType('account')}
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={handleExpenseDraftConsumed}
-                wishes={visibleWishes}
+                wishConquerPlannedValue={wishConquerPlannedValue}
+                wishRealizedTotal={wishRealizedMetrics.total}
+                wishRealizedCount={wishRealizedMetrics.count}
+                allWishes={wishes}
+                pendingWishCount={visibleWishes.length}
                 wishesLoading={wishesLoading}
                 wishesRefetching={wishesRefetching}
                 onAddWish={addWish}
@@ -637,14 +684,8 @@ const Index = () => {
                 onRenewWish={renewWish}
               />
             </div>
-          )
         ) : (
-          monthLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="animate-fade-in">
+            <div className={cn(monthRefetching && 'opacity-60 transition-opacity')}>
               {loadingYearData && yearData.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -668,7 +709,6 @@ const Index = () => {
                 </Suspense>
               )}
             </div>
-          )
         )}
 
         {/* FAB: Adicionar item — visível na visão mensal e anual */}
@@ -744,6 +784,17 @@ const Index = () => {
                   >
                     <Gift className="h-4 w-4" />
                     Desejo
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => {
+                      setAddDialogType('account');
+                      setFabPopoverOpen(false);
+                    }}
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Carteira
                   </Button>
                   <Button
                     variant="ghost"

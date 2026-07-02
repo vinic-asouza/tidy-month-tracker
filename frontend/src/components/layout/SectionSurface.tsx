@@ -14,6 +14,7 @@ import { SemanticVariant } from './SemanticIconBox';
 import { cn } from '@/lib/utils';
 
 interface SectionSurfaceProps {
+  id?: string;
   title?: string;
   subtitle?: string;
   icon?: LucideIcon;
@@ -29,6 +30,7 @@ export const sectionSurfaceClass =
   'bg-card rounded-lg border border-border/60 shadow-sm p-4 sm:p-5';
 
 export const SectionSurface = ({
+  id,
   title,
   subtitle,
   icon,
@@ -40,11 +42,11 @@ export const SectionSurface = ({
   children,
 }: SectionSurfaceProps) => {
   if (variant === 'embedded') {
-    return <div className={className}>{children}</div>;
+    return <div id={id} className={className}>{children}</div>;
   }
 
   return (
-    <div className={cn(sectionSurfaceClass, className)}>
+    <div id={id} className={cn(sectionSurfaceClass, className)}>
       {title && (
         <SectionHeader
           title={title}

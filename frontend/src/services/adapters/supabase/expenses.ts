@@ -8,6 +8,7 @@ import {
 } from '@/utils/business/installments';
 import { toExpense } from '../mappers';
 import { getAuthUserId, getMonthItemCount, throwIfError } from './helpers';
+import { omitEffectiveStatus } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -20,7 +21,7 @@ async function ensureRemainingInstallmentsExist(
   const { data: e, error: fetchError } = await supabase
     .from('expenses')
     .select(
-      'id, base_expense_id, year_month, type, category, description, payment_method, value, date, current_installment, total_installments'
+      'id, base_expense_id, year_month, type, category, description, payment_method, value, date, current_installment, total_installments, account_id'
     )
     .eq('id', expenseId)
     .eq('user_id', userId)
@@ -64,6 +65,7 @@ async function ensureRemainingInstallmentsExist(
       current_installment: inst.installmentNumber,
       total_installments: tot,
       display_order: 0,
+      account_id: e.account_id ?? null,
     });
 
     throwIfError(insertError);
@@ -117,6 +119,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
         current_installment: expenseData.currentInstallment ?? null,
         total_installments: expenseData.totalInstallments ?? null,
         display_order: displayOrder,
+        account_id: expenseData.accountId ?? null,
       })
       .select('*')
       .single();
@@ -140,6 +143,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           repeat_all_months: true,
           base_expense_id: createdExpense.id,
           display_order: 0,
+          account_id: expenseData.accountId ?? null,
         }));
         const { error: copyError } = await supabase.from('expenses').insert(rows);
         throwIfError(copyError);
@@ -174,6 +178,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           current_installment: inst.installmentNumber,
           total_installments: expenseData.totalInstallments,
           display_order: 0,
+          account_id: expenseData.accountId ?? null,
         }));
         const { error: instError } = await supabase.from('expenses').insert(rows);
         throwIfError(instError);
@@ -196,7 +201,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
   const { data: currentExpense, error: fetchError } = await supabase
     .from('expenses')
     .select(
-      'id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, value, date'
+      'id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, value, date, account_id'
     )
     .eq('id', id)
     .eq('user_id', userId)
@@ -230,6 +235,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           repeat_all_months: true,
           base_expense_id: id,
           display_order: 0,
+          account_id: updates.accountId ?? currentExpense.account_id ?? null,
         }));
         const { error: copyError } = await supabase.from('expenses').insert(rows);
         throwIfError(copyError);
@@ -257,6 +263,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
   if (updates.date !== undefined) row.date = updates.date;
   if (updates.currentInstallment !== undefined) row.current_installment = updates.currentInstallment;
   if (updates.totalInstallments !== undefined) row.total_installments = updates.totalInstallments;
+  if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
 
   if (Object.keys(row).length === 0) return;
 
@@ -279,11 +286,12 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       if (updates.value !== undefined) sharedRow.value = updates.value;
       if (updates.paid !== undefined) sharedRow.paid = updates.paid;
       if (updates.date !== undefined) sharedRow.date = updates.date;
+      if (updates.accountId !== undefined) sharedRow.account_id = updates.accountId ?? null;
 
       if (Object.keys(sharedRow).length > 0 && targetIds.length > 0) {
         const { error: sharedError } = await supabase
           .from('expenses')
-          .update(sharedRow)
+          .update(omitEffectiveStatus(sharedRow))
           .in('id', targetIds)
           .eq('user_id', userId);
         throwIfError(sharedError);
@@ -325,7 +333,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
 
       const { error: updateError } = await supabase
         .from('expenses')
-        .update(row)
+        .update(omitEffectiveStatus(row))
         .in('id', targetIds)
         .eq('user_id', userId);
 
@@ -335,7 +343,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
 
     const { error: updateError } = await supabase
       .from('expenses')
-      .update(row)
+      .update(omitEffectiveStatus(row))
       .eq('id', id)
       .eq('user_id', userId);
 

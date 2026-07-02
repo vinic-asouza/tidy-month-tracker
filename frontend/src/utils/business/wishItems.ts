@@ -2,7 +2,7 @@
  * Regras de visibilidade e expiração da Lista de Desejos
  */
 
-import type { WishItem, WishUrgency } from '@/types/domain';
+import type { Expense, WishItem, WishUrgency } from '@/types/domain';
 
 export function compareYearMonth(a: string, b: string): number {
   return a.localeCompare(b);
@@ -32,6 +32,58 @@ export function isWishExpiringInMonth(wish: WishItem, viewingMonth: string): boo
 
 export function filterWishesForMonth(wishes: WishItem[], viewingMonth: string): WishItem[] {
   return wishes.filter((wish) => isWishVisibleInMonth(wish, viewingMonth));
+}
+
+export type ConqueredWishScope = 'currentMonth' | 'yearToDate';
+
+export function isConqueredWishVisibleInMonth(
+  wish: WishItem,
+  viewingMonth: string,
+  scope: ConqueredWishScope
+): boolean {
+  if (wish.status !== 'conquered' || !wish.conqueredMonth) return false;
+
+  const viewYear = viewingMonth.slice(0, 4);
+  const conqueredYear = wish.conqueredMonth.slice(0, 4);
+  if (conqueredYear !== viewYear) return false;
+  if (compareYearMonth(wish.conqueredMonth, viewingMonth) > 0) return false;
+
+  if (scope === 'currentMonth') {
+    return wish.conqueredMonth === viewingMonth;
+  }
+
+  return compareYearMonth(wish.conqueredMonth, viewingMonth) <= 0;
+}
+
+export function filterWishesForMonthDisplay(
+  wishes: WishItem[],
+  viewingMonth: string,
+  conqueredScope: ConqueredWishScope
+): WishItem[] {
+  return wishes.filter(
+    (wish) =>
+      isWishVisibleInMonth(wish, viewingMonth) ||
+      isConqueredWishVisibleInMonth(wish, viewingMonth, conqueredScope)
+  );
+}
+
+export function getWishRealizedMetrics(
+  wishes: WishItem[],
+  currentMonth: string,
+  expenses: Expense[]
+): { count: number; total: number } {
+  const conquered = wishes.filter(
+    (w) => w.status === 'conquered' && w.conqueredMonth === currentMonth
+  );
+  const expenseById = new Map(expenses.map((e) => [e.id, e]));
+
+  return {
+    count: conquered.length,
+    total: conquered.reduce((sum, w) => {
+      const expense = w.linkedExpenseId ? expenseById.get(w.linkedExpenseId) : undefined;
+      return sum + (expense?.value ?? 0);
+    }, 0),
+  };
 }
 
 export function sortWishes(wishes: WishItem[]): WishItem[] {
@@ -64,6 +116,23 @@ export function sortWishesByOption(wishes: WishItem[], option: WishSortOption): 
       });
     }
   }
+}
+
+export function sortWishesForDisplay(
+  wishes: WishItem[],
+  sortOption: WishSortOption
+): WishItem[] {
+  const pending = wishes.filter((w) => w.status !== 'conquered');
+  const conquered = wishes.filter((w) => w.status === 'conquered');
+
+  const sortedPending = sortWishesByOption(pending, sortOption);
+  const sortedConquered = [...conquered].sort((a, b) => {
+    const monthDiff = compareYearMonth(b.conqueredMonth ?? '', a.conqueredMonth ?? '');
+    if (monthDiff !== 0) return monthDiff;
+    return a.description.localeCompare(b.description, 'pt-BR');
+  });
+
+  return [...sortedPending, ...sortedConquered];
 }
 
 export const WISH_URGENCY_LABELS: Record<WishUrgency, string> = {
