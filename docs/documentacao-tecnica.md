@@ -1,6 +1,8 @@
 # Visão Geral do Sistema
 
-**Tidy Month Tracker** é um aplicativo de controle financeiro pessoal focado no acompanhamento mensal de entradas, gastos, investimentos e lista de desejos, com suporte a cartões de crédito, regra financeira (50/30/20 ou personalizada) e visão anual estatística.
+**Finto** é um aplicativo de controle financeiro pessoal focado no acompanhamento mensal de entradas, gastos, investimentos e lista de desejos, com suporte a cartões de crédito, **carteiras com papéis** (movimentação e investimentos), regra financeira (50/30/20 ou personalizada) e visão anual estatística.
+
+> **Revisão 2026-07-06:** Fase 3 Carteiras — papéis obrigatórios, aporte origem/destino (`source_account_id` + `account_id`), chip Saldo Livre, transferências mov→mov, resgates e pagamento de fatura via `account_operations`. Ver também [`relatorio-regras-negocio.md`](./BUSINESS/relatorio-regras-negocio.md).
 
 **Escopo desta documentação:** apenas o **frontend** (`frontend/`), conforme a fase atual descrita em [`PLANO_FRONTEND_DIRETO_SUPABASE.md`](./PLANO_FRONTEND_DIRETO_SUPABASE.md), em que o app em produção (Vercel) acessa o **Supabase** diretamente, sem backend Express.
 
@@ -49,6 +51,9 @@ flowchart TB
         settings["settings.ts"]
         financialRule["financialRule.ts"]
         wishItems["wishItems.ts"]
+        accounts["accounts.ts"]
+        accountBalances["accountBalances.ts"]
+        accountOperations["accountOperations.ts"]
     end
 
     subgraph adapters [Adaptadores]
@@ -129,9 +134,12 @@ Evidência: `src/integrations/supabase/types.ts`, `PLANO_FRONTEND_DIRETO_SUPABAS
 | `finance_settings` | Tags de entrada, categorias de gasto, tags de investimento, métodos de pagamento |
 | `incomes` | Entradas mensais |
 | `expenses` | Gastos mensais (fixo, variável, parcelado) |
-| `investments` | Investimentos mensais |
+| `investments` | Investimentos mensais (`account_id` destino, `source_account_id` origem do aporte) |
 | `credit_cards` | Cartões globais do usuário |
 | `credit_card_monthly_status` | Status "fatura paga" por cartão/mês |
+| `accounts` | Carteiras globais (`role`: `movement` \| `investment`) |
+| `account_balances` | Saldo declarado manual por carteira/mês |
+| `account_operations` | Operações de carteira: `withdrawal`, `transfer_out`, `transfer_in`, `invoice_payment` |
 | `financial_rule` | Regra 50/30/20 ou personalizada + mapeamento de categorias |
 | `wish_items` | Lista de desejos (1 registro por item; visibilidade calculada por mês) |
 
@@ -287,12 +295,15 @@ Exibir métricas consolidadas do mês e integrar a regra financeira.
 ### Funcionalidades
 
 - Calcular e exibir: total entradas, gastos, investimentos e saldo
+- Toggle **Efetivados | Planejados** (`SummaryViewModeToggle`) — preferência em `localStorage` (`tidy-summary-view-mode`)
 - Integrar setup/exibição da regra financeira
 - Alertar categorias não mapeadas na regra
+- Pendências visíveis em modo efetivado (*A receber · A pagar · A investir*)
 
 ### Regras de negócio
 
-- **Saldo** = entradas − gastos − investimentos (todos os valores, independente de `received`/`paid`/`invested`)
+- **Modo Efetivados (padrão):** saldo = entradas recebidas − gastos pagos − investimentos investidos (`calculateMonthTotals` com flags)
+- **Modo Planejados:** saldo = soma nominal de todos os lançamentos do mês
 - Saldo positivo: cor verde; negativo: vermelho
 - Badge de categorias não mapeadas quando `settings.expenseCategories` contém itens ausentes em `rule.categoryMapping`
 
@@ -320,6 +331,8 @@ CRUD de entradas financeiras mensais com tags, repetição anual e marcação de
 - Visão resumo por categoria (% e valor)
 - Seleção múltipla de itens (para barra inferior)
 - Expandir/recolher lista longa
+- **Efetivação com carteira:** ao marcar `received`, abre `EffectuateWalletDialog` (carteiras de **movimentação** ou **Saldo Livre**); desefetivar limpa `accountId`
+- Edição de carteira disponível apenas em itens **já recebidos**
 
 ### Fluxos de usuário
 
@@ -407,6 +420,8 @@ CRUD de despesas com três tipos (fixo, variável, parcelado), formas de pagamen
 - Ordenação e visão resumo por categoria
 - Seleção múltipla
 - Agrupamento visual por tipo (fixo / variável / parcelado)
+- **Efetivação com carteira:** ao marcar `paid` (não-cartão), abre `EffectuateWalletDialog` (movimentação ou Saldo Livre); desefetivar limpa `accountId`
+- Edição de carteira disponível apenas em gastos **já pagos** (não-cartão)
 
 ### Fluxos de usuário
 
@@ -489,34 +504,38 @@ Usuário autenticado (RLS).
 
 ## Módulo: Investimentos
 
-> **Status:** Fase 2.1 ✅ — acoplado a Carteiras
+> **Status:** Fase 2.1 ✅ · Fase 3 ✅ — aporte origem/destino e papéis de carteira (C8)
 
 ### Objetivo
 
-CRUD de aportes/investimentos mensais vinculados a **Carteira** (`account_id`), repetição e marcação de realizado.
+CRUD de aportes/investimentos mensais com repetição e marcação de realizado. Na **efetivação**, o usuário informa **origem** (carteira de movimentação) e **destino** (carteira de investimentos).
 
 ### Funcionalidades
 
 - Listar, criar, editar, excluir
-- Marcar como **investido** (`invested`)
+- Marcar como **investido** (`invested`) via `EffectuateInvestmentDialog`
 - Repetição mensal (`repeatAllMonths`)
 - Escopo apply-to-all (mesmo padrão de entradas)
-- Select **Carteira obrigatório** (substitui "Instituição"); `tag` derivada do nome da carteira no submit (compatibilidade DB)
-- Empty state no dialog quando não há carteiras + atalho "Criar carteira"
-- Ordenação e visão resumo por **carteira** (fallback `tag` para investimentos legados sem `accountId`)
+- Criação **sem** vínculo de carteira no formulário; `tag` temporária `PENDING_INVESTMENT_TAG` até efetivar
+- Na efetivação: select **Origem** (movimentação) + **Destino** (investimentos); defaults em `localStorage` (`effectuateInvestmentDefaults.ts`)
+- CTAs para criar carteira do papel faltante quando não houver movimentação ou investimentos
+- Ordenação e visão resumo por **carteira destino** (fallback `tag` para legados sem `accountId`)
 - Seleção múltipla
 
 ### Regras de negócio
 
-- Valor > 0, descrição e **carteira** obrigatórios
-- Novo investimento com `invested: false`
-- Repetição: mesma lógica de entradas (`base_investment_id`); `account_id` propagado nas cópias
-- Aporte efetivado (`invested`) **soma** no saldo estimado da carteira vinculada
-- Dados legados sem `accountId`: exibidos com fallback `tag`; edição exige escolher carteira
+- Valor > 0 e descrição obrigatórios na criação
+- Novo investimento com `invested: false`, sem `accountId`/`sourceAccountId`
+- Na efetivação: `sourceAccountId` (movimentação) e `accountId` (investimentos) obrigatórios; origem ≠ destino
+- `tag` na efetivação = nome da carteira **destino** (compatibilidade DB / agrupamento visual)
+- Repetição: mesma lógica de entradas (`base_investment_id`); `account_id` e `source_account_id` **não** propagam nas cópias (`seriesUpdates.ts`)
+- **Patrimônio por carteira:** aporte debita liquidez na origem (`outflow` via `sourceAccountId`) e credita posição no destino (`invested` via `accountId`)
+- Dados legados sem `sourceAccountId`: re-efetivar para corrigir; exibição com fallback `tag` quando sem `accountId`
 
 ### Dependências
 
-- Tabelas `investments`, `accounts`
+- Tabelas `investments`, `accounts` (com `role`)
+- `utils/business/accountRoles.ts`, `EffectuateInvestmentDialog.tsx`
 - `finance_settings.investment_tags` permanece no banco (não alimenta mais o formulário)
 
 ### Endpoints (modo Supabase)
@@ -660,35 +679,47 @@ Usuário autenticado; RLS restringe a `user_id` da sessão.
 
 ## Módulo: Carteiras (Accounts)
 
-> **Status:** Fase 1 ✅ · Fase 2 ✅ · Fase 2.1 ✅ · Fase 2.2 ✅
+> **Status:** Fase 1 ✅ · Fase 2 ✅ · Fase 2.1 ✅ · Fase 2.2 ✅ · Fase 3 ✅ — papéis, origem/destino, operações
 
 ### Fase 1 — Organização
 
 **Entidade:** `Account` — entidade global do usuário (não mensal), definida em `types/domain.ts`.
 
-**Tabela Supabase:** `public.accounts` — colunas: `id, user_id, name, type (checking|savings|investment|cash|other), color, display_order, created_at, updated_at`. RLS habilitada com 4 policies.
+**Tabela Supabase:** `public.accounts` — colunas: `id, user_id, name, type (checking|savings|investment|cash|other), role (movement|investment), color, display_order, created_at, updated_at`. Migration `add_account_role.sql`. RLS habilitada com 4 policies.
 
-**Vinculação:** Tabelas `incomes`, `expenses` e `investments` possuem coluna `account_id UUID REFERENCES accounts(id) ON DELETE SET NULL` — vínculo opcional; excluir a carteira desvincula sem apagar movimentos.
+**Papéis (`AccountRole`):**
+- `movement` — liquidez / fluxo operacional (conta corrente, poupança, dinheiro, outro)
+- `investment` — custódia / posição aplicada (`type` fixo `investment`)
+
+**Vinculação:** Tabelas `incomes`, `expenses` e `investments` possuem `account_id UUID REFERENCES accounts(id) ON DELETE SET NULL`. Investimentos efetivados também gravam `source_account_id` (origem do aporte). Excluir carteira desvincula sem apagar movimentos.
 
 **Camada de serviço:**
 - Facade: `services/accounts.ts`
 - Adapter Supabase: `services/adapters/supabase/accounts.ts`
-- Adapter API: `services/adapters/api/accounts.ts`
+- Adapter API: `services/adapters/api/accountOperations.ts` (operações)
 - Registrado em: `services/adapters/select.ts` via `accountsAdapter()`
 - Mapper: `toAccount()` em `services/adapters/mappers.ts`
 
-**Hook:** `useSupabaseFinance` — estado `accounts`, carregado em `loadInitialData`; handlers `addAccount`, `updateAccount`, `deleteAccount`, `accountNameExists`. Segue mesmo padrão de `creditCards`.
+**Hook:** `useSupabaseFinance` — estado `accounts`, `accountOperations`; handlers `addAccount`, `updateAccount`, `deleteAccount`, `createWithdrawal`, `createTransfer`, `deleteOperation`, `accountNameExists`.
 
-**Lógica de negócio:** `utils/business/accounts.ts` — `getAccountMonthTotals(accountId, monthData, creditCards, cardMonthlyStatuses)` retorna `{ inflow, outflow, invested }` **efetivados** (received / paid ou fatura paga / invested), alinhado ao resumo mensal via `isExpenseEffectivelyPaid`. Coberto por testes unitários em `__tests__/accounts.test.ts`.
+**Lógica de negócio:** `utils/business/accounts.ts` + `utils/business/accountRoles.ts`:
+- `getAccountMonthTotals(accountId, monthData, creditCards, cardMonthlyStatuses, accountRole)` — totais efetivados por papel
+- **Movimentação:** `inflow` = entradas + `transfer_in`; `outflow` = gastos + aportes enviados (`sourceAccountId`) + resgates + transferências + faturas pagas
+- **Investimentos:** `invested` = aportes recebidos (`accountId`); `outflow` = resgates + `transfer_out`
+- `getUnlinkedMonthTotals` / `getUnlinkedClosingBalance` — chip **Saldo Livre**
+- Coberto por testes em `__tests__/accounts.test.ts`, `__tests__/accountRoles.test.ts`
 
-**UI:** `components/AccountStrip.tsx` — seção em `SectionSurface` (mesmo padrão de Resumo e Registros), com faixa horizontal de chips, ícone de tipo, cor, métricas mensais efetivadas (Entrou/Saiu/Aportado), ordenação no header, CRUD via dialog (nome, tipo, cor) e confirmação de exclusão (alertando sobre SET NULL). Renderizada entre `MonthSummarySection` e `MonthRecordsSection` em `Index.tsx`. FAB global inclui item "Carteira".
+**UI:** `components/AccountStrip.tsx` — faixa horizontal de chips (carteiras + Saldo Livre), subtítulos **Liquidez** / **Posição aplicada**, métricas mensais (Entrou/Saiu/Aportado ou Resgatado), CRUD com **papel obrigatório** na criação, bloqueio de troca de papel com movimentos vinculados, menus **Transferir**, **Resgatar**, **Declarar saldo**, dialogs `TransferDialog`, `WithdrawalDialog`, `AccountMonthMovementsDialog`, `UnlinkedMovementsDialog`. Renderizada entre `MonthSummarySection` e `MonthRecordsSection`.
 
-**Seletor nos formulários:** `IncomeSection` e `ExpenseSection` exibem Select opcional "Carteira (opcional)" quando há carteiras cadastradas. `InvestmentSection` exibe Select **Carteira obrigatório** (Fase 2.1).
+**Efetivação (vínculo na marcação, não na criação):**
+- `EffectuateWalletDialog` — entradas/gastos: carteiras de movimentação ou Saldo Livre
+- `EffectuateInvestmentDialog` — investimentos: origem movimentação + destino investimentos
+- `PayInvoiceDialog` — fatura de cartão: carteira pagadora (movimentação)
 
 **Tipos:**
-- `Account`, `AccountType`, `CreateAccountInput`, `UpdateAccountInput` em `types/domain.ts`
+- `Account`, `AccountType`, `AccountRole`, `CreateAccountInput`, `UpdateAccountInput` em `types/domain.ts`
 - `DEFAULT_ACCOUNT_TYPES`, `AccountTypeConfig` em `types/finance.ts`
-- Tipos Supabase: `integrations/supabase/types.ts` (tabela `accounts`, colunas `account_id` em movimentos)
+- Tipos Supabase: `integrations/supabase/types.ts` (`accounts.role`, `investments.source_account_id`, `account_operations`)
 
 ### Fase 2 — Saldo Declarado (Snapshot Mensal)
 
@@ -708,17 +739,33 @@ Usuário autenticado; RLS restringe a `user_id` da sessão.
 **Lógica de negócio:** `utils/business/accounts.ts` (Fase 2):
 - `getAccountDeclaredBalance(accountId, yearMonth, balances)` — saldo exato do mês ou null
 - `getAccountLastKnownBalance(accountId, yearMonth, balances)` — último saldo anterior ao mês (exibição "desatualizado")
-- `getAccountNetVariation(accountId, monthData, creditCards, cardMonthlyStatuses)` — variação líquida efetiva: `inflow − outflow + invested` (aporte soma na carteira)
+- `getAccountNetVariation(accountId, monthData, creditCards, cardMonthlyStatuses, accountRole)` — variação por papel: movimentação `inflow − outflow`; investimentos `inflow + invested − outflow`
 - `getAccountProjectedBalance(baseBalance, ...)` — saldo estimado = saldo declarado + variação efetiva
-- Itens recorrentes: cada mês é linha independente com seu próprio status; `account_id` propagado nas cópias ao ativar repeat (adapters Supabase). Status efetivo (`received`/`paid`/`invested`) **não** propaga em edição com `applyToAllMonths` (`omitEffectiveStatus` nos adapters; formulário de gasto não reenvia `paid` na edição)
+- Itens recorrentes: cada mês é linha independente; `account_id`/`source_account_id` **não** propagam em repetições nem em `applyToAllMonths` (`seriesUpdates.ts`). Status efetivo (`received`/`paid`/`invested`) **não** propaga em edição com `applyToAllMonths`
 Cobertos por testes unitários em `__tests__/accounts.test.ts`.
 
-### Fase 2.1 — Investimentos acoplados a Carteiras
+### Fase 2.1 — Investimentos acoplados a Carteiras (substituída pela Fase 3)
 
-- Formulário de investimento: apenas Carteira obrigatória; `tag` = nome da carteira (compat DB)
-- `getAccountNetVariation`: aporte efetivado **soma** (`+ invested`) no saldo estimado da carteira
-- Lista/resumo/ordenação por carteira; legados sem `accountId` exibem `tag` como fallback
-- `onRequestAddAccount` no dialog quando não há carteiras cadastradas
+- ~~Aporte soma na mesma carteira~~ → ver Fase 3 (origem/destino)
+- Lista/resumo/ordenação por carteira destino; legados sem `accountId` exibem `tag`
+
+### Fase 3 — Papéis, origem/destino e operações (C8)
+
+**Migrations:** `add_account_role.sql`, `add_investment_source_account.sql`, `create_account_operations.sql`, `add_invoice_payment_operations.sql`
+
+**Operações de carteira** (`account_operations`):
+- `withdrawal` — resgate para **Saldo Livre** (credita chip Saldo Livre)
+- `transfer_out` + `transfer_in` — transferência **movimentação → movimentação** ou resgate **investimentos → movimentação** (par atômico com `transferGroupId`)
+- `invoice_payment` — débito único ao pagar fatura de cartão
+
+**Dialogs:**
+- `TransferDialog` — só mov→mov; tooltip orienta usar Investimentos para aplicar
+- `WithdrawalDialog` — origem investimentos; destino movimentação ou Saldo Livre
+- `PayInvoiceDialog` — carteira pagadora (movimentação) ao marcar fatura paga
+
+**Chip Saldo Livre:** sempre visível; agrega movimentos efetivados sem `accountId` + resgates para fora das carteiras nomeadas
+
+**Glossário:** `FinancialGlossaryDialog` — Saldo Livre, papéis de carteira, aporte origem/destino, resgate, transferência
 
 ### Fase 2.2 — Saldo cumulativo entre meses
 
@@ -759,7 +806,7 @@ Cadastro global de cartões, visualização de fatura do mês e controle de "fat
 
 - Criar, editar (nome, cor), excluir cartão
 - Faixa horizontal de chips com total do mês por cartão
-- Marcar fatura como paga (por mês)
+- Marcar fatura como paga (por mês) — abre `PayInvoiceDialog` para escolher carteira pagadora (movimentação); registra `invoice_payment`
 - Ordenação (padrão, alfabética, cor, maior/menor valor)
 - Validação de nome duplicado
 
@@ -767,9 +814,10 @@ Cadastro global de cartões, visualização de fatura do mês e controle de "fat
 
 **Marcar fatura paga**
 
-1. Checkbox no chip do cartão
-2. `setCardPaidStatus` → upsert em `credit_card_monthly_status`
-3. Optimistic update no estado local
+1. Checkbox no chip do cartão → `PayInvoiceDialog`
+2. Usuário escolhe carteira de movimentação pagadora
+3. `setCardPaidStatus` + `createInvoicePayment` → upsert em `credit_card_monthly_status` + INSERT `invoice_payment`
+4. Optimistic update no estado local
 
 **Renomear cartão**
 
@@ -914,7 +962,7 @@ Permitir ao usuário definir distribuição alvo (essenciais / estilo de vida / 
 
 - Soma dos percentuais deve ser 100% (±0.01) — validação UI e serviço
 - Todas as categorias de `finance_settings` devem estar mapeadas
-- Cálculos usam **todos** os valores de entrada/gasto/investimento do mês, **sem** filtrar `received`/`paid`/`invested` (`financialRuleCalculations.ts`)
+- Cálculos respeitam o toggle **Efetivados | Planejados** compartilhado com resumo e estatísticas (`useSummaryViewMode` + `financialRuleCalculations.ts`)
 - Percentual atual = (valor da categoria / total de entradas) × 100
 - Investimentos calculados sobre total de investimentos vs. meta % da renda
 
@@ -986,9 +1034,9 @@ Visualizar totais e gráfico de barras dos 12 meses do ano selecionado.
 | Recarga com dados existentes | Spinner overlay (`isLoading`) |
 | Mês sem dados | Valores zero no gráfico |
 
-### Divergência importante
+### Modo de visualização (toggle compartilhado)
 
-O **resumo mensal** e a **regra financeira** usam totais brutos; a **visão anual** usa apenas itens efetivados. Evidência: `MonthSummarySection.tsx` vs. `Statistics.tsx`.
+Resumo mensal, regra financeira e estatísticas anuais compartilham o toggle **Efetivados | Planejados** (`SummaryViewModeToggle`, `useSummaryViewMode`). Em modo **Efetivados**, gastos em cartão só entram se fatura paga. Em modo **Planejados**, totais nominais alinham-se aos headers das seções de lista.
 
 ---
 
@@ -1036,8 +1084,9 @@ Tidy Month Tracker (Frontend)
 ├── Dashboard (/)
 │   ├── Navegação de Mês
 │   ├── Resumo do Mês
-│   │   ├── Métricas (entradas, gastos, invest., saldo)
+│   │   ├── Métricas (entradas, gastos, invest., saldo) + toggle Efetivados/Planejados
 │   │   └── Regra Financeira
+│   ├── Carteiras (AccountStrip + Saldo Livre)
 │   ├── Registros do Mês (abas)
 │   │   ├── Entradas
 │   │   ├── Gastos
@@ -1060,11 +1109,11 @@ Cadastro (/auth)
   → Trigger DB cria profiles + finance_settings
   → Dashboard carrega mês atual
   → [Opcional] Configurar Regra Financeira
-  → [Opcional] Cadastrar cartões
+  → [Opcional] Cadastrar cartões e carteiras (movimentação + investimentos)
   → Registrar entradas / gastos / investimentos / desejos
-  → Marcar received / paid / invested / conquistar desejo
-  → Resumo e regra atualizam
-  → Visão Anual reflete itens efetivados
+  → Marcar received / paid / invested (dialogs de carteira) / conquistar desejo
+  → Resumo, regra e carteiras atualizam
+  → Visão Anual reflete modo ativo (efetivado ou planejado)
 ```
 
 ## Fluxo: despesa parcelada completa
@@ -1087,6 +1136,33 @@ Criar gasto fixo com repeatAllMonths
   → Editar "todos os meses" → update batch (gte year_month atual)
   → Desativar repetição → delete registros com base_expense_id
   → Excluir "todos" → delete batch
+```
+
+## Fluxo: aporte com origem e destino (C8)
+
+```
+Criar investimento (invested: false, sem carteiras)
+  → Marcar investido → EffectuateInvestmentDialog
+  → Escolher origem (carteira movimentação) + destino (carteira investimentos)
+  → UPDATE invested=true, source_account_id, account_id, tag=nome destino
+  → Chip origem: liquidez − valor
+  → Chip destino: posição + valor
+  → Resumo mensal: investimento efetivado desconta do saldo do mês
+```
+
+## Fluxo: transferência e resgate entre carteiras
+
+```
+Transferência (mov → mov):
+  → TransferDialog → par transfer_out + transfer_in (transferGroupId)
+  → Resumo mensal: impacto líquido zero
+  → Chips: origem −, destino +
+
+Resgate (investimentos → movimentação ou Saldo Livre):
+  → WithdrawalDialog
+  → Destino movimentação: par transfer_out + transfer_in
+  → Destino Saldo Livre: withdrawal (credita chip Saldo Livre)
+  → Não cria entrada automática no módulo Entradas
 ```
 
 ## Fluxo: desejo do prazo à conquista
@@ -1147,7 +1223,8 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 
 | Tópico | Detalhe |
 |--------|---------|
-| Totais vs. efetivados | Resumo/regra usam todos os valores; estatísticas anuais só `received`/`paid`/`invested` |
+| Totais vs. efetivados | Resolvido via toggle compartilhado; padrão = efetivados |
+| Patrimônio resumo vs. chips | Resumo = fluxo do mês; chips = patrimônio cumulativo por papel (liquidez/posição) + Saldo Livre |
 | `canDeleteCard` | UI usa checagem só do mês atual; serviço checa todos os meses |
 | Regra financeira vs. cartão | Gastos em cartão entram nos cálculos da regra pelo valor total, não pelo status "pago" |
 | Validação de negócio | No modo Supabase, validações são client-side (bypassáveis) — aceito para beta |
@@ -1249,7 +1326,8 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 - [ ] Criar cartão com nome e cor
 - [ ] Rejeitar nome duplicado
 - [ ] Total do mês no chip
-- [ ] Marcar/desmarcar fatura paga
+- [ ] Marcar/desmarcar fatura paga abre `PayInvoiceDialog`
+- [ ] Fatura paga debita carteira pagadora (`invoice_payment`)
 - [ ] Renomear cartão atualiza gastos vinculados
 - [ ] Bloquear exclusão com gastos vinculados (todos os meses)
 - [ ] Estado vazio (sem cartões)
@@ -1257,12 +1335,26 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 ## Investimentos
 
 - [ ] CRUD completo
-- [ ] Repetição mensal e apply-to-all
-- [ ] Marcar investido
-- [ ] Carteira obrigatória no formulário (Fase 2.1)
-- [ ] Empty state sem carteiras + atalho criar carteira
-- [ ] Resumo/ordenação por carteira
-- [ ] Aporte investido aumenta saldo estimado da carteira
+- [ ] Repetição mensal e apply-to-all (sem propagar `account_id`/`source_account_id`)
+- [ ] Marcar investido abre `EffectuateInvestmentDialog`
+- [ ] Origem (movimentação) + destino (investimentos) obrigatórios na efetivação
+- [ ] CTAs criar carteira quando falta papel
+- [ ] Resumo/ordenação por carteira destino
+- [ ] Aporte debita origem e credita destino (cenário 5k/1k/2k)
+- [ ] Dados legados sem `source_account_id` — re-efetivar corrige chips
+
+## Carteiras
+
+- [ ] Criar carteira com papel obrigatório (movimentação | investimentos)
+- [ ] Bloquear troca de papel com movimentos vinculados
+- [ ] Chip movimentação = liquidez; chip investimentos = posição aplicada
+- [ ] Chip Saldo Livre para movimentos sem carteira + resgates
+- [ ] Efetivar entrada/gasto → `EffectuateWalletDialog` (movimentação ou Saldo Livre)
+- [ ] Transferência mov→mov via `TransferDialog`
+- [ ] Resgate investimentos → movimentação ou Saldo Livre via `WithdrawalDialog`
+- [ ] Pagar fatura → `PayInvoiceDialog` + `invoice_payment`
+- [ ] Declarar saldo + carry-forward cross-year
+- [ ] Excluir carteira desvincula movimentos (SET NULL)
 
 ## Regra financeira
 
@@ -1276,15 +1368,17 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 ## Estatísticas anuais
 
 - [ ] Carregar 12 meses do ano do navegador
-- [ ] Totais consideram apenas itens efetivados
-- [ ] Gastos em cartão só entram se fatura paga
+- [ ] Toggle Efetivados | Planejados alinhado ao resumo
+- [ ] Gastos em cartão só entram se fatura paga (modo efetivado)
 - [ ] Gráfico exibe valores corretos
 - [ ] Atualizar após marcar item (debounce)
 
 ## Resumo mensal
 
-- [ ] Totais de entradas, gastos, investimentos e saldo
+- [ ] Toggle Efetivados | Planejados
+- [ ] Totais de entradas, gastos, investimentos e saldo (por modo)
 - [ ] Saldo negativo com estilo vermelho
+- [ ] Pendências visíveis em modo efetivado
 
 ## Resiliência
 
@@ -1299,4 +1393,4 @@ Criar desejo no mês M (startMonth = M, targetMonth = T)
 
 ---
 
-*Documento gerado com base na análise do código em `frontend/` e em [`PLANO_FRONTEND_DIRETO_SUPABASE.md`](./PLANO_FRONTEND_DIRETO_SUPABASE.md). Data de referência: junho/2026.*
+*Documento gerado com base na análise do código em `frontend/` e em [`PLANO_FRONTEND_DIRETO_SUPABASE.md`](./PLANO_FRONTEND_DIRETO_SUPABASE.md). Última revisão: julho/2026 (Fase 3 Carteiras — C8 origem/destino e papéis).*

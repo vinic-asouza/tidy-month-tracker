@@ -19,7 +19,15 @@
     --accent: 0 0% 96%;
     --accent-foreground: 0 0% 12%;
     --border: 225 15% 88%;
+    --input: 225 15% 88%;
+    --ring: 0 0% 12%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
     --radius: 1rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
 
     /* Semantic colors (summary cards) */
     --income: 160 84% 39%;
@@ -31,6 +39,9 @@
     --investment: 220 92% 60%;
     --investment-foreground: 0 0% 100%;
     --investment-light: 220 80% 96%;
+    --credit: 270 60% 55%;
+    --credit-foreground: 0 0% 100%;
+    --credit-light: 270 50% 96%;
   }
 }
 

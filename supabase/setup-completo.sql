@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS public.credit_cards (
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   paid BOOLEAN NOT NULL DEFAULT false,
+  due_day SMALLINT CHECK (due_day IS NULL OR (due_day >= 1 AND due_day <= 31)),
+  credit_limit NUMERIC(12, 2) CHECK (credit_limit IS NULL OR credit_limit > 0),
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()

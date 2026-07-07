@@ -325,7 +325,7 @@ Referência: [relatorio-regras-negocio.md](../BUSINESS/relatorio-regras-negocio.
 | C3 — Saldo estimado vs histórico (#17) | Médio | Copy reforçada (`estimado do mês anterior`, declaração ancora saldo); glossário explica dependência de declaração |
 | C4 — Sem transferências internas (#18) | Baixo | **Backlog MVP** — limitação aceita; transferência manual (saída em A + entrada em B). Ver [proposta-feature-contas.md](proposta-feature-contas.md) |
 | C5 — `earliestMovementMonth` stale | Baixo | **Fechado** — refetch via `fetchEarliestMovementMonth` após vínculo de carteira (corrige edge case de repetição cross-year) |
-| C6 — Cartão sem carteira pagadora | Baixo | **Decisão adiada** — marcar fatura paga não debita carteira; gastos precisam estar vinculados à carteira |
+| C6 — Cartão sem carteira pagadora | Baixo | **Implementado** — ao marcar fatura paga, usuário escolhe carteira; débito único via `invoice_payment` |
 
 **Arquivos (negócio):** `FinancialGlossaryDialog.tsx`, `AccountStrip.tsx`, `UnlinkedMovementsDialog.tsx`, `accounts.ts`, `IncomeSection.tsx`, `ExpenseSection.tsx`, `MonthSummarySection.tsx`
 
@@ -336,9 +336,48 @@ Referência: [relatorio-regras-negocio.md](../BUSINESS/relatorio-regras-negocio.
 - [x] `npm run build` sem erros TypeScript
 - [x] Testes unitários `accounts.test.ts` (45+ casos, incl. cross-year e não vinculados)
 - [x] Lacunas de negócio C1–C3 (glossário, chip não vinculados, copy estimado)
-- [x] C5 confirmado fechado; C4/C6 documentados como backlog
+- [x] C5 confirmado fechado; C4 documentado como backlog; C6 implementado (pagamento de fatura com carteira)
 - [x] Revalidação QA 14: 2 achados Baixos residuais corrigidos (`earliestMovementMonth`, saldo inicial zero)
 - [ ] Testes manuais browser (exclusão, declaração de saldo, carry-forward multi-ano)
+
+---
+
+## QA básico 2026-07-06
+
+Referência: [17-qa-basico-2026-07-06.md](../QA/relatorios/17-qa-basico-2026-07-06.md)
+
+| Achado | Severidade | Solução |
+|--------|------------|---------|
+| #1 Dupla contagem Saldo Livre (withdrawal + income) | Alto | `getIncomeMirroredOperationIds` — excluir withdrawals espelhados em `getUnlinkedMonthTotals` |
+| #2 Dupla contagem carteira mov (transfer_in + income resgate) | Alto | Excluir `transfer_in` espelhado em `getAccountMonthTotals` (role movement) |
+| #3 Lista duplicada dialog Saldo Livre | Médio | Filtrar withdrawals espelhados em `getUnlinkedMovements` e `getAccountMonthMovements` |
+| #4 Falha parcial `createWithdrawal` | Médio | Rollback best-effort via `deleteAccountOperation` se `createResgateIncome` falhar; bundle só após sucesso |
+| #5 Toggle "Recebido" em entrada de resgate | Médio | `StatusToggleBadge` desabilitado + guard em `handleToggleReceived` |
+| #6 Testes desatualizados | Baixo | Cenários legado (só op) e fluxo completo (op + income) em `accounts.test.ts` |
+| #7 `deleteOperation` sem `deleteIncome` explícito | Baixo | CASCADE em `add_income_source_operation_id.sql` — OK se migration aplicada |
+| #8 Docs gate 15 vs fluxo novo | Baixo | Fluxo canônico = operação + income com `sourceOperationId`; glossário alinhado |
+
+**Arquivos:** `accounts.ts`, `accounts.test.ts`, `useSupabaseFinance.ts`, `IncomeSection.tsx`
+
+### Validação QA 17
+
+- [x] `npm run build` sem erros TypeScript
+- [x] Testes unitários incluindo cenários resgate pareado (159/159 frontend)
+- [x] Revalidação estática 2026-07-06 — achados #1–#6 **Aprovados**
+- [ ] Regressão manual: resgate→Saldo Livre, resgate→carteira mov, toggle resgate
+
+#### Revalidação 2026-07-06 (Validation Engineer)
+
+| Achado | Resultado |
+|--------|-----------|
+| #1–#3 Dupla contagem / listas | **Aprovado** — `getIncomeMirroredOperationIds` + filtros em totais e movimentos |
+| #4 Rollback createWithdrawal | **Aprovado com ressalva** — best-effort; bundle só após sucesso |
+| #5 Toggle resgate | **Aprovado** |
+| #6 Testes | **Aprovado** — legado + fluxo pareado |
+| #7 CASCADE | **Aprovado** — migration presente |
+| #8 Docs | **Pendente (Baixo)** — gate 15 não atualizado |
+
+**Veredito revalidação:** **Aprovado com ressalvas** (manual browser + doc gate 15 opcional).
 
 ---
 

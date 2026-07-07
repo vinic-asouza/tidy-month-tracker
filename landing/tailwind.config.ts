@@ -37,6 +37,8 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        ring: "hsl(var(--ring))",
+        input: "hsl(var(--input))",
         income: {
           DEFAULT: "hsl(var(--income))",
           light: "hsl(var(--income-light))",

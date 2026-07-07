@@ -6,7 +6,11 @@ Processo de qualidade do frontend conforme [`qa-specialist.mdc`](./qa-specialist
 
 **Regra:** relatórios documentam achados para o agente desenvolvedor — nenhuma correção é feita nesta fase.
 
-**Conclusão:** 2026-06-17 — 14 módulos + relatório transversal concluídos.
+**Conclusão módulos 01–14:** 2026-06-17 — 14 módulos + relatório transversal concluídos.
+
+**Gate de lançamento (15):** 2026-07-03 — revalidado; veredito **Aprovado com ressalvas**.
+
+**QA básico 2026-07-06:** branch `landingpage` — [17-qa-basico-2026-07-06.md](./relatorios/17-qa-basico-2026-07-06.md) · revalidado · **Aprovado com ressalvas** (manual browser pendente).
 
 ---
 
@@ -28,7 +32,11 @@ Processo de qualidade do frontend conforme [`qa-specialist.mdc`](./qa-specialist
 | 12 | Shell / Preferências | concluído | 2026-06-17 | 0 | 0 | 2 | 2 | [12-shell.md](./relatorios/12-shell.md) |
 | 13 | Lista de Desejos | revalidado | 2026-06-17 | 0 | 0 | 1 | 2 | [13-lista-desejos.md](./relatorios/13-lista-desejos.md) |
 | 14 | Carteiras | revalidado (C1–C6) | 2026-07-02 | 0 | 0 | 0 | 2 | [14-carteiras.md](./relatorios/14-carteiras.md) |
+| 15 | Gate de lançamento (F1+F2+2.5) | revalidado | 2026-07-03 | 0 | 0 | 0 | 1 | [15-gate-lancamento.md](./relatorios/15-gate-lancamento.md) |
+| 17 | QA básico 2026-07-06 (branch landingpage) | revalidado | 2026-07-06 | 0 | 0 | 0 | 1 | [17-qa-basico-2026-07-06.md](./relatorios/17-qa-basico-2026-07-06.md) |
 | 99 | Transversal | concluído | 2026-06-17 | 0 | — | — | — | [99-transversal.md](./relatorios/99-transversal.md) |
+
+**Totais QA 17 (pós-revalidação):** 0 Crítico · 0 Alto · 0 Médio · 1 Baixo (#8 docs gate 15)
 
 **Totais por severidade (soma dos módulos 01–14, pós-revalidação módulo 14):** 0 Crítico · 12 Alto · 31 Médio · 18 Baixo
 
