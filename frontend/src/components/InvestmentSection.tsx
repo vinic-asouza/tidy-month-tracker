@@ -3,7 +3,6 @@ import { Plus, Pencil, Trash2, PiggyBank, List, LayoutGrid, ArrowUpDown, Repeat,
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -32,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Investment } from '@/types/finance';
@@ -41,9 +41,13 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { SelectionToggle } from '@/components/SelectionToggle';
+import { EffectuateInvestmentDialog } from '@/components/EffectuateInvestmentDialog';
+import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import type { Account } from '@/types/domain';
+import { filterInvestmentAccounts } from '@/utils/business/accountRoles';
 
 type PersistHandler = (data: Omit<Investment, 'id'>) => Promise<boolean> | boolean;
 type UpdateHandler = (
@@ -95,9 +99,14 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 const NO_ACCOUNT = 'none';
+const PENDING_INVESTMENT_TAG = '—';
 
-const getAccountLabel = (investment: Investment, accounts: Account[]): string =>
-  accounts.find((a) => a.id === investment.accountId)?.name ?? investment.tag ?? '—';
+const getAccountLabel = (investment: Investment, accounts: Account[]): string => {
+  if (investment.accountId) {
+    return accounts.find((a) => a.id === investment.accountId)?.name ?? investment.tag ?? '—';
+  }
+  return investment.invested ? investment.tag ?? '—' : '—';
+};
 
 const sortInvestments = (
   investments: Investment[],
@@ -115,7 +124,11 @@ const sortInvestments = (
         getAccountLabel(a, accounts).localeCompare(getAccountLabel(b, accounts), 'pt-BR')
       );
     case 'date':
-      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
+      return sorted.sort((a, b) => {
+        const dateCmp = getSortDate(b).localeCompare(getSortDate(a));
+        if (dateCmp !== 0) return dateCmp;
+        return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+      });
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
@@ -248,12 +261,21 @@ const InvestmentListItem = ({
       )}
       style={style}
     >
-      <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
+      <div
+        className="flex items-center justify-center shrink-0 w-[5.5rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StatusToggleBadge
           checked={investment.invested}
-          onCheckedChange={() => onToggleInvested(investment)}
-          title="Marcar como investido"
-          className="h-4 w-4 rounded border-2 border-investment/50 data-[state=checked]:bg-investment data-[state=checked]:border-investment data-[state=checked]:text-white"
+          checkedLabel="Investido"
+          uncheckedLabel="Pendente"
+          onToggle={() => onToggleInvested(investment)}
+          variant="investment"
+          surface="onRow"
+          size="row"
+          ariaLabel={
+            investment.invested ? 'Desmarcar como investido' : 'Marcar como investido'
+          }
         />
       </div>
       {/* Desktop */}
@@ -334,6 +356,7 @@ const InvestmentSectionComponent = ({
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
+  const [effectuateTarget, setEffectuateTarget] = useState<Investment | null>(null);
 
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
@@ -428,39 +451,45 @@ const InvestmentSectionComponent = ({
       setValueError('Valor deve ser maior que zero');
       hasError = true;
     }
-    if (selectedAccountId === NO_ACCOUNT) {
-      setAccountError('Selecione uma carteira');
-      hasError = true;
-    }
 
     if (hasError) return;
 
-    const account = accounts.find((a) => a.id === selectedAccountId);
-    const tag = account?.name ?? '';
+    const editingItem = editingId ? investments.find((i) => i.id === editingId) : null;
 
     setIsSubmitting(true);
     try {
       const success = editingId
         ? await onUpdate(
             editingId,
-            {
-              description: description.trim(),
-              value: numValue,
-              tag,
-              date: itemDate,
-              repeatAllMonths,
-              accountId: selectedAccountId,
-            },
+            editingItem?.invested
+              ? {
+                  description: description.trim(),
+                  value: numValue,
+                  tag:
+                    accounts.find((a) => a.id === selectedAccountId)?.name ??
+                    editingItem.tag,
+                  date: itemDate,
+                  repeatAllMonths,
+                  accountId:
+                    selectedAccountId !== NO_ACCOUNT
+                      ? selectedAccountId
+                      : (null as unknown as string),
+                }
+              : {
+                  description: description.trim(),
+                  value: numValue,
+                  date: itemDate,
+                  repeatAllMonths,
+                },
             applyToAllMonths
           )
         : await onAdd({
             description: description.trim(),
             value: numValue,
-            tag,
+            tag: PENDING_INVESTMENT_TAG,
             date: itemDate,
             repeatAllMonths,
             invested: false,
-            accountId: selectedAccountId,
           });
 
       if (success === false) return;
@@ -569,14 +598,54 @@ const InvestmentSectionComponent = ({
   };
 
   const handleToggleInvested = (investment: Investment) => {
+    if (investment.invested) {
+      const scrollTop = window.scrollY;
+      const scrollLeft = window.scrollX;
+      onUpdate(investment.id, {
+        invested: false,
+        accountId: null as unknown as string,
+        sourceAccountId: null as unknown as string,
+      });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+      return;
+    }
+
+    setEffectuateTarget(investment);
+  };
+
+  const handleRequestAddAccount = () => {
+    setEffectuateTarget(null);
+    onRequestAddAccount?.();
+  };
+
+  const handleEffectuateConfirm = async (
+    sourceAccountId: string | null,
+    destinationAccountId: string
+  ) => {
+    if (!effectuateTarget) return false;
+
+    const destAccount = accounts.find((a) => a.id === destinationAccountId);
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
-    onUpdate(investment.id, { invested: !investment.invested });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(scrollLeft, scrollTop);
-      });
+    const ok = await onUpdate(effectuateTarget.id, {
+      invested: true,
+      sourceAccountId,
+      accountId: destinationAccountId,
+      tag: destAccount?.name ?? PENDING_INVESTMENT_TAG,
     });
+
+    if (ok) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+    }
+    return ok;
   };
   const total = investments.reduce((sum, i) => sum + i.value, 0);
   const investedTotal = investments
@@ -593,6 +662,7 @@ const InvestmentSectionComponent = ({
   };
 
   const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
+  const editingItem = editingId ? investments.find((i) => i.id === editingId) : null;
 
   return (
     <div className={shellClass}>
@@ -613,6 +683,15 @@ const InvestmentSectionComponent = ({
           />
         </div>
       </div>
+      <Alert className="mb-4 bg-muted/40 border-border py-2.5">
+        <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
+          Este espaço registra seus <strong className="font-medium text-foreground">aportes mensais</strong>.
+          O saldo total de cada conta está em <strong className="font-medium text-foreground">Carteiras</strong>.
+          {accounts.length > 0
+            ? ' A carteira de destino é escolhida ao marcar como investido.'
+            : ' Sem carteiras cadastradas, o valor vai para o Saldo Livre ao efetivar. Você pode criar uma carteira a qualquer momento.'}
+        </AlertDescription>
+      </Alert>
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
@@ -630,28 +709,6 @@ const InvestmentSectionComponent = ({
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-5 pt-4">
-                {accounts.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground text-sm mb-4">
-                      Cadastre uma carteira antes de registrar investimentos.
-                    </p>
-                    {onRequestAddAccount && (
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          setIsOpen(false);
-                          onAddDialogClose?.();
-                          onRequestAddAccount();
-                        }}
-                        className="gradient-investment text-white hover:opacity-90"
-                      >
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Criar carteira
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <>
                 {/* Data do item */}
                 <div>
                   <label className="text-sm font-medium mb-2 block text-muted-foreground">
@@ -712,35 +769,45 @@ const InvestmentSectionComponent = ({
                   </div>
                 </div>
 
-                {/* Carteira */}
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
-                    Carteira
-                  </label>
-                  <Select
-                    value={selectedAccountId}
-                    onValueChange={(v) => {
-                      setSelectedAccountId(v);
-                      setAccountError(null);
-                    }}
-                  >
-                    <SelectTrigger
-                      className={`rounded-md h-10 ${accountError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                {/* Carteira — só para itens já investidos */}
+                {accounts.length > 0 && editingItem?.invested && (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
+                      Carteira
+                    </label>
+                    <Select
+                      value={selectedAccountId}
+                      onValueChange={(v) => {
+                        setSelectedAccountId(v);
+                        setAccountError(null);
+                      }}
                     >
-                      <SelectValue placeholder="Selecione uma carteira" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-md">
-                      {accounts.map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
-                          {acc.name}
+                      <SelectTrigger
+                        className={`rounded-md h-10 ${accountError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                      >
+                        <SelectValue placeholder="Selecione uma carteira" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        <SelectItem value={NO_ACCOUNT} className="rounded-lg">
+                          Saldo Livre
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {accountError && (
-                    <p className="text-destructive text-sm mt-1">{accountError}</p>
-                  )}
-                </div>
+                        {filterInvestmentAccounts(accounts).map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
+                            {acc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {accountError && (
+                      <p className="text-destructive text-sm mt-1">{accountError}</p>
+                    )}
+                  </div>
+                )}
+                {accounts.length > 0 && !editingItem?.invested && (
+                  <p className="text-xs text-muted-foreground">
+                    A carteira de destino é escolhida ao marcar como investido.
+                  </p>
+                )}
 
                 {/* Repeat All Months */}
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
@@ -758,7 +825,7 @@ const InvestmentSectionComponent = ({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground -mt-2">
-                  Repete nos demais meses deste ano.
+                  Cria lançamentos nos demais meses deste ano. Em janeiro, duplique ou crie novamente para o ano seguinte.
                 </p>
 
                 <Button 
@@ -774,8 +841,6 @@ const InvestmentSectionComponent = ({
                     'Adicionar Investimento'
                   )}
                 </Button>
-                  </>
-                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -853,6 +918,13 @@ const InvestmentSectionComponent = ({
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
+          <SectionAddItemButton
+            onClick={() => {
+              resetForm();
+              setIsOpen(true);
+            }}
+            ariaLabel="Adicionar investimento"
+          />
           {firstPartInv.map((investment) => {
             const isSelected = selectedIds.has(investment.id);
             const handleItemClick = (e: React.MouseEvent) => {
@@ -974,6 +1046,17 @@ const InvestmentSectionComponent = ({
             : undefined
         }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
+      />
+
+      <EffectuateInvestmentDialog
+        open={!!effectuateTarget}
+        onOpenChange={(open) => !open && setEffectuateTarget(null)}
+        description={effectuateTarget?.description ?? ''}
+        amount={effectuateTarget?.value ?? 0}
+        accounts={accounts}
+        onConfirm={handleEffectuateConfirm}
+        onRequestAddMovementAccount={handleRequestAddAccount}
+        onRequestAddInvestmentAccount={handleRequestAddAccount}
       />
     </div>
   );

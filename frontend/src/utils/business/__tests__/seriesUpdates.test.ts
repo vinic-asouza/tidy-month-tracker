@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { omitEffectiveStatus } from '../seriesUpdates';
+import { omitPerMonthFields } from '../seriesUpdates';
 
-describe('omitEffectiveStatus', () => {
-  it('remove paid, received e invested do objeto', () => {
+describe('omitPerMonthFields', () => {
+  it('remove paid, received, invested, account_id e source_account_id do objeto', () => {
     expect(
-      omitEffectiveStatus({
+      omitPerMonthFields({
         description: 'Aluguel',
         value: 1000,
         paid: true,
         received: true,
         invested: true,
         account_id: 'acc-1',
+        source_account_id: 'acc-2',
       })
     ).toEqual({
       description: 'Aluguel',
       value: 1000,
-      account_id: 'acc-1',
     });
   });
 
-  it('retorna objeto inalterado quando não há campos de status', () => {
-    const row = { category: 'Moradia', account_id: null };
-    expect(omitEffectiveStatus(row)).toEqual(row);
+  it('retorna objeto inalterado quando não há campos por mês', () => {
+    const row = { category: 'Moradia', description: 'Teste' };
+    expect(omitPerMonthFields(row)).toEqual(row);
   });
 });

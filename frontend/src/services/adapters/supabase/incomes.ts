@@ -1,13 +1,53 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Income } from '@/types/domain';
 import type { CreateIncomeParams, UpdateIncomeParams } from '@/services/params';
+import { RESGATE_INCOME_TAG } from '@/types/finance';
 import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
 import { toIncome } from '../mappers';
-import { getAuthUserId, getMonthItemCount, throwIfError } from './helpers';
-import { omitEffectiveStatus } from '@/utils/business/seriesUpdates';
+import { getAuthUserId, throwIfError } from './helpers';
+import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
+}
+
+export const RESGATE_INCOME_TAG = 'Resgate de investimentos' as const;
+
+export interface CreateResgateIncomeParams {
+  userId: string;
+  yearMonth: string;
+  description: string;
+  value: number;
+  date: string;
+  accountId?: string | null;
+  sourceOperationId: string;
+  displayOrder?: number;
+}
+
+export async function createResgateIncome(params: CreateResgateIncomeParams): Promise<Income> {
+  const userId = await resolveUserId(params.userId);
+  const displayOrder = params.displayOrder ?? 0;
+
+  const { data, error } = await supabase
+    .from('incomes')
+    .insert({
+      user_id: userId,
+      year_month: params.yearMonth,
+      description: params.description,
+      value: params.value,
+      tag: RESGATE_INCOME_TAG,
+      date: params.date,
+      received: true,
+      repeat_all_months: false,
+      display_order: displayOrder,
+      account_id: params.accountId ?? null,
+      source_operation_id: params.sourceOperationId,
+    })
+    .select('*')
+    .single();
+
+  throwIfError(error);
+  return toIncome(data!);
 }
 
 export async function getIncomes(userId: string, yearMonth: string): Promise<Income[]> {
@@ -24,8 +64,7 @@ export async function getIncomes(userId: string, yearMonth: string): Promise<Inc
 
 export async function createIncome(params: CreateIncomeParams): Promise<Income> {
   const userId = await resolveUserId(params.userId);
-  const { yearMonth, ...incomeData } = params;
-  const displayOrder = await getMonthItemCount('incomes', userId, yearMonth);
+  const { yearMonth, displayOrder = 0, ...incomeData } = params;
   const itemDate = incomeData.date ?? new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabase
@@ -37,10 +76,11 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
       value: incomeData.value,
       tag: incomeData.tag,
       date: itemDate,
-      received: false,
+      received: incomeData.received ?? false,
       repeat_all_months: incomeData.repeatAllMonths || false,
       display_order: displayOrder,
       account_id: incomeData.accountId ?? null,
+      source_operation_id: incomeData.sourceOperationId ?? null,
     })
     .select('*')
     .single();
@@ -62,7 +102,7 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
         repeat_all_months: true,
         base_income_id: createdIncome.id,
         display_order: 0,
-        account_id: incomeData.accountId ?? null,
+        account_id: null,
       }));
       const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
@@ -106,7 +146,7 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
         repeat_all_months: true,
         base_income_id: id,
         display_order: 0,
-        account_id: updates.accountId ?? currentRows.account_id ?? null,
+        account_id: null,
       }));
       const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
@@ -149,7 +189,7 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
 
     const { error: updateError } = await supabase
       .from('incomes')
-      .update(omitEffectiveStatus(row))
+      .update(omitPerMonthFields(row))
       .in('id', targetIds)
       .eq('user_id', userId);
 

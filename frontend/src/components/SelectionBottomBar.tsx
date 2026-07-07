@@ -11,6 +11,7 @@ export interface SelectionSummary {
 interface SelectionBottomBarProps {
   summary: SelectionSummary;
   selectedCount: number;
+  effectiveSelectedCount: number;
   plannedTotal: number;
   onClearAll: () => void;
 }
@@ -18,12 +19,14 @@ interface SelectionBottomBarProps {
 export const SelectionBottomBar = ({
   summary,
   selectedCount,
+  effectiveSelectedCount,
   plannedTotal,
   onClearAll,
 }: SelectionBottomBarProps) => {
   if (selectedCount === 0) return null;
 
   const effectiveTotal = summary.incomes + summary.investments + summary.expenses;
+  const showAmberHint = selectedCount > 0 && effectiveTotal === 0;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border shadow-lg animate-in slide-in-from-bottom duration-300">
@@ -31,10 +34,13 @@ export const SelectionBottomBar = ({
         <div className="flex items-center justify-between mb-1.5">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Resumo da seleção</h3>
-            <p className="text-xs text-muted-foreground">
-              {selectedCount} {selectedCount === 1 ? 'item' : 'itens'} —{' '}
+            <p
+              className={`text-xs ${showAmberHint ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'}`}
+            >
+              {selectedCount} {selectedCount === 1 ? 'selecionado' : 'selecionados'} ·{' '}
+              {effectiveSelectedCount} {effectiveSelectedCount === 1 ? 'efetivado' : 'efetivados'} —{' '}
               {formatCurrency(effectiveTotal)} efetivados
-              {effectiveTotal === 0 && ' (marque como recebido/pago/investido para somar)'}
+              {showAmberHint && ' (marque como recebido/pago/investido para somar)'}
             </p>
           </div>
           <Button

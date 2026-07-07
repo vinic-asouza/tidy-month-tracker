@@ -16,13 +16,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { MetricTile } from '@/components/layout/MetricTile';
-import { EffectiveTotalsLegend } from '@/components/layout/EffectiveTotalsLegend';
+import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
+import { SummaryViewModeToggle } from '@/components/SummaryViewModeToggle';
+import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
 import { FinancialRuleSetup } from './FinancialRuleSetup';
 import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useFinancialRule } from '@/hooks/useFinancialRule';
+import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
 import { formatCurrency, formatSummaryMonthTitle } from '@/lib/utils';
-import { calculateEffectiveMonthTotals, isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import {
+  calculateMonthTotals,
+  calculatePendingMonthTotals,
+  getResgateInflowFromIncomes,
+  isExpenseEffectivelyPaid,
+} from '@/utils/business/monthTotals';
 import type { MonthData, FinanceSettings, CreateFinancialRuleInput, CreditCard } from '@/types/domain';
 
 interface MonthSummarySectionProps {
@@ -41,13 +49,43 @@ export const MonthSummarySection = ({
   cardMonthlyStatuses,
 }: MonthSummarySectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
+  const { viewMode, setViewMode } = useSummaryViewMode();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
 
+  const isPlanned = viewMode === 'planned';
+
   const { totalIncome, totalExpenses, totalInvestments, balance } = useMemo(
-    () => calculateEffectiveMonthTotals(monthData, creditCards, cardMonthlyStatuses),
-    [monthData, creditCards, cardMonthlyStatuses]
+    () => calculateMonthTotals(viewMode, monthData, creditCards, cardMonthlyStatuses),
+    [viewMode, monthData, creditCards, cardMonthlyStatuses]
   );
+
+  const pending = useMemo(
+    () =>
+      isPlanned
+        ? { pendingIncome: 0, pendingExpenses: 0, pendingInvestments: 0 }
+        : calculatePendingMonthTotals(monthData, creditCards, cardMonthlyStatuses),
+    [isPlanned, monthData, creditCards, cardMonthlyStatuses]
+  );
+
+  const resgateInflowTotal = useMemo(
+    () => (isPlanned ? 0 : getResgateInflowFromIncomes(monthData.incomes)),
+    [isPlanned, monthData.incomes]
+  );
+
+  const pendingItems = useMemo(() => {
+    const items: { label: string; value: string }[] = [];
+    if (pending.pendingIncome > 0) {
+      items.push({ label: 'A receber', value: formatCurrency(pending.pendingIncome) });
+    }
+    if (pending.pendingExpenses > 0) {
+      items.push({ label: 'A pagar', value: formatCurrency(pending.pendingExpenses) });
+    }
+    if (pending.pendingInvestments > 0) {
+      items.push({ label: 'A investir', value: formatCurrency(pending.pendingInvestments) });
+    }
+    return items;
+  }, [pending]);
 
   const enrichedMonthData = useMemo(
     () => ({ ...monthData, cardMonthlyStatuses }),
@@ -55,16 +93,43 @@ export const MonthSummarySection = ({
   );
 
   const metrics = [
-    { label: 'Entradas (efetiv.)', value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-income', bg: 'bg-income-light' },
-    { label: 'Gastos (efetiv.)', value: formatCurrency(totalExpenses), icon: TrendingDown, color: 'text-expense', bg: 'bg-expense-light' },
-    { label: 'Invest. (efetiv.)', value: formatCurrency(totalInvestments), icon: PiggyBank, color: 'text-investment', bg: 'bg-investment-light' },
     {
-      label: 'Saldo (efetiv.)',
+      label: isPlanned ? 'Entradas' : 'Entradas (efetiv.)',
+      value: formatCurrency(totalIncome),
+      icon: TrendingUp,
+      color: 'text-income',
+      bg: 'bg-income-light',
+      hint:
+        !isPlanned && resgateInflowTotal > 0
+          ? `Inclui ${formatCurrency(resgateInflowTotal)} em resgates`
+          : undefined,
+    },
+    {
+      label: isPlanned ? 'Gastos' : 'Gastos (efetiv.)',
+      value: formatCurrency(totalExpenses),
+      icon: TrendingDown,
+      color: 'text-expense',
+      bg: 'bg-expense-light',
+    },
+    {
+      label: isPlanned ? 'Invest.' : 'Invest. (efetiv.)',
+      value: formatCurrency(totalInvestments),
+      icon: PiggyBank,
+      color: 'text-investment',
+      bg: 'bg-investment-light',
+      hint: isPlanned
+        ? undefined
+        : 'Saída de caixa para aplicação — a posição aparece nas carteiras de investimentos',
+    },
+    {
+      label: isPlanned ? 'Saldo' : 'Saldo (efetiv.)',
       value: `${balance >= 0 ? '+' : ''}${formatCurrency(balance)}`,
       icon: Wallet,
       color: balance >= 0 ? 'text-income' : 'text-expense',
       bg: balance >= 0 ? 'bg-income-light' : 'bg-expense-light',
-      hint: 'Saldo do mês — resultado líquido efetivado deste mês (diferente do saldo estimado na carteira)',
+      hint: isPlanned
+        ? 'Saldo planejado — resultado se tudo fosse executado conforme registrado'
+        : 'Saldo do mês — resultado líquido efetivado deste mês (diferente do saldo estimado na carteira)',
     },
   ];
 
@@ -79,13 +144,21 @@ export const MonthSummarySection = ({
   const unmappedExpensesTotal = useMemo(() => {
     if (!hasUnmappedCategories) return 0;
     return monthData.expenses
+      .filter((e) => unmappedCategories.includes(e.category))
       .filter(
         (e) =>
-          unmappedCategories.includes(e.category) &&
+          isPlanned ||
           isExpenseEffectivelyPaid(e, creditCards, cardMonthlyStatuses)
       )
       .reduce((sum, e) => sum + e.value, 0);
-  }, [monthData.expenses, unmappedCategories, hasUnmappedCategories, creditCards, cardMonthlyStatuses]);
+  }, [
+    monthData.expenses,
+    unmappedCategories,
+    hasUnmappedCategories,
+    isPlanned,
+    creditCards,
+    cardMonthlyStatuses,
+  ]);
 
   const handleComplete = async (data: CreateFinancialRuleInput) => {
     try {
@@ -114,13 +187,27 @@ export const MonthSummarySection = ({
   return (
     <SectionSurface
       title={formatSummaryMonthTitle(currentMonth)}
-      subtitle="Saldos efetivados e regra financeira"
+      subtitle={
+        isPlanned
+          ? 'Baseado em tudo que você registrou neste mês'
+          : 'Baseado no que você marcou como recebido, pago ou investido'
+      }
       icon={Wallet}
+      actions={<SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />}
     >
       <div className="flex flex-col gap-4 md:grid md:grid-cols-[minmax(7.5rem,22%)_1fr] md:gap-5 md:items-start">
         {/* Métricas — coluna esquerda */}
         <div className="flex flex-col gap-2">
-          <EffectiveTotalsLegend />
+          <SummaryTotalsLegend mode={viewMode} />
+          {!isPlanned && pendingItems.length > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] sm:text-xs text-muted-foreground pb-1">
+              {pendingItems.map(({ label, value }) => (
+                <span key={label}>
+                  {label}: <span className="font-medium text-foreground tabular-nums">{value}</span>
+                </span>
+              ))}
+            </div>
+          )}
           {metrics.map(({ label, value, icon, color, bg, hint }) => (
             <div key={label}>
               <MetricTile
@@ -132,7 +219,21 @@ export const MonthSummarySection = ({
                 variant="compact"
               />
               {hint && (
-                <p className="text-[10px] text-muted-foreground px-0.5 mt-0.5">{hint}</p>
+                <p className="text-[10px] text-muted-foreground px-0.5 mt-0.5 flex items-center gap-1 flex-wrap">
+                  <span>{hint}</span>
+                  {!isPlanned && label === 'Saldo (efetiv.)' && (
+                    <FinancialGlossaryDialog
+                      trigger={
+                        <button
+                          type="button"
+                          className="text-primary/80 hover:text-primary underline-offset-2 hover:underline"
+                        >
+                          Entenda a diferença
+                        </button>
+                      }
+                    />
+                  )}
+                </p>
               )}
             </div>
           ))}
@@ -205,6 +306,7 @@ export const MonthSummarySection = ({
                 rule={rule}
                 monthData={enrichedMonthData}
                 creditCards={creditCards}
+                viewMode={viewMode}
                 onEditMapping={handleEdit}
               />
             </>

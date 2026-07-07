@@ -5,6 +5,7 @@ import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
 import * as investmentsService from '@/services/investments';
 import * as creditCardsService from '@/services/creditCards';
+import * as accountOperationsService from '@/services/accountOperations';
 
 export type MonthBundle = MonthData & {
   cardMonthlyStatuses: Record<string, boolean>;
@@ -15,11 +16,13 @@ export async function fetchMonthBundle(
   yearMonth: string,
   creditCards: CreditCard[]
 ): Promise<MonthBundle> {
-  const [incomes, expenses, investments, cardMonthlyStatuses] = await Promise.all([
+  const [incomes, expenses, investments, cardMonthlyStatuses, accountOperations] =
+    await Promise.all([
     incomesService.getIncomes(userId, yearMonth),
     expensesService.getExpenses(userId, yearMonth),
     investmentsService.getInvestments(userId, yearMonth),
     creditCardsService.getAllCardMonthlyStatuses(userId, yearMonth, creditCards),
+    accountOperationsService.getAccountOperations(userId, yearMonth),
   ]);
 
   return {
@@ -27,6 +30,7 @@ export async function fetchMonthBundle(
     expenses,
     investments,
     cardMonthlyStatuses,
+    accountOperations,
   };
 }
 
@@ -44,6 +48,7 @@ export async function fetchYearData(
         expenses: bundle.expenses,
         investments: bundle.investments,
         cardMonthlyStatuses: bundle.cardMonthlyStatuses,
+        accountOperations: bundle.accountOperations,
       };
     } catch {
       return {
@@ -76,6 +81,7 @@ export async function fetchMonthsRange(
             expenses: bundle.expenses,
             investments: bundle.investments,
             cardMonthlyStatuses: bundle.cardMonthlyStatuses,
+            accountOperations: bundle.accountOperations,
           } satisfies MonthData,
         };
       } catch {

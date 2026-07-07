@@ -17,7 +17,8 @@ export async function getCreditCards(userId: string): Promise<CreditCard[]> {
 
 export async function createCreditCard(params: CreateCreditCardParams): Promise<CreditCard> {
   const userId = params.userId ?? (await getAuthUserId());
-  const displayOrder = await getGlobalItemCount('credit_cards', userId);
+  const displayOrder =
+    params.displayOrder ?? (await getGlobalItemCount('credit_cards', userId));
 
   const { data, error } = await supabase
     .from('credit_cards')
@@ -27,8 +28,10 @@ export async function createCreditCard(params: CreateCreditCardParams): Promise<
       color: params.color,
       paid: params.paid || false,
       display_order: displayOrder,
+      due_day: params.dueDay ?? null,
+      credit_limit: params.creditLimit ?? null,
     })
-    .select('id, name, color, paid')
+    .select('*')
     .single();
 
   throwIfError(error);
@@ -77,6 +80,8 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.color !== undefined) row.color = updates.color;
   if (updates.paid !== undefined) row.paid = updates.paid;
+  if (updates.dueDay !== undefined) row.due_day = updates.dueDay;
+  if (updates.creditLimit !== undefined) row.credit_limit = updates.creditLimit;
 
   if (Object.keys(row).length === 0) return;
 

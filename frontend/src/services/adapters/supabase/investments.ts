@@ -3,8 +3,8 @@ import type { Investment } from '@/types/domain';
 import type { CreateInvestmentParams, UpdateInvestmentParams } from '@/services/params';
 import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
 import { toInvestment } from '../mappers';
-import { getAuthUserId, getMonthItemCount, throwIfError } from './helpers';
-import { omitEffectiveStatus } from '@/utils/business/seriesUpdates';
+import { getAuthUserId, throwIfError } from './helpers';
+import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -27,8 +27,7 @@ export async function getInvestments(
 
 export async function createInvestment(params: CreateInvestmentParams): Promise<Investment> {
   const userId = await resolveUserId(params.userId);
-  const { yearMonth, ...investmentData } = params;
-  const displayOrder = await getMonthItemCount('investments', userId, yearMonth);
+  const { yearMonth, displayOrder = 0, ...investmentData } = params;
   const itemDate = investmentData.date ?? new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabase
@@ -43,7 +42,8 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
       invested: false,
       repeat_all_months: investmentData.repeatAllMonths || false,
       display_order: displayOrder,
-      account_id: investmentData.accountId ?? null,
+      account_id: null,
+      source_account_id: null,
     })
     .select('*')
     .single();
@@ -65,7 +65,8 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: createdInvestment.id,
         display_order: 0,
-        account_id: investmentData.accountId ?? null,
+        account_id: null,
+        source_account_id: null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -109,7 +110,8 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: id,
         display_order: 0,
-        account_id: updates.accountId ?? currentRows.account_id ?? null,
+        account_id: null,
+        source_account_id: null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -134,6 +136,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
   if (updates.repeatAllMonths !== undefined) row.repeat_all_months = updates.repeatAllMonths;
   if (updates.date !== undefined) row.date = updates.date;
   if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
+  if (updates.sourceAccountId !== undefined) row.source_account_id = updates.sourceAccountId ?? null;
 
   if (Object.keys(row).length === 0) return;
 
@@ -152,7 +155,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
 
     const { error: updateError } = await supabase
       .from('investments')
-      .update(omitEffectiveStatus(row))
+      .update(omitPerMonthFields(row))
       .in('id', targetIds)
       .eq('user_id', userId);
 

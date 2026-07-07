@@ -7,14 +7,14 @@ import { Settings, Loader2, AlertCircle, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionSurface } from '@/components/layout/SectionSurface';
-import { EffectiveTotalsLegend } from '@/components/layout/EffectiveTotalsLegend';
+import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
 import { FinancialRuleSetup } from './FinancialRuleSetup';
 import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { formatCurrency } from '@/lib/utils';
-import { calculateAnnualFinancialRuleStats } from '@/utils/financialRuleCalculations';
-import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import { calculateAnnualFinancialRuleStatsByMode } from '@/utils/financialRuleCalculations';
+import { isExpenseEffectivelyPaid, type SummaryViewMode } from '@/utils/business/monthTotals';
 import type {
   MonthData,
   FinanceSettings,
@@ -27,6 +27,7 @@ interface AnnualFinancialRuleSectionProps {
   yearData: MonthData[];
   settings: FinanceSettings;
   creditCards: CreditCard[];
+  viewMode?: SummaryViewMode;
 }
 
 export const AnnualFinancialRuleSection = ({
@@ -34,15 +35,17 @@ export const AnnualFinancialRuleSection = ({
   yearData,
   settings,
   creditCards,
+  viewMode = 'effective',
 }: AnnualFinancialRuleSectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
+  const isPlanned = viewMode === 'planned';
 
   const annualStats = useMemo(() => {
     if (!rule || yearData.length === 0) return null;
-    return calculateAnnualFinancialRuleStats(rule, yearData, creditCards);
-  }, [rule, yearData, creditCards]);
+    return calculateAnnualFinancialRuleStatsByMode(viewMode, rule, yearData, creditCards);
+  }, [rule, yearData, creditCards, viewMode]);
 
   const unmappedCategories = useMemo(() => {
     if (!rule || !settings.expenseCategories) return [];
@@ -56,15 +59,16 @@ export const AnnualFinancialRuleSection = ({
     if (!hasUnmappedCategories) return 0;
     return yearData.reduce((yearSum, monthData) => {
       const monthTotal = monthData.expenses
+        .filter((e) => unmappedCategories.includes(e.category))
         .filter(
           (e) =>
-            unmappedCategories.includes(e.category) &&
+            isPlanned ||
             isExpenseEffectivelyPaid(e, creditCards, monthData.cardMonthlyStatuses)
         )
         .reduce((sum, e) => sum + e.value, 0);
       return yearSum + monthTotal;
     }, 0);
-  }, [yearData, unmappedCategories, hasUnmappedCategories, creditCards]);
+  }, [yearData, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards]);
 
   const handleComplete = async (data: CreateFinancialRuleInput) => {
     try {
@@ -94,10 +98,14 @@ export const AnnualFinancialRuleSection = ({
     <>
       <SectionSurface
         title={`Regra Financeira — ${currentYear}`}
-        subtitle="Média anual com base em entradas, gastos e investimentos efetivados"
+        subtitle={
+          isPlanned
+            ? 'Média anual com base em todos os lançamentos registrados'
+            : 'Média anual com base em entradas, gastos e investimentos efetivados'
+        }
         icon={Scale}
       >
-        <EffectiveTotalsLegend className="mb-4" />
+        <SummaryTotalsLegend mode={viewMode} className="mb-4" />
 
         {loading ? (
           <div className="flex items-center justify-center py-10">
@@ -164,8 +172,13 @@ export const AnnualFinancialRuleSection = ({
               <FinancialRuleDisplay
                 rule={rule}
                 stats={annualStats}
+                viewMode={viewMode}
                 onEditMapping={handleEdit}
-                emptyStateMessage="Marque lançamentos como recebidos, pagos ou investidos ao longo do ano para ver a média anual da regra."
+                emptyStateMessage={
+                  isPlanned
+                    ? 'Registre lançamentos ao longo do ano para ver a média anual planejada da regra.'
+                    : 'Marque lançamentos como recebidos, pagos ou investidos ao longo do ano para ver a média anual da regra.'
+                }
               />
             )}
           </>

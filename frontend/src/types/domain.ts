@@ -11,10 +11,14 @@
 
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash' | 'other';
 
+/** Papel operacional da carteira no fluxo patrimonial. */
+export type AccountRole = 'movement' | 'investment';
+
 export interface Account {
   id: string;
   name: string;
   type: AccountType;
+  role: AccountRole;
   color: string | null;
   displayOrder: number;
   createdAt?: string;
@@ -41,6 +45,7 @@ export interface UpsertAccountBalanceInput {
 export interface CreateAccountInput {
   name: string;
   type: AccountType;
+  role: AccountRole;
   color?: string | null;
   displayOrder?: number;
 }
@@ -48,6 +53,7 @@ export interface CreateAccountInput {
 export interface UpdateAccountInput {
   name?: string;
   type?: AccountType;
+  role?: AccountRole;
   color?: string | null;
 }
 
@@ -61,6 +67,7 @@ export interface Income {
   repeatAllMonths?: boolean;
   baseIncomeId?: string;
   accountId?: string;
+  sourceOperationId?: string | null;
   createdAt?: string;
 }
 
@@ -86,6 +93,8 @@ export interface CreditCard {
   name: string;
   color: string;
   paid: boolean;
+  dueDay?: number | null;
+  creditLimit?: number | null;
 }
 
 export interface Investment {
@@ -97,8 +106,66 @@ export interface Investment {
   invested: boolean;
   repeatAllMonths?: boolean;
   baseInvestmentId?: string;
+  /** Carteira de movimentação ou Saldo Livre (`null`) de onde saiu o aporte */
+  sourceAccountId?: string | null;
+  /** Carteira de investimentos (destino da posição) */
   accountId?: string;
   createdAt?: string;
+}
+
+export type AccountOperationType =
+  | 'withdrawal'
+  | 'transfer_out'
+  | 'transfer_in'
+  | 'invoice_payment';
+
+export interface AccountOperation {
+  id: string;
+  type: AccountOperationType;
+  sourceAccountId: string | null;
+  destinationAccountId: string | null;
+  transferGroupId: string | null;
+  creditCardId: string | null;
+  amount: number;
+  yearMonth: string;
+  operationDate: string;
+  description: string | null;
+  createdAt?: string;
+}
+
+export interface CreateWithdrawalInput {
+  userId: string;
+  sourceAccountId: string;
+  amount: number;
+  yearMonth: string;
+  operationDate: string;
+  description?: string | null;
+}
+
+export interface CreateTransferInput {
+  userId: string;
+  sourceAccountId: string | null;
+  destinationAccountId: string | null;
+  amount: number;
+  yearMonth: string;
+  operationDate: string;
+  description?: string | null;
+}
+
+export interface CreateInvoicePaymentInput {
+  userId: string;
+  sourceAccountId: string | null;
+  creditCardId: string;
+  amount: number;
+  yearMonth: string;
+  operationDate: string;
+  description?: string | null;
+}
+
+export interface UpdateInvoicePaymentInput {
+  sourceAccountId?: string | null;
+  amount?: number;
+  description?: string | null;
 }
 
 export interface MonthData {
@@ -106,6 +173,7 @@ export interface MonthData {
   expenses: Expense[];
   investments: Investment[];
   cardMonthlyStatuses?: Record<string, boolean>; // Map de cardId -> paid status para o mês
+  accountOperations?: AccountOperation[];
 }
 
 export interface FinanceSettings {

@@ -8,6 +8,7 @@ import {
   extractYear,
   extractMonth,
   formatYearMonth,
+  getYearRefreshMonths,
 } from '../repeatMonths';
 
 describe('calculateRemainingMonths', () => {
@@ -78,5 +79,24 @@ describe('formatYearMonth', () => {
   it('deve adicionar zero à esquerda para meses < 10', () => {
     expect(formatYearMonth(2024, 5)).toBe('2024-05');
     expect(formatYearMonth(2024, 9)).toBe('2024-09');
+  });
+});
+
+describe('getYearRefreshMonths', () => {
+  it('retorna vazio quando applyToAllMonths é false e sem extras', () => {
+    expect(getYearRefreshMonths('2024-03', false)).toEqual([]);
+  });
+
+  it('retorna mês atual e demais meses do ano quando applyToAllMonths', () => {
+    const result = getYearRefreshMonths('2024-03', true);
+    expect(result).toHaveLength(12);
+    expect(result).toContain('2024-03');
+    expect(result).toContain('2024-12');
+    expect(result).not.toContain('2023-12');
+  });
+
+  it('inclui extraMonths sem duplicar', () => {
+    const result = getYearRefreshMonths('2024-11', false, ['2024-11', '2025-01']);
+    expect(result).toEqual(['2024-11', '2025-01']);
   });
 });

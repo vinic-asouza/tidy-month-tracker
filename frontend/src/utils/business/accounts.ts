@@ -1,7 +1,30 @@
-import type { AccountBalance, CreditCard, MonthData } from '@/types/domain';
+import type { Account, AccountBalance, AccountRole, CreditCard, MonthData } from '@/types/domain';
+import { isCreditCardExpense } from './creditCards';
 import { isExpenseEffectivelyPaid } from './monthTotals';
 
-const EMPTY_MONTH: MonthData = { incomes: [], expenses: [], investments: [] };
+const EMPTY_MONTH: MonthData = {
+  incomes: [],
+  expenses: [],
+  investments: [],
+  accountOperations: [],
+};
+
+function getAccountOperations(monthData: MonthData) {
+  return monthData.accountOperations ?? [];
+}
+
+/** Operações já espelhadas em entradas (fluxo resgate completo). */
+function getIncomeMirroredOperationIds(monthData: MonthData): Set<string> {
+  const ids = new Set<string>();
+  for (const income of monthData.incomes) {
+    if (income.sourceOperationId) ids.add(income.sourceOperationId);
+  }
+  return ids;
+}
+
+function isOperationMirroredByIncome(opId: string, monthData: MonthData): boolean {
+  return getIncomeMirroredOperationIds(monthData).has(opId);
+}
 
 export interface AccountMonthTotals {
   inflow: number;
@@ -76,35 +99,308 @@ export function getAccountMonthTotals(
   accountId: string,
   monthData: MonthData,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): AccountMonthTotals {
   const statuses = cardMonthlyStatuses ?? monthData.cardMonthlyStatuses;
 
-  const inflow = monthData.incomes
+  const incomeInflow = monthData.incomes
     .filter((i) => i.accountId === accountId && i.received)
     .reduce((sum, i) => sum + i.value, 0);
 
-  const outflow = monthData.expenses
+  const expenseOutflow = monthData.expenses
     .filter(
       (e) =>
         e.accountId === accountId &&
+        !isCreditCardExpense(e, creditCards) &&
         isExpenseEffectivelyPaid(e, creditCards, statuses)
     )
     .reduce((sum, e) => sum + e.value, 0);
 
-  const invested = monthData.investments
+  const aportesReceived = monthData.investments
     .filter((inv) => inv.accountId === accountId && inv.invested)
     .reduce((sum, inv) => sum + inv.value, 0);
 
-  return { inflow, outflow, invested };
+  const aportesSent = monthData.investments
+    .filter((inv) => inv.sourceAccountId === accountId && inv.invested)
+    .reduce((sum, inv) => sum + inv.value, 0);
+
+  const operations = getAccountOperations(monthData);
+  const mirroredOperationIds = getIncomeMirroredOperationIds(monthData);
+  const withdrawalOut = operations
+    .filter((op) => op.type === 'withdrawal' && op.sourceAccountId === accountId)
+    .reduce((sum, op) => sum + op.amount, 0);
+  const transferOut = operations
+    .filter((op) => op.type === 'transfer_out' && op.sourceAccountId === accountId)
+    .reduce((sum, op) => sum + op.amount, 0);
+  const transferIn = operations
+    .filter(
+      (op) =>
+        op.type === 'transfer_in' &&
+        op.destinationAccountId === accountId &&
+        !mirroredOperationIds.has(op.id)
+    )
+    .reduce((sum, op) => sum + op.amount, 0);
+  const invoicePaymentOut = operations
+    .filter((op) => op.type === 'invoice_payment' && op.sourceAccountId === accountId)
+    .reduce((sum, op) => sum + op.amount, 0);
+
+  if (accountRole === 'investment') {
+    return {
+      inflow: transferIn,
+      outflow: withdrawalOut + transferOut,
+      invested: aportesReceived,
+    };
+  }
+
+  return {
+    inflow: incomeInflow + transferIn,
+    outflow: expenseOutflow + withdrawalOut + transferOut + invoicePaymentOut + aportesSent,
+    invested: aportesSent,
+  };
 }
 
-export interface UnlinkedMovement {
+export type WalletMovementKind =
+  | 'income'
+  | 'expense'
+  | 'investment'
+  | 'withdrawal'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'invoice_payment';
+
+export interface WalletMovementRow {
   id: string;
-  kind: 'income' | 'expense';
+  kind: WalletMovementKind;
   description: string;
   value: number;
   date: string | null;
+  detail?: string;
+  deletable?: boolean;
+}
+
+/** @deprecated Use WalletMovementRow */
+export type UnlinkedMovement = WalletMovementRow;
+
+function sortWalletMovements(rows: WalletMovementRow[]): WalletMovementRow[] {
+  return [...rows].sort((a, b) => {
+    const dateA = a.date ?? '';
+    const dateB = b.date ?? '';
+    return dateB.localeCompare(dateA);
+  });
+}
+
+function operationRowDetail(op: AccountMonthOperationView): string | undefined {
+  if (op.kind === 'withdrawal') return 'Saldo Livre';
+  if (op.kind === 'invoice_payment') return op.label.replace(/^Fatura /, '');
+  if (op.kind === 'transfer_out') {
+    const match = op.label.match(/^Transferência para (.+)$/);
+    return match ? `Para ${match[1]}` : undefined;
+  }
+  if (op.kind === 'transfer_in') {
+    const match = op.label.match(/^Transferência de (.+)$/);
+    return match ? `De ${match[1]}` : undefined;
+  }
+  return undefined;
+}
+
+export interface AccountMonthOperationView {
+  id: string;
+  kind: 'withdrawal' | 'transfer_out' | 'transfer_in' | 'invoice_payment';
+  label: string;
+  amount: number;
+  date: string;
+  description: string | null;
+}
+
+/**
+ * Operações patrimoniais do mês visíveis em uma carteira (resgate, transferências e faturas).
+ */
+export function getAccountMonthOperations(
+  accountId: string,
+  monthData: MonthData,
+  accounts: { id: string; name: string }[] = [],
+  creditCards: CreditCard[] = []
+): AccountMonthOperationView[] {
+  const nameById = new Map(accounts.map((a) => [a.id, a.name]));
+  const cardNameById = new Map(creditCards.map((c) => [c.id, c.name]));
+  const ops = getAccountOperations(monthData);
+  const result: AccountMonthOperationView[] = [];
+
+  for (const op of ops) {
+    if (op.type === 'invoice_payment' && op.sourceAccountId === accountId) {
+      const cardName = op.creditCardId ? cardNameById.get(op.creditCardId) : undefined;
+      result.push({
+        id: op.id,
+        kind: 'invoice_payment',
+        label: cardName ? `Fatura ${cardName}` : 'Fatura de cartão',
+        amount: op.amount,
+        date: op.operationDate,
+        description: op.description,
+      });
+      continue;
+    }
+
+    if (op.type === 'withdrawal' && op.sourceAccountId === accountId) {
+      result.push({
+        id: op.id,
+        kind: 'withdrawal',
+        label: 'Resgate',
+        amount: op.amount,
+        date: op.operationDate,
+        description: op.description,
+      });
+      continue;
+    }
+
+    if (op.type === 'transfer_out' && op.sourceAccountId === accountId) {
+      const pair = ops.find(
+        (p) => p.transferGroupId === op.transferGroupId && p.type === 'transfer_in'
+      );
+      const destName = pair?.destinationAccountId
+        ? nameById.get(pair.destinationAccountId)
+        : 'Saldo Livre';
+      result.push({
+        id: op.id,
+        kind: 'transfer_out',
+        label: destName ? `Transferência para ${destName}` : 'Transferência enviada',
+        amount: op.amount,
+        date: op.operationDate,
+        description: op.description,
+      });
+      continue;
+    }
+
+    if (op.type === 'transfer_in' && op.destinationAccountId === accountId) {
+      const pair = ops.find(
+        (p) => p.transferGroupId === op.transferGroupId && p.type === 'transfer_out'
+      );
+      const sourceName = pair?.sourceAccountId
+        ? nameById.get(pair.sourceAccountId)
+        : 'Saldo Livre';
+      result.push({
+        id: op.id,
+        kind: 'transfer_in',
+        label: sourceName ? `Transferência de ${sourceName}` : 'Transferência recebida',
+        amount: op.amount,
+        date: op.operationDate,
+        description: op.description,
+      });
+    }
+  }
+
+  return result.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function accountHasMonthOperations(accountId: string, monthData: MonthData): boolean {
+  return getAccountMonthOperations(accountId, monthData).length > 0;
+}
+
+export function accountHasMonthMovements(
+  accountId: string,
+  monthData: MonthData,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): boolean {
+  const totals = getAccountMonthTotals(accountId, monthData, creditCards, cardMonthlyStatuses);
+  return totals.inflow > 0 || totals.outflow > 0 || totals.invested > 0;
+}
+
+/**
+ * Lista movimentos efetivados do mês vinculados a uma carteira.
+ */
+export function getAccountMonthMovements(
+  accountId: string,
+  monthData: MonthData,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accounts: { id: string; name: string }[] = []
+): WalletMovementRow[] {
+  const statuses = cardMonthlyStatuses ?? monthData.cardMonthlyStatuses;
+
+  const incomes: WalletMovementRow[] = monthData.incomes
+    .filter((i) => i.accountId === accountId && i.received)
+    .map((i) => ({
+      id: i.id,
+      kind: 'income' as const,
+      description: i.description,
+      value: i.value,
+      date: i.date,
+    }));
+
+  const expenses: WalletMovementRow[] = monthData.expenses
+    .filter(
+      (e) =>
+        e.accountId === accountId &&
+        !isCreditCardExpense(e, creditCards) &&
+        isExpenseEffectivelyPaid(e, creditCards, statuses)
+    )
+    .map((e) => ({
+      id: e.id,
+      kind: 'expense' as const,
+      description: e.description,
+      value: e.value,
+      date: e.date,
+    }));
+
+  const investments: WalletMovementRow[] = monthData.investments
+    .filter((inv) => inv.accountId === accountId && inv.invested)
+    .map((inv) => {
+      const sourceName = accounts.find((a) => a.id === inv.sourceAccountId)?.name;
+      return {
+        id: inv.id,
+        kind: 'investment' as const,
+        description: inv.description,
+        value: inv.value,
+        date: inv.date,
+        detail: sourceName ? `De ${sourceName}` : undefined,
+      };
+    });
+
+  const outboundInvestments: WalletMovementRow[] = monthData.investments
+    .filter((inv) => inv.sourceAccountId === accountId && inv.invested)
+    .map((inv) => {
+      const destName = accounts.find((a) => a.id === inv.accountId)?.name;
+      return {
+        id: `${inv.id}-out`,
+        kind: 'investment' as const,
+        description: inv.description,
+        value: inv.value,
+        date: inv.date,
+        detail: destName ? `Para ${destName}` : 'Aplicação',
+      };
+    });
+
+  const mirroredOperationIds = getIncomeMirroredOperationIds(monthData);
+
+  const operations: WalletMovementRow[] = getAccountMonthOperations(
+    accountId,
+    monthData,
+    accounts,
+    creditCards
+  )
+    .filter(
+      (op) =>
+        (op.kind !== 'withdrawal' && op.kind !== 'transfer_in') ||
+        !mirroredOperationIds.has(op.id)
+    )
+    .map((op) => ({
+    id: op.id,
+    kind: op.kind,
+    description:
+      op.description?.trim() ||
+      (op.kind === 'withdrawal'
+        ? 'Resgate'
+        : op.kind === 'invoice_payment'
+          ? op.label
+          : 'Transferência'),
+    value: op.amount,
+    date: op.date,
+    detail: operationRowDetail(op),
+    deletable: op.kind !== 'invoice_payment',
+  }));
+
+  return sortWalletMovements([...incomes, ...expenses, ...investments, ...outboundInvestments, ...operations]);
 }
 
 /**
@@ -125,11 +421,41 @@ export function getUnlinkedMonthTotals(
     .filter(
       (e) =>
         !e.accountId &&
+        !isCreditCardExpense(e, creditCards) &&
         isExpenseEffectivelyPaid(e, creditCards, statuses)
     )
     .reduce((sum, e) => sum + e.value, 0);
 
-  return { inflow, outflow, invested: 0 };
+  const withdrawalInflow = getAccountOperations(monthData)
+    .filter((op) => op.type === 'withdrawal' && !isOperationMirroredByIncome(op.id, monthData))
+    .reduce((sum, op) => sum + op.amount, 0);
+
+  const invoicePaymentOut = getAccountOperations(monthData)
+    .filter((op) => op.type === 'invoice_payment' && !op.sourceAccountId)
+    .reduce((sum, op) => sum + op.amount, 0);
+
+  const mirroredOperationIds = getIncomeMirroredOperationIds(monthData);
+  const transferOut = getAccountOperations(monthData)
+    .filter((op) => op.type === 'transfer_out' && !op.sourceAccountId)
+    .reduce((sum, op) => sum + op.amount, 0);
+  const transferIn = getAccountOperations(monthData)
+    .filter(
+      (op) =>
+        op.type === 'transfer_in' &&
+        !op.destinationAccountId &&
+        !mirroredOperationIds.has(op.id)
+    )
+    .reduce((sum, op) => sum + op.amount, 0);
+
+  const aportesFromFree = monthData.investments
+    .filter((inv) => !inv.sourceAccountId && inv.invested)
+    .reduce((sum, inv) => sum + inv.value, 0);
+
+  return {
+    inflow: inflow + withdrawalInflow + transferIn,
+    outflow: outflow + invoicePaymentOut + transferOut + aportesFromFree,
+    invested: 0,
+  };
 }
 
 /**
@@ -138,11 +464,12 @@ export function getUnlinkedMonthTotals(
 export function getUnlinkedMovements(
   monthData: MonthData,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
-): UnlinkedMovement[] {
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accounts: { id: string; name: string }[] = []
+): WalletMovementRow[] {
   const statuses = cardMonthlyStatuses ?? monthData.cardMonthlyStatuses;
 
-  const incomes: UnlinkedMovement[] = monthData.incomes
+  const incomes: WalletMovementRow[] = monthData.incomes
     .filter((i) => !i.accountId && i.received)
     .map((i) => ({
       id: i.id,
@@ -152,10 +479,11 @@ export function getUnlinkedMovements(
       date: i.date,
     }));
 
-  const expenses: UnlinkedMovement[] = monthData.expenses
+  const expenses: WalletMovementRow[] = monthData.expenses
     .filter(
       (e) =>
         !e.accountId &&
+        !isCreditCardExpense(e, creditCards) &&
         isExpenseEffectivelyPaid(e, creditCards, statuses)
     )
     .map((e) => ({
@@ -166,7 +494,158 @@ export function getUnlinkedMovements(
       date: e.date,
     }));
 
-  return [...incomes, ...expenses];
+  const withdrawals: WalletMovementRow[] = getAccountOperations(monthData)
+    .filter((op) => op.type === 'withdrawal' && !isOperationMirroredByIncome(op.id, monthData))
+    .map((op) => {
+      const sourceName = accounts.find((a) => a.id === op.sourceAccountId)?.name;
+      return {
+        id: op.id,
+        kind: 'withdrawal' as const,
+        description: op.description?.trim() || 'Resgate',
+        value: op.amount,
+        date: op.operationDate,
+        detail: sourceName ? `De ${sourceName}` : undefined,
+        deletable: true,
+      };
+    });
+
+  const cardNameById = new Map(creditCards.map((c) => [c.id, c.name]));
+  const nameById = new Map(accounts.map((a) => [a.id, a.name]));
+  const ops = getAccountOperations(monthData);
+  const mirroredOperationIds = getIncomeMirroredOperationIds(monthData);
+
+  const invoicePayments: WalletMovementRow[] = ops
+    .filter((op) => op.type === 'invoice_payment' && !op.sourceAccountId)
+    .map((op) => {
+      const cardName = op.creditCardId ? cardNameById.get(op.creditCardId) : undefined;
+      return {
+        id: op.id,
+        kind: 'invoice_payment' as const,
+        description: op.description?.trim() || (cardName ? `Fatura ${cardName}` : 'Fatura de cartão'),
+        value: op.amount,
+        date: op.operationDate,
+        detail: cardName,
+        deletable: false,
+      };
+    });
+
+  const transfers: WalletMovementRow[] = ops
+    .filter(
+      (op) =>
+        (op.type === 'transfer_out' && !op.sourceAccountId) ||
+        (op.type === 'transfer_in' &&
+          !op.destinationAccountId &&
+          !mirroredOperationIds.has(op.id))
+    )
+    .map((op) => {
+      const pair = ops.find((p) => p.transferGroupId === op.transferGroupId && p.id !== op.id);
+      if (op.type === 'transfer_out') {
+        const destName = pair?.destinationAccountId
+          ? nameById.get(pair.destinationAccountId)
+          : undefined;
+        return {
+          id: op.id,
+          kind: 'transfer_out' as const,
+          description: op.description?.trim() || 'Transferência',
+          value: op.amount,
+          date: op.operationDate,
+          detail: destName ? `Para ${destName}` : undefined,
+          deletable: true,
+        };
+      }
+      const sourceName = pair?.sourceAccountId
+        ? nameById.get(pair.sourceAccountId)
+        : undefined;
+      return {
+        id: op.id,
+        kind: 'transfer_in' as const,
+        description: op.description?.trim() || 'Transferência',
+        value: op.amount,
+        date: op.operationDate,
+        detail: sourceName ? `De ${sourceName}` : undefined,
+        deletable: true,
+      };
+    });
+
+  const aportes: WalletMovementRow[] = monthData.investments
+    .filter((inv) => !inv.sourceAccountId && inv.invested)
+    .map((inv) => {
+      const destName = inv.accountId ? nameById.get(inv.accountId) : undefined;
+      return {
+        id: inv.id,
+        kind: 'investment' as const,
+        description: inv.description,
+        value: inv.value,
+        date: inv.date,
+        detail: destName ? `Para ${destName}` : 'Aplicação',
+        deletable: false,
+      };
+    });
+
+  return sortWalletMovements([
+    ...incomes,
+    ...expenses,
+    ...withdrawals,
+    ...invoicePayments,
+    ...transfers,
+    ...aportes,
+  ]);
+}
+
+/**
+ * Variação líquida efetiva do Saldo Livre no mês: inflow − outflow.
+ */
+export function getUnlinkedNetVariation(
+  monthData: MonthData,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): number {
+  const { inflow, outflow } = getUnlinkedMonthTotals(
+    monthData,
+    creditCards,
+    cardMonthlyStatuses
+  );
+  return inflow - outflow;
+}
+
+/**
+ * Saldo Livre no início do mês: carry-forward dos meses anteriores.
+ */
+export function getUnlinkedOpeningBalance(
+  yearMonth: string,
+  monthDataByMonth: Record<string, MonthData>,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): number {
+  const monthsBefore = Object.keys(monthDataByMonth)
+    .filter((m) => m < yearMonth)
+    .sort();
+
+  return monthsBefore.reduce((sum, m) => {
+    const data = monthDataByMonth[m] ?? EMPTY_MONTH;
+    const statuses = data.cardMonthlyStatuses ?? cardMonthlyStatuses;
+    return sum + getUnlinkedNetVariation(data, creditCards, statuses);
+  }, 0);
+}
+
+/**
+ * Saldo Livre ao fim do mês: saldo inicial + variação líquida efetiva do mês.
+ */
+export function getUnlinkedClosingBalance(
+  yearMonth: string,
+  monthDataByMonth: Record<string, MonthData>,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): number {
+  const monthData = monthDataByMonth[yearMonth] ?? EMPTY_MONTH;
+  const statuses = monthData.cardMonthlyStatuses ?? cardMonthlyStatuses;
+  const opening = getUnlinkedOpeningBalance(
+    yearMonth,
+    monthDataByMonth,
+    creditCards,
+    cardMonthlyStatuses
+  );
+  return opening + getUnlinkedNetVariation(monthData, creditCards, statuses);
 }
 
 /**
@@ -196,22 +675,28 @@ export function getAccountLastKnownBalance(
 }
 
 /**
- * Variação líquida efetiva do mês: inflow − outflow + invested.
- * Aporte entra na carteira de destino (soma), não subtrai.
+ * Variação líquida efetiva do mês por papel da carteira.
+ * Movimentação: liquidez (inflow − outflow, inclui aportes enviados).
+ * Investimentos: posição (aportes + entradas por transfer − saídas).
  */
 export function getAccountNetVariation(
   accountId: string,
   monthData: MonthData,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): number {
   const { inflow, outflow, invested } = getAccountMonthTotals(
     accountId,
     monthData,
     creditCards,
-    cardMonthlyStatuses
+    cardMonthlyStatuses,
+    accountRole
   );
-  return inflow - outflow + invested;
+  if (accountRole === 'investment') {
+    return inflow + invested - outflow;
+  }
+  return inflow - outflow;
 }
 
 /**
@@ -223,11 +708,12 @@ export function getAccountProjectedBalance(
   accountId: string,
   monthData: MonthData,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): number {
   return (
     baseBalance +
-    getAccountNetVariation(accountId, monthData, creditCards, cardMonthlyStatuses)
+    getAccountNetVariation(accountId, monthData, creditCards, cardMonthlyStatuses, accountRole)
   );
 }
 
@@ -240,7 +726,8 @@ export function getAccountOpeningBalance(
   balances: AccountBalance[],
   monthDataByMonth: Record<string, MonthData>,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): number {
   const declared = getAccountDeclaredBalance(accountId, yearMonth, balances);
   if (declared) return declared.balance;
@@ -257,7 +744,7 @@ export function getAccountOpeningBalance(
     for (const m of getMonthsInRange(from, to)) {
       const data = monthDataByMonth[m] ?? EMPTY_MONTH;
       const statuses = data.cardMonthlyStatuses ?? cardMonthlyStatuses;
-      total += getAccountNetVariation(accountId, data, creditCards, statuses);
+      total += getAccountNetVariation(accountId, data, creditCards, statuses, accountRole);
     }
     return total;
   }
@@ -269,8 +756,68 @@ export function getAccountOpeningBalance(
   return monthsBefore.reduce((sum, m) => {
     const data = monthDataByMonth[m] ?? EMPTY_MONTH;
     const statuses = data.cardMonthlyStatuses ?? cardMonthlyStatuses;
-    return sum + getAccountNetVariation(accountId, data, creditCards, statuses);
+    return sum + getAccountNetVariation(accountId, data, creditCards, statuses, accountRole);
   }, 0);
+}
+
+export type AccountOpeningBalanceSource = 'declared' | 'carried_forward';
+
+export interface AccountOpeningBalanceContext {
+  amount: number;
+  source: AccountOpeningBalanceSource;
+}
+
+/**
+ * Contexto do saldo no início do mês para exibição no histórico da carteira.
+ */
+export function getAccountOpeningBalanceContext(
+  accountId: string,
+  yearMonth: string,
+  balances: AccountBalance[],
+  monthDataByMonth: Record<string, MonthData>,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
+): AccountOpeningBalanceContext | null {
+  const declared = getAccountDeclaredBalance(accountId, yearMonth, balances);
+  if (declared) {
+    return { amount: declared.balance, source: 'declared' };
+  }
+
+  const amount = getAccountOpeningBalance(
+    accountId,
+    yearMonth,
+    balances,
+    monthDataByMonth,
+    creditCards,
+    cardMonthlyStatuses,
+    accountRole
+  );
+
+  if (amount === 0) return null;
+
+  return { amount, source: 'carried_forward' };
+}
+
+/**
+ * Contexto do Saldo Livre no início do mês para exibição no histórico.
+ */
+export function getUnlinkedOpeningBalanceContext(
+  yearMonth: string,
+  monthDataByMonth: Record<string, MonthData>,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): AccountOpeningBalanceContext | null {
+  const amount = getUnlinkedOpeningBalance(
+    yearMonth,
+    monthDataByMonth,
+    creditCards,
+    cardMonthlyStatuses
+  );
+
+  if (amount === 0) return null;
+
+  return { amount, source: 'carried_forward' };
 }
 
 /**
@@ -282,7 +829,8 @@ export function getAccountClosingBalance(
   balances: AccountBalance[],
   monthDataByMonth: Record<string, MonthData>,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): number {
   const monthData = monthDataByMonth[yearMonth] ?? EMPTY_MONTH;
   const statuses = monthData.cardMonthlyStatuses ?? cardMonthlyStatuses;
@@ -292,9 +840,10 @@ export function getAccountClosingBalance(
     balances,
     monthDataByMonth,
     creditCards,
-    cardMonthlyStatuses
+    cardMonthlyStatuses,
+    accountRole
   );
-  return opening + getAccountNetVariation(accountId, monthData, creditCards, statuses);
+  return opening + getAccountNetVariation(accountId, monthData, creditCards, statuses, accountRole);
 }
 
 /**
@@ -310,9 +859,33 @@ export function accountHasMovementsInMonth(
     accountId,
     monthData,
     creditCards,
-    cardMonthlyStatuses
+    cardMonthlyStatuses,
+    'movement'
   );
-  return totals.inflow > 0 || totals.outflow > 0 || totals.invested > 0;
+  const investmentTotals = getAccountMonthTotals(
+    accountId,
+    monthData,
+    creditCards,
+    cardMonthlyStatuses,
+    'investment'
+  );
+  if (
+    totals.inflow > 0 ||
+    totals.outflow > 0 ||
+    totals.invested > 0 ||
+    investmentTotals.inflow > 0 ||
+    investmentTotals.outflow > 0 ||
+    investmentTotals.invested > 0
+  ) {
+    return true;
+  }
+
+  return getAccountOperations(monthData).some(
+    (op) =>
+      ((op.type === 'withdrawal' || op.type === 'transfer_out') &&
+        op.sourceAccountId === accountId) ||
+      (op.type === 'transfer_in' && op.destinationAccountId === accountId)
+  );
 }
 
 export type BalanceDeclarationWarning =
@@ -329,7 +902,8 @@ export function getBalanceDeclarationWarning(
   monthData: MonthData,
   monthDataByMonth: Record<string, MonthData>,
   creditCards: CreditCard[] = [],
-  cardMonthlyStatuses?: Record<string, boolean>
+  cardMonthlyStatuses?: Record<string, boolean>,
+  accountRole: AccountRole = 'movement'
 ): BalanceDeclarationWarning | null {
   if (!accountHasMovementsInMonth(accountId, monthData, creditCards, cardMonthlyStatuses)) {
     return null;
@@ -339,7 +913,8 @@ export function getBalanceDeclarationWarning(
     accountId,
     monthData,
     creditCards,
-    cardMonthlyStatuses
+    cardMonthlyStatuses,
+    accountRole
   );
 
   const declared = getAccountDeclaredBalance(accountId, yearMonth, balances);
@@ -357,7 +932,8 @@ export function getBalanceDeclarationWarning(
     balances,
     monthDataByMonth,
     creditCards,
-    cardMonthlyStatuses
+    cardMonthlyStatuses,
+    accountRole
   );
 
   if (calculatedOpening !== 0) {
@@ -369,4 +945,40 @@ export function getBalanceDeclarationWarning(
   }
 
   return null;
+}
+
+/**
+ * Patrimônio estimado consolidado: soma dos saldos ao fim do mês de todas as carteiras + Saldo Livre.
+ */
+export function getTotalEstimatedPatrimony(
+  accounts: Account[],
+  yearMonth: string,
+  balances: AccountBalance[],
+  monthDataByMonth: Record<string, MonthData>,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): number {
+  const accountsSum = accounts.reduce(
+    (sum, account) =>
+      sum +
+      getAccountClosingBalance(
+        account.id,
+        yearMonth,
+        balances,
+        monthDataByMonth,
+        creditCards,
+        cardMonthlyStatuses,
+        account.role
+      ),
+    0
+  );
+
+  const freeBalance = getUnlinkedClosingBalance(
+    yearMonth,
+    monthDataByMonth,
+    creditCards,
+    cardMonthlyStatuses
+  );
+
+  return accountsSum + freeBalance;
 }

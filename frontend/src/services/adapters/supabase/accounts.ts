@@ -39,6 +39,7 @@ export async function createAccount(
       user_id: userId,
       name: params.name,
       type: params.type,
+      role: params.role,
       color: params.color ?? null,
       display_order: params.displayOrder ?? 0,
     })
@@ -72,6 +73,7 @@ export async function updateAccount(
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.type !== undefined) row.type = updates.type;
+  if (updates.role !== undefined) row.role = updates.role;
   if (updates.color !== undefined) row.color = updates.color;
 
   const { error } = await supabase

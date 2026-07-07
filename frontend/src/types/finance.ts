@@ -11,7 +11,7 @@ import type {
   AccountType,
 } from './domain';
 
-export type { Account, AccountType } from './domain';
+export type { Account, AccountType, AccountRole } from './domain';
 
 // Aliases para manter compatibilidade com código existente
 export type IncomeEntry = Income;
@@ -39,6 +39,8 @@ export const DEFAULT_INCOME_TAGS = [
   'Presente',
   'Outros',
 ];
+
+export const RESGATE_INCOME_TAG = 'Resgate de investimentos' as const;
 
 export const DEFAULT_EXPENSE_CATEGORIES = [
   'Moradia',
@@ -111,4 +113,5 @@ export const getEmptyMonthData = (): MonthData => ({
   expenses: [],
   investments: [],
   cardMonthlyStatuses: {},
+  accountOperations: [],
 });

@@ -15,8 +15,11 @@ import {
   AlertTriangle,
   HelpCircle,
   Link2Off,
+  ArrowRightLeft,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -49,22 +52,43 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CARD_COLORS, DEFAULT_ACCOUNT_TYPES } from '@/types/finance';
+import {
+  ACCOUNT_ROLE_LABELS,
+  MOVEMENT_ACCOUNT_TYPES,
+  accountRoleSubtitle,
+  filterInvestmentAccounts,
+  filterMovementAccounts,
+  resolveAccountRole,
+} from '@/utils/business/accountRoles';
 import { SectionSurface } from '@/components/layout/SectionSurface';
-import type { Account, AccountBalance, AccountType, CreditCard } from '@/types/domain';
-import type { MonthData } from '@/types/domain';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import type { Account, AccountRole, AccountType, CreditCard, MonthData } from '@/types/domain';
 import {
   getAccountMonthTotals,
   getAccountDeclaredBalance,
   getAccountOpeningBalance,
   getAccountClosingBalance,
   getBalanceDeclarationWarning,
+  accountHasMovementsInMonth,
   getUnlinkedMonthTotals,
   getUnlinkedMovements,
+  getUnlinkedOpeningBalance,
+  getUnlinkedClosingBalance,
+  getTotalEstimatedPatrimony,
 } from '@/utils/business/accounts';
 import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
 import { UnlinkedMovementsDialog } from '@/components/UnlinkedMovementsDialog';
+import { AccountMonthMovementsDialog } from '@/components/AccountMonthMovementsDialog';
+import { WithdrawalDialog } from '@/components/WithdrawalDialog';
+import { TransferDialog } from '@/components/TransferDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { EFFECTUATE_WALLET_FREE } from '@/utils/effectuateWalletDefaults';
 
 interface AccountStripProps {
   accounts: Account[];
@@ -79,6 +103,21 @@ interface AccountStripProps {
   onDelete: (id: string) => Promise<boolean>;
   onUpsertBalance: (accountId: string, yearMonth: string, balance: number) => Promise<boolean>;
   accountNameExists: (name: string, excludeId?: string) => boolean;
+  onCreateWithdrawal: (
+    sourceAccountId: string,
+    amount: number,
+    operationDate: string,
+    description?: string,
+    destinationAccountId?: string | null
+  ) => Promise<boolean>;
+  onCreateTransfer: (
+    sourceAccountId: string | null,
+    destinationAccountId: string | null,
+    amount: number,
+    operationDate: string,
+    description?: string
+  ) => Promise<boolean>;
+  onDeleteOperation: (id: string) => Promise<boolean>;
   openAddDialog?: boolean;
   onAddDialogClose?: () => void;
 }
@@ -127,12 +166,16 @@ const AccountStripComponent = ({
   onDelete,
   onUpsertBalance,
   accountNameExists,
+  onCreateWithdrawal,
+  onCreateTransfer,
+  onDeleteOperation,
   openAddDialog,
   onAddDialogClose,
 }: AccountStripProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<AccountRole>('movement');
   const [selectedType, setSelectedType] = useState<AccountType>('checking');
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0].id);
   const [initialBalance, setInitialBalance] = useState('');
@@ -146,18 +189,73 @@ const AccountStripComponent = ({
   const [balanceInput, setBalanceInput] = useState('');
   const [isSavingBalance, setIsSavingBalance] = useState(false);
   const [unlinkedDialogOpen, setUnlinkedDialogOpen] = useState(false);
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [operationAccountId, setOperationAccountId] = useState<string | null>(null);
+  const [movementsDialogAccount, setMovementsDialogAccount] = useState<Account | null>(null);
 
   const unlinkedTotals = useMemo(
     () => getUnlinkedMonthTotals(monthData, creditCards, cardMonthlyStatuses),
     [monthData, creditCards, cardMonthlyStatuses]
   );
 
-  const unlinkedMovements = useMemo(
-    () => getUnlinkedMovements(monthData, creditCards, cardMonthlyStatuses),
-    [monthData, creditCards, cardMonthlyStatuses]
+  const unlinkedOpeningBalance = useMemo(
+    () =>
+      getUnlinkedOpeningBalance(
+        currentMonth,
+        accountHistoryMonths,
+        creditCards,
+        cardMonthlyStatuses
+      ),
+    [currentMonth, accountHistoryMonths, creditCards, cardMonthlyStatuses]
   );
 
-  const hasUnlinkedMovements = unlinkedTotals.inflow > 0 || unlinkedTotals.outflow > 0;
+  const unlinkedClosingBalance = useMemo(
+    () =>
+      getUnlinkedClosingBalance(
+        currentMonth,
+        accountHistoryMonths,
+        creditCards,
+        cardMonthlyStatuses
+      ),
+    [currentMonth, accountHistoryMonths, creditCards, cardMonthlyStatuses]
+  );
+
+  const unlinkedMovements = useMemo(
+    () => getUnlinkedMovements(monthData, creditCards, cardMonthlyStatuses, accounts),
+    [monthData, creditCards, cardMonthlyStatuses, accounts]
+  );
+
+  const hasUnlinkedMonthActivity =
+    unlinkedTotals.inflow > 0 || unlinkedTotals.outflow > 0;
+
+  const showUnlinkedChip =
+    unlinkedClosingBalance !== 0 ||
+    unlinkedOpeningBalance !== 0 ||
+    hasUnlinkedMonthActivity;
+
+  const totalEstimatedPatrimony = useMemo(
+    () =>
+      getTotalEstimatedPatrimony(
+        accounts,
+        currentMonth,
+        accountBalances,
+        accountHistoryMonths,
+        creditCards,
+        cardMonthlyStatuses
+      ),
+    [
+      accounts,
+      currentMonth,
+      accountBalances,
+      accountHistoryMonths,
+      creditCards,
+      cardMonthlyStatuses,
+    ]
+  );
+
+  const showPatrimonySummary =
+    accounts.length > 0 || unlinkedClosingBalance !== 0 || unlinkedOpeningBalance !== 0;
 
   const balanceDeclarationWarning = useMemo(() => {
     if (!balanceDialogAccount) return null;
@@ -168,7 +266,8 @@ const AccountStripComponent = ({
       monthData,
       accountHistoryMonths,
       creditCards,
-      cardMonthlyStatuses
+      cardMonthlyStatuses,
+      resolveAccountRole(balanceDialogAccount)
     );
   }, [
     balanceDialogAccount,
@@ -202,12 +301,27 @@ const AccountStripComponent = ({
     if (openAddDialog) setIsOpen(true);
   }, [openAddDialog]);
 
-  const getTotalMovement = (accountId: string) => {
+  const movementAccounts = useMemo(() => filterMovementAccounts(accounts), [accounts]);
+  const investmentAccounts = useMemo(() => filterInvestmentAccounts(accounts), [accounts]);
+
+  const movementTypeOptions = DEFAULT_ACCOUNT_TYPES.filter((t) =>
+    (MOVEMENT_ACCOUNT_TYPES as readonly string[]).includes(t.value)
+  );
+
+  const accountHasAnyMovements = (accountId: string) => {
+    const months = { ...accountHistoryMonths, [currentMonth]: monthData };
+    return Object.values(months).some((m) =>
+      accountHasMovementsInMonth(accountId, m, creditCards, cardMonthlyStatuses)
+    );
+  };
+
+  const getTotalMovement = (accountId: string, role: AccountRole) => {
     const { inflow, outflow, invested } = getAccountMonthTotals(
       accountId,
       monthData,
       creditCards,
-      cardMonthlyStatuses
+      cardMonthlyStatuses,
+      role
     );
     return inflow + outflow + invested;
   };
@@ -218,7 +332,10 @@ const AccountStripComponent = ({
       return sorted.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     }
     if (sortOption === 'highest') {
-      return sorted.sort((a, b) => getTotalMovement(b.id) - getTotalMovement(a.id));
+      return sorted.sort(
+        (a, b) =>
+          getTotalMovement(b.id, resolveAccountRole(b)) - getTotalMovement(a.id, resolveAccountRole(a))
+      );
     }
     return sorted;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,6 +343,7 @@ const AccountStripComponent = ({
 
   const resetForm = () => {
     setName('');
+    setSelectedRole('movement');
     setSelectedType('checking');
     setSelectedColor(CARD_COLORS[0].id);
     setInitialBalance('');
@@ -246,15 +364,38 @@ const AccountStripComponent = ({
 
     setIsSubmitting(true);
     try {
+      const accountType: AccountType =
+        selectedRole === 'investment' ? 'investment' : selectedType;
+
       if (editingId) {
-        const success = await onUpdate(editingId, { name: trimmed, type: selectedType, color: selectedColor });
+        const editingAccount = accounts.find((a) => a.id === editingId);
+        if (
+          editingAccount &&
+          resolveAccountRole(editingAccount) !== selectedRole &&
+          accountHasAnyMovements(editingId)
+        ) {
+          toast.error('Não é possível alterar o papel de uma carteira com movimentos vinculados.');
+          return;
+        }
+        const success = await onUpdate(editingId, {
+          name: trimmed,
+          type: accountType,
+          role: selectedRole,
+          color: selectedColor,
+        });
         if (success === false) return;
       } else {
-        const created = await onAdd({ name: trimmed, type: selectedType, color: selectedColor });
+        const created = await onAdd({
+          name: trimmed,
+          type: accountType,
+          role: selectedRole,
+          color: selectedColor,
+          displayOrder: accounts.length,
+        });
         if (!created) return;
 
         if (initialBalance.trim()) {
-          const balance = parseCurrencyInput(initialBalance);
+          const balance = parseCurrencyToNumber(initialBalance);
           const balanceSaved = await onUpsertBalance(created.id, currentMonth, balance);
           if (!balanceSaved) {
             toast.error('Carteira criada, mas não foi possível salvar o saldo inicial.');
@@ -273,6 +414,7 @@ const AccountStripComponent = ({
   const handleEdit = (account: Account) => {
     setEditingId(account.id);
     setName(account.name);
+    setSelectedRole(resolveAccountRole(account));
     setSelectedType(account.type);
     setSelectedColor(account.color || CARD_COLORS[0].id);
     setIsOpen(true);
@@ -312,11 +454,13 @@ const AccountStripComponent = ({
     DEFAULT_ACCOUNT_TYPES.find((t) => t.value === type)?.label || type;
 
   const renderChip = (account: Account) => {
+    const role = resolveAccountRole(account);
     const { inflow, outflow, invested } = getAccountMonthTotals(
       account.id,
       monthData,
       creditCards,
-      cardMonthlyStatuses
+      cardMonthlyStatuses,
+      role
     );
     const colorClass = getColorClass(account.color);
     const TypeIcon = TYPE_ICONS[account.type] ?? Wallet;
@@ -329,7 +473,8 @@ const AccountStripComponent = ({
       accountBalances,
       accountHistoryMonths,
       creditCards,
-      cardMonthlyStatuses
+      cardMonthlyStatuses,
+      role
     );
     const closingBalance = getAccountClosingBalance(
       account.id,
@@ -337,7 +482,8 @@ const AccountStripComponent = ({
       accountBalances,
       accountHistoryMonths,
       creditCards,
-      cardMonthlyStatuses
+      cardMonthlyStatuses,
+      role
     );
     const isDeclaredOpening = !!declaredBalance;
     const isCarriedForward = !isDeclaredOpening && openingBalance !== 0;
@@ -376,6 +522,28 @@ const AccountStripComponent = ({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="rounded-lg cursor-pointer gap-2"
+                  onClick={() => {
+                    setOperationAccountId(account.id);
+                    setWithdrawalDialogOpen(true);
+                  }}
+                  disabled={role !== 'investment'}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Registrar resgate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="rounded-lg cursor-pointer gap-2"
+                  onClick={() => {
+                    setOperationAccountId(account.id);
+                    setTransferDialogOpen(true);
+                  }}
+                  disabled={role !== 'movement'}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  Transferir desta carteira
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="rounded-lg cursor-pointer gap-2"
                   onClick={() => handleEdit(account)}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -393,52 +561,69 @@ const AccountStripComponent = ({
           </div>
 
           <p className="text-[10px] text-white/80 uppercase tracking-wide truncate">
-            {getTypeLabel(account.type)}
+            {accountRoleSubtitle(role)}
           </p>
 
-          {showBalance ? (
-            <>
-              <p className="text-[10px] text-white/80 uppercase tracking-wide">Saldo estimado</p>
-              <p className="text-sm font-bold text-white tabular-nums leading-tight">
-                {formatCurrency(closingBalance)}
-              </p>
-              <p className="text-xs text-white/90 tabular-nums leading-snug">
-                <span className="text-white/70">Início </span>
-                <span className="font-semibold">{formatCurrency(openingBalance)}</span>
-                {isDeclaredOpening && (
-                  <span className="block text-[10px] text-white/60 mt-0.5">declarado</span>
-                )}
-                {isCarriedForward && (
-                  <span className="block text-[10px] text-white/60 mt-0.5">↳ estimado do mês anterior</span>
-                )}
-              </p>
-            </>
-          ) : !hasMovements ? (
-            <p className="text-xs text-white/50 italic">Sem movimentos</p>
-          ) : null}
+          <button
+            type="button"
+            onClick={hasMovements ? () => setMovementsDialogAccount(account) : undefined}
+            disabled={!hasMovements}
+            className={cn(
+              'flex flex-col gap-1.5 text-left w-full',
+              hasMovements && 'cursor-pointer'
+            )}
+            aria-label={hasMovements ? `Ver movimentações de ${account.name}` : undefined}
+          >
+            {showBalance ? (
+              <>
+                <p className="text-[10px] text-white/80 uppercase tracking-wide">Saldo</p>
+                <p className="text-sm font-bold text-white tabular-nums leading-tight">
+                  {formatCurrency(closingBalance)}
+                </p>
+                <p className="text-xs text-white/90 tabular-nums leading-snug">
+                  <span className="text-white/70">Início </span>
+                  <span className="font-semibold">{formatCurrency(openingBalance)}</span>
+                  {isDeclaredOpening && (
+                    <span className="block text-[10px] text-white/60 mt-0.5">declarado</span>
+                  )}
+                  {isCarriedForward && (
+                    <span className="block text-[10px] text-white/60 mt-0.5">↳ mês anterior</span>
+                  )}
+                </p>
+              </>
+            ) : !hasMovements ? (
+              <p className="text-xs text-white/50 italic">Sem movimentos</p>
+            ) : null}
 
-          {hasMovements && (
-            <div className={cn('space-y-1', showBalance && 'border-t border-white/20 pt-1.5')}>
-              {inflow > 0 && (
-                <p className="text-xs text-white/90 leading-none">
-                  <span className="text-white/70">Entrou </span>
-                  <span className="font-semibold tabular-nums">{formatCurrency(inflow)}</span>
-                </p>
-              )}
-              {outflow > 0 && (
-                <p className="text-xs text-white/90 leading-none">
-                  <span className="text-white/70">Saiu </span>
-                  <span className="font-semibold tabular-nums">{formatCurrency(outflow)}</span>
-                </p>
-              )}
-              {invested > 0 && (
-                <p className="text-xs text-white/90 leading-none">
-                  <span className="text-white/70">Aportado </span>
-                  <span className="font-semibold tabular-nums">{formatCurrency(invested)}</span>
-                </p>
-              )}
-            </div>
-          )}
+            {hasMovements && (
+              <div className={cn('space-y-1', showBalance && 'border-t border-white/20 pt-1.5')}>
+                {inflow > 0 && (
+                  <p className="text-xs text-white/90 leading-none">
+                    <span className="text-white/70">Entrou </span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(inflow)}</span>
+                  </p>
+                )}
+                {outflow > 0 && (
+                  <p className="text-xs text-white/90 leading-none">
+                    <span className="text-white/70">Saiu </span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(outflow)}</span>
+                  </p>
+                )}
+                {invested > 0 && (
+                  <p className="text-xs text-white/90 leading-none">
+                    <span className="text-white/70">
+                      {role === 'investment' ? 'Aportado ' : 'Enviado '}
+                    </span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(invested)}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {hasMovements && (
+              <p className="text-[10px] text-white/60 mt-0.5">Toque para ver detalhes</p>
+            )}
+          </button>
         </div>
       </div>
     );
@@ -446,36 +631,67 @@ const AccountStripComponent = ({
 
   const renderUnlinkedChip = () => {
     const { inflow, outflow } = unlinkedTotals;
+    const isCarriedForward = unlinkedOpeningBalance !== 0;
+    const showBalance =
+      unlinkedOpeningBalance !== 0 ||
+      unlinkedClosingBalance !== 0 ||
+      hasUnlinkedMonthActivity;
 
     return (
       <button
         type="button"
         onClick={() => setUnlinkedDialogOpen(true)}
         className="relative flex-shrink-0 w-[168px] sm:w-[184px] overflow-hidden rounded-lg snap-start border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-        aria-label="Ver movimentos não vinculados"
+        aria-label="Ver Saldo Livre"
       >
         <div className="p-2.5 flex flex-col gap-1.5">
           <div className="flex items-center gap-1 min-w-0">
             <Link2Off className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-            <span className="font-semibold text-foreground text-xs truncate">Não vinculados</span>
+            <span className="font-semibold text-foreground text-xs truncate">Saldo Livre</span>
           </div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Sem carteira
           </p>
-          <div className="space-y-1 pt-0.5">
-            {inflow > 0 && (
-              <p className="text-xs text-foreground/90 leading-none">
-                <span className="text-muted-foreground">Entrou </span>
-                <span className="font-semibold tabular-nums">{formatCurrency(inflow)}</span>
+          {showBalance ? (
+            <>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Saldo</p>
+              <p className="text-sm font-bold text-foreground tabular-nums leading-tight">
+                {formatCurrency(unlinkedClosingBalance)}
               </p>
-            )}
-            {outflow > 0 && (
-              <p className="text-xs text-foreground/90 leading-none">
-                <span className="text-muted-foreground">Saiu </span>
-                <span className="font-semibold tabular-nums">{formatCurrency(outflow)}</span>
+              <p className="text-xs text-foreground/90 tabular-nums leading-snug">
+                <span className="text-muted-foreground">Início </span>
+                <span className="font-semibold">{formatCurrency(unlinkedOpeningBalance)}</span>
+                {isCarriedForward && (
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    ↳ mês anterior
+                  </span>
+                )}
               </p>
-            )}
-          </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Sem movimentos</p>
+          )}
+          {hasUnlinkedMonthActivity && (
+            <div
+              className={cn(
+                'space-y-1',
+                showBalance && 'border-t border-border/60 pt-1.5'
+              )}
+            >
+              {inflow > 0 && (
+                <p className="text-xs text-foreground/90 leading-none">
+                  <span className="text-muted-foreground">Entrou </span>
+                  <span className="font-semibold tabular-nums">{formatCurrency(inflow)}</span>
+                </p>
+              )}
+              {outflow > 0 && (
+                <p className="text-xs text-foreground/90 leading-none">
+                  <span className="text-muted-foreground">Saiu </span>
+                  <span className="font-semibold tabular-nums">{formatCurrency(outflow)}</span>
+                </p>
+              )}
+            </div>
+          )}
           <p className="text-[10px] text-muted-foreground mt-0.5">Toque para ver detalhes</p>
         </div>
       </button>
@@ -516,6 +732,36 @@ const AccountStripComponent = ({
 
   const headerActions = (
     <div className="flex items-center gap-1 shrink-0">
+      {investmentAccounts.length > 0 && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-lg h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+            onClick={() => {
+              setOperationAccountId(null);
+              setWithdrawalDialogOpen(true);
+            }}
+          >
+            <Download className="h-3 w-3" />
+            <span className="hidden sm:inline">Resgate</span>
+          </Button>
+        </>
+      )}
+      {movementAccounts.length >= 1 && (movementAccounts.length > 1 || showUnlinkedChip) && (
+            <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-lg h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+            onClick={() => {
+              setOperationAccountId(null);
+              setTransferDialogOpen(true);
+            }}
+          >
+            <ArrowRightLeft className="h-3 w-3" />
+            <span className="hidden sm:inline">Transferir</span>
+          </Button>
+      )}
       <FinancialGlossaryDialog
         trigger={
           <Button
@@ -538,26 +784,48 @@ const AccountStripComponent = ({
       title="Carteiras"
       subtitle={
         accounts.length === 0
-          ? 'Organize seus movimentos por conta'
+          ? 'Saldo Livre · crie carteiras para organizar por conta'
           : `${accounts.length} carteira${accounts.length > 1 ? 's' : ''} · saldos estimados · movimentações efetivadas do mês`
       }
       icon={Wallet}
       iconVariant="primary"
       actions={headerActions}
     >
+      {showPatrimonySummary && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-xs text-muted-foreground mb-2 tabular-nums cursor-help">
+                Patrimônio estimado:{' '}
+                <span className="font-semibold text-foreground">
+                  {formatCurrency(totalEstimatedPatrimony)}
+                </span>
+              </p>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-xs">
+              Soma dos saldos estimados das carteiras + Saldo Livre. O resumo acima mostra o fluxo
+              deste mês.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       {accounts.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => { resetForm(); setIsOpen(true); }}
-          className="w-full flex items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors text-sm"
-        >
-          <Wallet className="h-4 w-4" />
-          Adicionar carteira
-        </button>
+        <div className="flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
+          {renderUnlinkedChip()}
+          <button
+            type="button"
+            onClick={() => { resetForm(); setIsOpen(true); }}
+            className="flex-shrink-0 w-[60px] sm:w-[72px] flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors snap-start"
+            aria-label="Adicionar carteira"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Novo</span>
+          </button>
+        </div>
       ) : (
         <div className="flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
           {sortedAccounts.map(renderChip)}
-          {hasUnlinkedMovements && renderUnlinkedChip()}
+          {showUnlinkedChip && renderUnlinkedChip()}
           <button
             type="button"
             onClick={() => { resetForm(); setIsOpen(true); }}
@@ -605,14 +873,41 @@ const AccountStripComponent = ({
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                Tipo de Conta
+                Papel da carteira
               </label>
-              <Select value={selectedType} onValueChange={(v) => setSelectedType(v as AccountType)}>
+              <Select
+                value={selectedRole}
+                onValueChange={(v) => {
+                  const role = v as AccountRole;
+                  setSelectedRole(role);
+                  if (role === 'investment') setSelectedType('investment');
+                }}
+                disabled={!!editingId && accountHasAnyMovements(editingId)}
+              >
                 <SelectTrigger className="rounded-md h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-md">
-                  {DEFAULT_ACCOUNT_TYPES.map((t) => (
+                  <SelectItem value="movement" className="rounded-lg">
+                    {ACCOUNT_ROLE_LABELS.movement}
+                  </SelectItem>
+                  <SelectItem value="investment" className="rounded-lg">
+                    {ACCOUNT_ROLE_LABELS.investment}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedRole === 'movement' && (
+            <div>
+              <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                Tipo de Conta
+              </label>
+              <Select value={selectedType} onValueChange={(v) => setSelectedType(v as AccountType)}>
+                <SelectTrigger className="rounded-md h-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent className="rounded-md">
+                  {movementTypeOptions.map((t) => (
                     <SelectItem key={t.value} value={t.value} className="rounded-lg">
                       {t.label}
                     </SelectItem>
@@ -620,13 +915,19 @@ const AccountStripComponent = ({
                 </SelectContent>
               </Select>
             </div>
+            )}
+            {selectedRole === 'investment' && (
+            <p className="text-xs text-muted-foreground -mt-2">
+              Carteiras de investimentos registram a posição aplicada (corretora, custódia).
+            </p>
+            )}
             <div>
               <label className="text-sm font-medium mb-2 block text-muted-foreground">
                 Cor da Carteira
               </label>
               <Select value={selectedColor} onValueChange={setSelectedColor}>
-                <SelectTrigger className="rounded-md h-10">
-                  <SelectValue>
+                <SelectTrigger className="rounded-md h-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <SelectValue placeholder="Selecione a cor">
                     <div className="flex items-center gap-2">
                       <div className={cn('w-5 h-5 rounded-md bg-gradient-to-br', getColorClass(selectedColor))} />
                       <span>{CARD_COLORS.find((c) => c.id === selectedColor)?.name}</span>
@@ -650,13 +951,9 @@ const AccountStripComponent = ({
                 <label className="text-sm font-medium mb-2 block text-muted-foreground">
                   Saldo inicial <span className="text-muted-foreground/60 font-normal">(opcional)</span>
                 </label>
-                <Input
-                  type="number"
+                <CurrencyInput
                   value={initialBalance}
-                  onChange={(e) => setInitialBalance(e.target.value)}
-                  placeholder="0,00"
-                  min="0"
-                  step="0.01"
+                  onValueChange={setInitialBalance}
                   className="rounded-md h-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
                 <p className="text-[11px] text-muted-foreground/70 mt-1">
@@ -703,7 +1000,8 @@ const AccountStripComponent = ({
                   <strong>{formatMonthLabel(currentMonth)}</strong>?
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Este valor ancora o saldo estimado da carteira nos meses seguintes.
+                  Para bater com seu banco, declare o saldo no dia 1 de cada mês. Este valor ancora
+                  o saldo estimado da carteira nos meses seguintes.
                 </p>
               </>
             )}
@@ -741,7 +1039,7 @@ const AccountStripComponent = ({
                         O valor informado será o <strong>saldo no início do mês</strong> e substitui
                         o saldo calculado automaticamente (
                         <strong>{formatCurrency(balanceDeclarationWarning.calculatedOpening)}</strong>, ↳
-                        estimado do mês anterior).
+                        mês anterior).
                       </p>
                       <p>
                         As movimentações do mês <strong>continuam valendo</strong> e serão somadas
@@ -800,6 +1098,51 @@ const AccountStripComponent = ({
         open={unlinkedDialogOpen}
         onOpenChange={setUnlinkedDialogOpen}
         movements={unlinkedMovements}
+        currentMonth={currentMonth}
+        monthData={monthData}
+        accountHistoryMonths={accountHistoryMonths}
+        creditCards={creditCards}
+        cardMonthlyStatuses={cardMonthlyStatuses}
+        onDeleteOperation={onDeleteOperation}
+        onTransferClick={
+          movementAccounts.length > 0
+            ? () => {
+                setUnlinkedDialogOpen(false);
+                setOperationAccountId(EFFECTUATE_WALLET_FREE);
+                setTransferDialogOpen(true);
+              }
+            : undefined
+        }
+      />
+
+      <AccountMonthMovementsDialog
+        open={!!movementsDialogAccount}
+        onOpenChange={(open) => !open && setMovementsDialogAccount(null)}
+        account={movementsDialogAccount}
+        accounts={accounts}
+        currentMonth={currentMonth}
+        monthData={monthData}
+        accountBalances={accountBalances}
+        accountHistoryMonths={accountHistoryMonths}
+        creditCards={creditCards}
+        cardMonthlyStatuses={cardMonthlyStatuses}
+        onDeleteOperation={onDeleteOperation}
+      />
+
+      <WithdrawalDialog
+        open={withdrawalDialogOpen}
+        onOpenChange={setWithdrawalDialogOpen}
+        accounts={accounts}
+        sourceAccountId={operationAccountId}
+        onSubmit={onCreateWithdrawal}
+      />
+
+      <TransferDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        accounts={accounts}
+        sourceAccountId={operationAccountId}
+        onSubmit={onCreateTransfer}
       />
     </SectionSurface>
   );

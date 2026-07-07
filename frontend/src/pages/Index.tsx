@@ -96,6 +96,9 @@ const Index = () => {
     deleteAccount,
     accountNameExists,
     upsertAccountBalance,
+    createWithdrawal,
+    createTransfer,
+    deleteOperation,
     addIncome,
     updateIncome,
     deleteIncome,
@@ -110,7 +113,8 @@ const Index = () => {
     canDeleteCard,
     cardNameExists,
     getCardPaidStatus,
-    setCardPaidStatus,
+    payCardInvoice,
+    unpayCardInvoice,
     addInvestment,
     updateInvestment,
     deleteInvestment,
@@ -153,14 +157,13 @@ const Index = () => {
         setExpenseDraft({
           description: wish.description,
           type: 'variable',
-          ...(accounts.length === 1 ? { accountId: accounts[0].id } : {}),
         });
         setRecordsTab('expense');
       } else {
         await conquerWish(wish.id, currentMonth);
       }
     },
-    [conquerWish, currentMonth, accounts]
+    [conquerWish, currentMonth]
   );
 
   const handleAddExpense = useCallback(
@@ -298,6 +301,34 @@ const Index = () => {
 
   const selectedCount =
     selectedIncomeIds.size + selectedInvestmentIds.size + selectedExpenseIds.size;
+
+  const effectiveSelectedCount = useMemo(() => {
+    let count = 0;
+    monthData.incomes.forEach((i) => {
+      if (selectedIncomeIds.has(i.id) && i.received) count++;
+    });
+    monthData.investments.forEach((i) => {
+      if (selectedInvestmentIds.has(i.id) && i.invested) count++;
+    });
+    monthData.expenses.forEach((e) => {
+      if (
+        selectedExpenseIds.has(e.id) &&
+        isExpenseEffectivelyPaid(e, creditCards, cardMonthlyStatus)
+      ) {
+        count++;
+      }
+    });
+    return count;
+  }, [
+    monthData.incomes,
+    monthData.investments,
+    monthData.expenses,
+    selectedIncomeIds,
+    selectedInvestmentIds,
+    selectedExpenseIds,
+    creditCards,
+    cardMonthlyStatus,
+  ]);
 
   const selectionPlannedTotal = useMemo(() => {
     const incomes = monthData.incomes
@@ -614,6 +645,9 @@ const Index = () => {
             onUpdate={updateAccount}
             onDelete={deleteAccount}
             onUpsertBalance={upsertAccountBalance}
+            onCreateWithdrawal={createWithdrawal}
+            onCreateTransfer={createTransfer}
+            onDeleteOperation={deleteOperation}
             accountNameExists={accountNameExists}
             openAddDialog={addDialogType === 'account'}
             onAddDialogClose={() => setAddDialogType(null)}
@@ -631,6 +665,8 @@ const Index = () => {
                 paymentMethods={settings.paymentMethods}
                 investmentTags={settings.investmentTags}
                 accounts={accounts}
+                accountOperations={monthData.accountOperations}
+                cardMonthlyStatuses={cardMonthlyStatus}
                 creditCards={creditCards}
                 selectedIncomeIds={selectedIncomeIds}
                 selectedExpenseIds={selectedExpenseIds}
@@ -655,7 +691,8 @@ const Index = () => {
                 canDeleteCard={canDeleteCard}
                 cardNameExists={cardNameExists}
                 getCardPaidStatus={getCardPaidStatus}
-                setCardPaidStatus={setCardPaidStatus}
+                payCardInvoice={payCardInvoice}
+                unpayCardInvoice={unpayCardInvoice}
                 addIncomeTag={addIncomeTag}
                 updateIncomeTag={updateIncomeTag}
                 deleteIncomeTag={deleteIncomeTag}
@@ -826,6 +863,7 @@ const Index = () => {
       <SelectionBottomBar
         summary={selectionSummary}
         selectedCount={selectedCount}
+        effectiveSelectedCount={effectiveSelectedCount}
         plannedTotal={selectionPlannedTotal}
         onClearAll={handleClearAllSelections}
       />

@@ -3,6 +3,8 @@
  */
 
 export type { CreateIncomeParams, UpdateIncomeParams } from './params';
+export { RESGATE_INCOME_TAG } from '@/types/finance';
+export type { CreateResgateIncomeParams } from './adapters/supabase/incomes';
 
 import type { Income } from '@/types/domain';
 import type { CreateIncomeParams, UpdateIncomeParams } from './params';
@@ -26,6 +28,12 @@ export async function deleteIncome(
   applyToAllMonths = false
 ): Promise<void> {
   return incomesAdapter().deleteIncome(id, userId, applyToAllMonths);
+}
+
+export async function createResgateIncome(
+  params: import('./adapters/supabase/incomes').CreateResgateIncomeParams
+): Promise<Income> {
+  return incomesAdapter().createResgateIncome(params);
 }
 
 export async function reorderIncomes(

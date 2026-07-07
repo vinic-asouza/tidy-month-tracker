@@ -8,7 +8,9 @@ import { useMemo } from 'react';
 import { AlertTriangle, Smile, Frown, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { FinancialRule, MonthData, FinancialRuleStats, CreditCard } from '@/types/domain';
-import { calculateFinancialRuleStats } from '@/utils/financialRuleCalculations';
+import { calculateFinancialRuleStatsByMode } from '@/utils/financialRuleCalculations';
+import type { SummaryViewMode } from '@/utils/business/monthTotals';
+import { getResgateInflowFromIncomes } from '@/utils/business/monthTotals';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,25 +21,41 @@ interface FinancialRuleDisplayProps {
   monthData?: MonthData;
   creditCards?: CreditCard[];
   stats?: FinancialRuleStats;
+  viewMode?: SummaryViewMode;
   onEditMapping?: () => void;
   emptyStateMessage?: string;
 }
+
+const DEFAULT_EMPTY_MESSAGES: Record<SummaryViewMode, string> = {
+  effective: 'Marque suas entradas como recebidas para calcular os percentuais da regra.',
+  planned: 'Registre entradas para calcular os percentuais planejados.',
+};
 
 export const FinancialRuleDisplay = ({
   rule,
   monthData,
   creditCards = [],
   stats: statsProp,
+  viewMode = 'effective',
   onEditMapping,
-  emptyStateMessage = 'Marque suas entradas como recebidas para calcular os percentuais da regra.',
+  emptyStateMessage,
 }: FinancialRuleDisplayProps) => {
+  const resolvedEmptyMessage =
+    emptyStateMessage ?? DEFAULT_EMPTY_MESSAGES[viewMode];
+
   const stats = useMemo(() => {
     if (statsProp) return statsProp;
     if (!monthData) {
       throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
     }
-    return calculateFinancialRuleStats(rule, monthData, creditCards, monthData.cardMonthlyStatuses);
-  }, [statsProp, rule, monthData, creditCards]);
+    return calculateFinancialRuleStatsByMode(
+      viewMode,
+      rule,
+      monthData,
+      creditCards,
+      monthData.cardMonthlyStatuses
+    );
+  }, [statsProp, viewMode, rule, monthData, creditCards]);
 
   const CategoryAlerts = ({
     differencePercent,
@@ -290,21 +308,36 @@ export const FinancialRuleDisplay = ({
       <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
         <Info className="h-8 w-8 text-muted-foreground/60" />
         <p className="text-sm text-muted-foreground max-w-xs">
-          {emptyStateMessage}
+          {resolvedEmptyMessage}
         </p>
       </div>
     );
   }
 
+  const classifiedExpenses =
+    stats.essentials.currentValue + stats.lifestyle.currentValue;
+  const unclassifiedPercent =
+    stats.totalIncome > 0
+      ? (stats.unclassifiedValue / stats.totalIncome) * 100
+      : 0;
+
+  const resgateInRuleBase = monthData ? getResgateInflowFromIncomes(monthData.incomes) : 0;
+
   return (
     <div className="space-y-5 sm:space-y-6">
+      {resgateInRuleBase > 0 && viewMode === 'effective' && (
+        <p className="text-xs text-muted-foreground">
+          Inclui {formatCurrency(resgateInRuleBase)} em resgates na base da renda — dilui os
+          percentuais em relação à renda ganha.
+        </p>
+      )}
       {stats.unclassifiedValue > 0 && (
         <Alert variant="destructive" className="py-2.5">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
             <span>
-              {formatCurrency(stats.unclassifiedValue)} em gastos não entram na regra — mapeie suas
-              categorias.
+              {formatCurrency(stats.unclassifiedValue)} em categorias ainda não mapeadas — toque para
+              classificar.
             </span>
             {onEditMapping && (
               <Button variant="outline" size="sm" className="shrink-0 h-8" onClick={onEditMapping}>
@@ -346,6 +379,26 @@ export const FinancialRuleDisplay = ({
           kind="expense"
         />
       </div>
+      {stats.unclassifiedValue > 0 && (
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2.5 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-sm">Não classificado</span>
+            <Badge
+              variant="outline"
+              className="h-6 px-2 rounded-full border-none bg-muted text-muted-foreground text-[10px] sm:text-[11px] font-semibold tabular-nums"
+            >
+              {unclassifiedPercent.toFixed(1)}%
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Valor gasto:{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {formatCurrency(stats.unclassifiedValue)}
+            </span>
+            <span className="hidden sm:inline"> — categorias ainda não mapeadas na regra</span>
+          </p>
+        </div>
+      )}
       <div className="space-y-2.5 sm:space-y-3">
         <ProgressBar
           current={stats.investments.current}
@@ -362,6 +415,28 @@ export const FinancialRuleDisplay = ({
           kind="investment"
         />
       </div>
+      {stats.totalEffectiveExpenses > 0 && (
+        <p className="text-[11px] sm:text-xs text-muted-foreground border-t border-border pt-3 leading-relaxed">
+          {viewMode === 'planned' ? 'Gastos planejados' : 'Gastos efetivados'}:{' '}
+          <span className="font-medium text-foreground tabular-nums">
+            {formatCurrency(stats.totalEffectiveExpenses)}
+          </span>
+          {' · '}
+          Na regra:{' '}
+          <span className="font-medium text-foreground tabular-nums">
+            {formatCurrency(classifiedExpenses)}
+          </span>
+          {stats.unclassifiedValue > 0 && (
+            <>
+              {' · '}
+              Não classificado:{' '}
+              <span className="font-medium text-foreground tabular-nums">
+                {formatCurrency(stats.unclassifiedValue)}
+              </span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 };

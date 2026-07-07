@@ -3,7 +3,7 @@
  */
 
 import type { CreditCard, FinancialRule, FinancialRuleStats, MonthData } from '@/types/domain';
-import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
+import { isExpenseEffectivelyPaid, type SummaryViewMode } from '@/utils/business/monthTotals';
 
 /**
  * Calcula as estatísticas da regra financeira baseado nos dados do mês
@@ -58,6 +58,60 @@ export function calculateFinancialRuleStats(
     lifestyleExpenses,
     totalInvestments
   );
+}
+
+/**
+ * Calcula as estatísticas da regra financeira com base em todos os lançamentos do mês.
+ */
+export function calculatePlannedFinancialRuleStats(
+  rule: FinancialRule,
+  monthData: MonthData
+): FinancialRuleStats {
+  const totalIncome = monthData.incomes.reduce((sum, income) => sum + income.value, 0);
+
+  const allExpenses = monthData.expenses;
+  const totalEffectiveExpenses = allExpenses.reduce((sum, expense) => sum + expense.value, 0);
+
+  const classifiedExpenses = allExpenses.filter(
+    (expense) => rule.categoryMapping[expense.category] != null
+  );
+
+  const unclassifiedValue = allExpenses
+    .filter((expense) => rule.categoryMapping[expense.category] == null)
+    .reduce((sum, expense) => sum + expense.value, 0);
+
+  const essentialsExpenses = classifiedExpenses
+    .filter((expense) => rule.categoryMapping[expense.category] === 'essentials')
+    .reduce((sum, expense) => sum + expense.value, 0);
+
+  const lifestyleExpenses = classifiedExpenses
+    .filter((expense) => rule.categoryMapping[expense.category] === 'lifestyle')
+    .reduce((sum, expense) => sum + expense.value, 0);
+
+  const totalInvestments = monthData.investments.reduce((sum, inv) => sum + inv.value, 0);
+
+  return buildFinancialRuleStats(
+    rule,
+    totalIncome,
+    totalEffectiveExpenses,
+    unclassifiedValue,
+    essentialsExpenses,
+    lifestyleExpenses,
+    totalInvestments
+  );
+}
+
+export function calculateFinancialRuleStatsByMode(
+  mode: SummaryViewMode,
+  rule: FinancialRule,
+  monthData: MonthData,
+  creditCards: CreditCard[] = [],
+  cardMonthlyStatuses?: Record<string, boolean>
+): FinancialRuleStats {
+  if (mode === 'planned') {
+    return calculatePlannedFinancialRuleStats(rule, monthData);
+  }
+  return calculateFinancialRuleStats(rule, monthData, creditCards, cardMonthlyStatuses);
 }
 
 function buildFinancialRuleStats(
@@ -149,4 +203,52 @@ export function calculateAnnualFinancialRuleStats(
     lifestyleExpenses,
     totalInvestments
   );
+}
+
+/**
+ * Calcula as estatísticas da regra financeira consolidadas ao longo do ano (planejado).
+ */
+export function calculateAnnualPlannedFinancialRuleStats(
+  rule: FinancialRule,
+  yearData: MonthData[]
+): FinancialRuleStats {
+  let totalIncome = 0;
+  let totalEffectiveExpenses = 0;
+  let unclassifiedValue = 0;
+  let essentialsExpenses = 0;
+  let lifestyleExpenses = 0;
+  let totalInvestments = 0;
+
+  for (const monthData of yearData) {
+    const monthStats = calculatePlannedFinancialRuleStats(rule, monthData);
+
+    totalIncome += monthStats.totalIncome;
+    totalEffectiveExpenses += monthStats.totalEffectiveExpenses;
+    unclassifiedValue += monthStats.unclassifiedValue;
+    essentialsExpenses += monthStats.essentials.currentValue;
+    lifestyleExpenses += monthStats.lifestyle.currentValue;
+    totalInvestments += monthStats.investments.currentValue;
+  }
+
+  return buildFinancialRuleStats(
+    rule,
+    totalIncome,
+    totalEffectiveExpenses,
+    unclassifiedValue,
+    essentialsExpenses,
+    lifestyleExpenses,
+    totalInvestments
+  );
+}
+
+export function calculateAnnualFinancialRuleStatsByMode(
+  mode: SummaryViewMode,
+  rule: FinancialRule,
+  yearData: MonthData[],
+  creditCards: CreditCard[] = []
+): FinancialRuleStats {
+  if (mode === 'planned') {
+    return calculateAnnualPlannedFinancialRuleStats(rule, yearData);
+  }
+  return calculateAnnualFinancialRuleStats(rule, yearData, creditCards);
 }

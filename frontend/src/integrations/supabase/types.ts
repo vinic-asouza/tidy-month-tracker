@@ -52,6 +52,73 @@ export type Database = {
           },
         ]
       }
+      account_operations: {
+        Row: {
+          amount: number
+          created_at: string
+          credit_card_id: string | null
+          description: string | null
+          destination_account_id: string | null
+          id: string
+          operation_date: string
+          source_account_id: string | null
+          transfer_group_id: string | null
+          type: string
+          user_id: string
+          year_month: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credit_card_id?: string | null
+          description?: string | null
+          destination_account_id?: string | null
+          id?: string
+          operation_date?: string
+          source_account_id?: string | null
+          transfer_group_id?: string | null
+          type: string
+          user_id: string
+          year_month: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credit_card_id?: string | null
+          description?: string | null
+          destination_account_id?: string | null
+          id?: string
+          operation_date?: string
+          source_account_id?: string | null
+          transfer_group_id?: string | null
+          type?: string
+          user_id?: string
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_operations_source_account_id_fkey"
+            columns: ["source_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_operations_destination_account_id_fkey"
+            columns: ["destination_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_operations_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           color: string | null
@@ -59,6 +126,7 @@ export type Database = {
           display_order: number
           id: string
           name: string
+          role: string
           type: string
           updated_at: string
           user_id: string
@@ -69,6 +137,7 @@ export type Database = {
           display_order?: number
           id?: string
           name: string
+          role?: string
           type?: string
           updated_at?: string
           user_id: string
@@ -79,6 +148,7 @@ export type Database = {
           display_order?: number
           id?: string
           name?: string
+          role?: string
           type?: string
           updated_at?: string
           user_id?: string
@@ -127,7 +197,9 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          credit_limit: number | null
           display_order: number
+          due_day: number | null
           id: string
           name: string
           paid: boolean
@@ -137,7 +209,9 @@ export type Database = {
         Insert: {
           color: string
           created_at?: string
+          credit_limit?: number | null
           display_order?: number
+          due_day?: number | null
           id?: string
           name: string
           paid?: boolean
@@ -147,7 +221,9 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          credit_limit?: number | null
           display_order?: number
+          due_day?: number | null
           id?: string
           name?: string
           paid?: boolean
@@ -314,6 +390,7 @@ export type Database = {
           id: string
           received: boolean
           repeat_all_months: boolean
+          source_operation_id: string | null
           tag: string
           updated_at: string
           user_id: string
@@ -330,6 +407,7 @@ export type Database = {
           id?: string
           received?: boolean
           repeat_all_months?: boolean
+          source_operation_id?: string | null
           tag: string
           updated_at?: string
           user_id: string
@@ -346,6 +424,7 @@ export type Database = {
           id?: string
           received?: boolean
           repeat_all_months?: boolean
+          source_operation_id?: string | null
           tag?: string
           updated_at?: string
           user_id?: string
@@ -380,6 +459,7 @@ export type Database = {
           id: string
           invested: boolean
           repeat_all_months: boolean
+          source_account_id: string | null
           tag: string
           updated_at: string
           user_id: string
@@ -396,6 +476,7 @@ export type Database = {
           id?: string
           invested?: boolean
           repeat_all_months?: boolean
+          source_account_id?: string | null
           tag: string
           updated_at?: string
           user_id: string
@@ -412,6 +493,7 @@ export type Database = {
           id?: string
           invested?: boolean
           repeat_all_months?: boolean
+          source_account_id?: string | null
           tag?: string
           updated_at?: string
           user_id?: string

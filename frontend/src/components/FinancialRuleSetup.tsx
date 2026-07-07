@@ -357,7 +357,8 @@ export const FinancialRuleSetup = ({
                 Mapeie as categorias de gastos
               </Label>
               <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-                Defina quais categorias são Essenciais e quais são Estilo de Vida
+                Defina quais categorias são Essenciais e quais são Estilo de Vida. Exemplos:
+                Essenciais — moradia, contas; Estilo de vida — lazer, assinaturas.
               </p>
             </div>
 

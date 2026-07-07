@@ -9,7 +9,7 @@ import { WishSection } from '@/components/WishSection';
 import { CreditCardStrip } from '@/components/CreditCardStrip';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { CreditCard, Expense, IncomeEntry, Investment } from '@/types/finance';
-import type { Account, WishItem, CreateWishItemInput } from '@/types/domain';
+import type { Account, AccountOperation, WishItem, CreateWishItemInput } from '@/types/domain';
 import { cn, formatRecordsMonthTitle } from '@/lib/utils';
 
 export type RecordsTab = 'income' | 'expense' | 'investment' | 'wish';
@@ -26,6 +26,8 @@ interface MonthRecordsSectionProps {
   paymentMethods: string[];
   investmentTags: string[];
   accounts: Account[];
+  accountOperations?: AccountOperation[];
+  cardMonthlyStatuses?: Record<string, boolean>;
   creditCards: CreditCard[];
   selectedIncomeIds: Set<string>;
   selectedExpenseIds: Set<string>;
@@ -50,7 +52,12 @@ interface MonthRecordsSectionProps {
   canDeleteCard: (cardName: string) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
-  setCardPaidStatus: (cardId: string, paid: boolean) => Promise<boolean>;
+  payCardInvoice: (
+    cardId: string,
+    paymentAccountId: string | null,
+    operationDate?: string
+  ) => Promise<boolean>;
+  unpayCardInvoice: (cardId: string) => Promise<boolean>;
   addIncomeTag: (tag: string) => void;
   updateIncomeTag: (oldTag: string, newTag: string) => void;
   deleteIncomeTag: (tag: string) => void;
@@ -108,6 +115,8 @@ export const MonthRecordsSection = ({
   updateInvestment,
   deleteInvestment,
   accounts,
+  accountOperations,
+  cardMonthlyStatuses,
   addCreditCard,
   updateCreditCard,
   deleteCreditCard,
@@ -115,7 +124,8 @@ export const MonthRecordsSection = ({
   canDeleteCard,
   cardNameExists,
   getCardPaidStatus,
-  setCardPaidStatus,
+  payCardInvoice,
+  unpayCardInvoice,
   addIncomeTag,
   updateIncomeTag,
   deleteIncomeTag,
@@ -219,6 +229,7 @@ export const MonthRecordsSection = ({
               openAddDialog={addDialogType === 'income'}
               onAddDialogClose={onAddDialogClose}
               accounts={accounts}
+              onRequestAddAccount={onRequestAddAccount}
             />
           )}
 
@@ -226,6 +237,15 @@ export const MonthRecordsSection = ({
             <div className="space-y-5">
               <CreditCardStrip
                 creditCards={creditCards}
+                accounts={accounts}
+                currentMonth={currentMonth}
+                monthData={{
+                  incomes,
+                  expenses,
+                  investments,
+                  accountOperations,
+                  cardMonthlyStatuses,
+                }}
                 onAdd={addCreditCard}
                 onUpdate={updateCreditCard}
                 onDelete={deleteCreditCard}
@@ -233,7 +253,8 @@ export const MonthRecordsSection = ({
                 canDeleteCard={canDeleteCard}
                 cardNameExists={cardNameExists}
                 getCardPaidStatus={getCardPaidStatus}
-                setCardPaidStatus={setCardPaidStatus}
+                payCardInvoice={payCardInvoice}
+                unpayCardInvoice={unpayCardInvoice}
                 openAddDialog={addDialogType === 'card'}
                 onAddDialogClose={onAddDialogClose}
               />
@@ -260,6 +281,7 @@ export const MonthRecordsSection = ({
                 onExpenseDraftConsumed={onExpenseDraftConsumed}
                 wishConquerPlannedValue={wishConquerPlannedValue}
                 accounts={accounts}
+                onRequestAddAccount={onRequestAddAccount}
               />
             </div>
           )}

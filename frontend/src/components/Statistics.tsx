@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
 import { SectionSurface } from '@/components/layout/SectionSurface';
-import { EffectiveTotalsLegend } from '@/components/layout/EffectiveTotalsLegend';
+import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
+import { SummaryViewModeToggle } from '@/components/SummaryViewModeToggle';
 import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
-import { calculateEffectiveMonthTotals } from '@/utils/business/monthTotals';
+import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
+import { calculateMonthTotals } from '@/utils/business/monthTotals';
 import { MonthData, CreditCard, FinanceSettings } from '@/types/finance';
 import { AnnualFinancialRuleSection } from '@/components/AnnualFinancialRuleSection';
 
@@ -43,13 +45,16 @@ export const Statistics = ({
   settings,
   isLoading = false,
 }: StatisticsProps) => {
+  const { viewMode, setViewMode } = useSummaryViewMode();
+  const isPlanned = viewMode === 'planned';
   const currentMonthIndex = parseInt(currentMonth.split('-')[1], 10) - 1;
 
   const yearStats = useMemo(() => {
     const totals = { income: 0, expenses: 0, investments: 0, balance: 0 };
 
     const monthlyData = yearData.map((month, index) => {
-      const { totalIncome, totalExpenses, totalInvestments, balance } = calculateEffectiveMonthTotals(
+      const { totalIncome, totalExpenses, totalInvestments, balance } = calculateMonthTotals(
+        viewMode,
         month,
         creditCards,
         month.cardMonthlyStatuses
@@ -71,9 +76,9 @@ export const Statistics = ({
     });
 
     return { totals, monthlyData };
-  }, [yearData, creditCards]);
+  }, [yearData, creditCards, viewMode]);
 
-  const hasNoEffectiveData =
+  const hasNoData =
     yearStats.totals.income === 0 &&
     yearStats.totals.expenses === 0 &&
     yearStats.totals.investments === 0;
@@ -142,8 +147,13 @@ export const Statistics = ({
     <div className="space-y-5">
       <SectionSurface
         title={`Resumo Anual — ${currentYear}`}
-        subtitle="Baseado no ano do mês selecionado no topo"
+        subtitle={
+          isPlanned
+            ? 'Baseado em tudo que você registrou neste ano — fluxo mensal, não patrimônio acumulado'
+            : 'Fluxo efetivado do ano — investimentos são aportes de caixa, não valorização de ativos'
+        }
         icon={BarChart3}
+        actions={<SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />}
       >
         {yearData.length === 0 && isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -156,13 +166,15 @@ export const Statistics = ({
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             )}
-            <EffectiveTotalsLegend className="mb-6" />
+            <SummaryTotalsLegend mode={viewMode} className="mb-6" />
 
-            {hasNoEffectiveData ? (
+            {hasNoData ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <BarChart2 className="h-10 w-10 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  Marque lançamentos como recebidos, pagos ou investidos para ver o gráfico.
+                  {isPlanned
+                    ? 'Registre lançamentos ao longo do ano para ver o gráfico planejado.'
+                    : 'Marque lançamentos como recebidos, pagos ou investidos para ver o gráfico.'}
                 </p>
               </div>
             ) : (
@@ -228,6 +240,7 @@ export const Statistics = ({
         yearData={yearData}
         settings={settings}
         creditCards={creditCards}
+        viewMode={viewMode}
       />
     </div>
   );

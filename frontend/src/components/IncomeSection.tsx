@@ -3,7 +3,6 @@ import { Plus, Pencil, Trash2, TrendingUp, Repeat, List, LayoutGrid, ArrowUpDown
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -42,7 +41,12 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { isResgateIncome } from '@/utils/business/monthTotals';
+import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { SelectionToggle } from '@/components/SelectionToggle';
+import { EffectuateWalletDialog } from '@/components/EffectuateWalletDialog';
+import { filterMovementAccounts } from '@/utils/business/accountRoles';
+import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
 
@@ -68,6 +72,7 @@ interface IncomeSectionProps {
   onAddDialogClose?: () => void;
   variant?: 'default' | 'embedded';
   accounts?: import('@/types/domain').Account[];
+  onRequestAddAccount?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -108,7 +113,11 @@ const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntr
     case 'category':
       return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
     case 'date':
-      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
+      return sorted.sort((a, b) => {
+        const dateCmp = getSortDate(b).localeCompare(getSortDate(a));
+        if (dateCmp !== 0) return dateCmp;
+        return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+      });
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
@@ -213,11 +222,15 @@ const IncomeListItem = ({
   className?: string;
   style?: React.CSSProperties;
 }) => {
+  const isSystemResgate = isResgateIncome(income);
+
   const actionButtons = (
     <>
-      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(income)}>
-        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-      </Button>
+      {!isSystemResgate && (
+        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(income)}>
+          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
+      )}
       <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onDelete(income.id)}>
         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
       </Button>
@@ -235,17 +248,38 @@ const IncomeListItem = ({
       )}
       style={style}
     >
-      <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
+      <div
+        className="flex items-center justify-center shrink-0 w-[5.5rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StatusToggleBadge
           checked={income.received}
-          onCheckedChange={() => onToggleReceived(income)}
-          title="Marcar como recebido"
-          className="h-4 w-4 rounded border-2 border-income/50 data-[state=checked]:bg-income data-[state=checked]:border-income data-[state=checked]:text-white"
+          checkedLabel="Recebido"
+          uncheckedLabel="Pendente"
+          onToggle={() => onToggleReceived(income)}
+          disabled={isSystemResgate}
+          variant="income"
+          surface="onRow"
+          size="row"
+          ariaLabel={
+            isSystemResgate
+              ? 'Resgate — sempre recebido'
+              : income.received
+                ? 'Desmarcar como recebido'
+                : 'Marcar como recebido'
+          }
         />
       </div>
       {/* Desktop */}
       <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-income font-medium">{income.tag}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-income font-medium">{income.tag}</span>
+          {isSystemResgate && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-medium">
+              Resgate
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium truncate text-foreground">{income.description}</span>
           {income.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -269,7 +303,14 @@ const IncomeListItem = ({
       </div>
       {/* Mobile */}
       <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-income font-medium">{income.tag}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-income font-medium">{income.tag}</span>
+          {isSystemResgate && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-medium">
+              Resgate
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span className="text-sm font-medium truncate text-foreground">{income.description}</span>
@@ -303,27 +344,31 @@ const IncomeSectionComponent = ({
   onAddDialogClose,
   variant = 'default',
   accounts = [],
+  onRequestAddAccount,
 }: IncomeSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string>(NO_ACCOUNT);
 
+  const movementAccounts = useMemo(() => filterMovementAccounts(accounts), [accounts]);
+
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
   }, [openAddDialog]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [itemDate, setItemDate] = useState(() => formatDateToYYYYMMDD(new Date()));
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
   const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
+  const [effectuateTarget, setEffectuateTarget] = useState<IncomeEntry | null>(null);
   
   // Tag management
   const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
@@ -491,27 +536,33 @@ const IncomeSectionComponent = ({
 
     setIsSubmitting(true);
     try {
+      const editingItem = editingId ? incomes.find((i) => i.id === editingId) : null;
+      const basePayload = {
+        description: description.trim(),
+        value: numValue,
+        tag: selectedTag,
+        date: itemDate,
+        repeatAllMonths,
+      };
+
       const success = editingId
         ? await onUpdate(
             editingId,
-            { description: description.trim(), value: numValue, tag: selectedTag, date: itemDate, repeatAllMonths, accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined },
+            editingItem?.received
+              ? {
+                  ...basePayload,
+                  accountId:
+                    selectedAccountId !== NO_ACCOUNT ? selectedAccountId : (null as unknown as string),
+                }
+              : basePayload,
             applyToAllMonths
           )
         : await onAdd({
-            description: description.trim(),
-            value: numValue,
-            tag: selectedTag,
-            date: itemDate,
-            repeatAllMonths,
+            ...basePayload,
             received: false,
-            accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined,
           });
 
       if (success === false) return;
-
-      if (!editingId && accounts.length > 0 && selectedAccountId === NO_ACCOUNT) {
-        toast.info('Salvo sem carteira — não aparecerá nos chips de conta.');
-      }
 
       if (editingId) {
         setApplyToAllMonths(false);
@@ -525,6 +576,8 @@ const IncomeSectionComponent = ({
   };
 
   const handleEdit = (income: IncomeEntry) => {
+    if (income.sourceOperationId) return;
+
     // Verifica se é item fixo (tem repeatAllMonths ou baseIncomeId)
     const isFixedItem = income.repeatAllMonths || !!income.baseIncomeId;
     
@@ -619,14 +672,49 @@ const IncomeSectionComponent = ({
   };
 
   const handleToggleReceived = (income: IncomeEntry) => {
+    if (isResgateIncome(income)) return;
+
+    if (income.received) {
+      const scrollTop = window.scrollY;
+      const scrollLeft = window.scrollX;
+      onUpdate(income.id, {
+        received: false,
+        accountId: null as unknown as string,
+      });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+      return;
+    }
+
+    setEffectuateTarget(income);
+  };
+
+  const handleRequestAddAccount = () => {
+    setEffectuateTarget(null);
+    onRequestAddAccount?.();
+  };
+
+  const handleEffectuateConfirm = async (accountId: string | null) => {
+    if (!effectuateTarget) return false;
+
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
-    onUpdate(income.id, { received: !income.received });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(scrollLeft, scrollTop);
-      });
+    const ok = await onUpdate(effectuateTarget.id, {
+      received: true,
+      accountId: accountId ?? (null as unknown as string),
     });
+
+    if (ok) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+    }
+    return ok;
   };
 
   const total = incomes.reduce((sum, i) => sum + i.value, 0);
@@ -644,6 +732,7 @@ const IncomeSectionComponent = ({
   };
 
   const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
+  const editingItem = editingId ? incomes.find((i) => i.id === editingId) : null;
 
   return (
     <div className={shellClass}>
@@ -881,8 +970,8 @@ const IncomeSectionComponent = ({
                   </div>
                 </div>
 
-                {/* Account / Carteira */}
-                {accounts.length > 0 && (
+                {/* Account / Carteira — só para itens já recebidos */}
+                {accounts.length > 0 && editingItem?.received && (
                   <div>
                     <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
                       Carteira (opcional)
@@ -893,7 +982,7 @@ const IncomeSectionComponent = ({
                       </SelectTrigger>
                       <SelectContent className="rounded-md">
                         <SelectItem value={NO_ACCOUNT} className="rounded-lg">Nenhuma</SelectItem>
-                        {accounts.map((acc) => (
+                        {movementAccounts.map((acc) => (
                           <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
                             {acc.name}
                           </SelectItem>
@@ -919,7 +1008,7 @@ const IncomeSectionComponent = ({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground -mt-2">
-                  Repete nos demais meses deste ano.
+                  Cria lançamentos nos demais meses deste ano. Em janeiro, duplique ou crie novamente para o ano seguinte.
                 </p>
 
                 <Button 
@@ -1012,6 +1101,13 @@ const IncomeSectionComponent = ({
         </div>
       ) : viewMode === 'general' ? (
         <div className="space-y-1">
+          <SectionAddItemButton
+            onClick={() => {
+              resetForm();
+              setIsOpen(true);
+            }}
+            ariaLabel="Adicionar entrada"
+          />
           {firstPart.map((income) => {
             const isSelected = selectedIds.has(income.id);
             const handleItemClick = (e: React.MouseEvent) => {
@@ -1131,6 +1227,17 @@ const IncomeSectionComponent = ({
             : undefined
         }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
+      />
+
+      <EffectuateWalletDialog
+        open={!!effectuateTarget}
+        onOpenChange={(open) => !open && setEffectuateTarget(null)}
+        kind="income"
+        description={effectuateTarget?.description ?? ''}
+        amount={effectuateTarget?.value ?? 0}
+        accounts={accounts}
+        onConfirm={handleEffectuateConfirm}
+        onRequestAddAccount={handleRequestAddAccount}
       />
     </div>
   );

@@ -48,3 +48,18 @@ export function extractMonth(yearMonth: string): number {
 export function formatYearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
+
+/**
+ * Meses da visão anual a atualizar após mutação multi-mês.
+ * Inclui o mês corrente + demais meses do ano civil quando applyToAllMonths.
+ */
+export function getYearRefreshMonths(
+  currentMonth: string,
+  applyToAllMonths: boolean,
+  extraMonths: string[] = []
+): string[] {
+  const base = applyToAllMonths
+    ? [currentMonth, ...calculateRemainingMonths(currentMonth)]
+    : [];
+  return [...new Set([...base, ...extraMonths])];
+}

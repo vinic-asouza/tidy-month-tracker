@@ -11,6 +11,22 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
   return apiClient.post<Income>('/api/incomes', incomeData, { month: yearMonth });
 }
 
+export async function createResgateIncome(
+  params: import('../adapters/supabase/incomes').CreateResgateIncomeParams
+): Promise<Income> {
+  return createIncome({
+    userId: params.userId,
+    yearMonth: params.yearMonth,
+    description: params.description,
+    value: params.value,
+    tag: 'Resgate de investimentos',
+    date: params.date,
+    received: true,
+    accountId: params.accountId ?? undefined,
+    sourceOperationId: params.sourceOperationId,
+  });
+}
+
 export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
   const { id, userId: _userId, updates, applyToAllMonths } = params;
   await apiClient.put(`/api/incomes/${id}`, { ...updates, applyToAllMonths });

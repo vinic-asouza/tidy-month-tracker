@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { StatusToggleBadge } from '@/components/StatusToggleBadge';
+import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import {
   Dialog,
   DialogContent,
@@ -197,14 +198,24 @@ const WishListItem = ({
       style={style}
     >
       {!isExpired && (
-        <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-          <Checkbox
+        <div
+          className="flex items-center justify-center shrink-0 w-[5.5rem]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <StatusToggleBadge
             checked={isConquered}
+            checkedLabel="Conquistado"
+            uncheckedLabel="Pendente"
+            onToggle={isConquered ? undefined : () => onConquer(wish)}
             disabled={isConquered}
-            onCheckedChange={isConquered ? undefined : () => onConquer(wish)}
-            title={isConquered ? 'Desejo conquistado' : 'Marcar como conquistado'}
-            aria-label={isConquered ? `${wish.description} conquistado` : `Conquistar ${wish.description}`}
-            className="h-4 w-4 rounded border-2 border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground disabled:opacity-100"
+            variant="wish"
+            surface="onRow"
+            size="row"
+            ariaLabel={
+              isConquered
+                ? `${wish.description} conquistado`
+                : `Conquistar ${wish.description}`
+            }
           />
         </div>
       )}
@@ -218,11 +229,6 @@ const WishListItem = ({
           <span className={cn('text-sm font-medium truncate', isConquered ? 'text-muted-foreground' : 'text-foreground')}>
             {wish.description}
           </span>
-          {isConquered && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
-              Conquistado
-            </Badge>
-          )}
           {isExpiring && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -279,11 +285,6 @@ const WishListItem = ({
             <span className={cn('text-sm font-medium truncate', isConquered ? 'text-muted-foreground' : 'text-foreground')}>
               {wish.description}
             </span>
-            {isConquered && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
-                Conquistado
-              </Badge>
-            )}
             {isExpiring && (
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             )}
@@ -538,6 +539,9 @@ export const WishSection = ({
           effectiveLabel={`Realizado (${realizedCount})`}
           colorClass="text-primary"
         />
+        <p className="text-xs text-muted-foreground -mt-3 mb-4">
+          Metas futuras de consumo — não entram na regra 50/30/20 até virarem gasto efetivado.
+        </p>
         {isRefetching && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" aria-hidden />
         )}
@@ -719,6 +723,13 @@ export const WishSection = ({
         </div>
       ) : (
         <div className="space-y-1">
+          <SectionAddItemButton
+            onClick={() => {
+              resetForm();
+              setFormOpen(true);
+            }}
+            ariaLabel="Adicionar desejo"
+          />
           {firstPart.map((wish) => (
             <WishListItem
               key={wish.id}
@@ -785,8 +796,9 @@ export const WishSection = ({
               {conquerWish && (
                 <>
                   <strong>{conquerWish.description}</strong>. Deseja registrar como gasto deste mês?
-                  O desejo só será marcado como conquistado após salvar o gasto.
-                  Gastos em débito ou dinheiro serão marcados como pagos; no cartão, o impacto ocorre ao pagar a fatura.
+                  O desejo só será marcado como conquistado após salvar o gasto. Ao salvar, Pix, débito
+                  e dinheiro pedem a carteira de origem; no cartão, o gasto nasce pendente e o impacto
+                  ocorre ao pagar a fatura.
                 </>
               )}
             </AlertDialogDescription>

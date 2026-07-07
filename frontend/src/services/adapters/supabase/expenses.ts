@@ -7,8 +7,8 @@ import {
   isValidInstallmentExpense,
 } from '@/utils/business/installments';
 import { toExpense } from '../mappers';
-import { getAuthUserId, getMonthItemCount, throwIfError } from './helpers';
-import { omitEffectiveStatus } from '@/utils/business/seriesUpdates';
+import { getAuthUserId, throwIfError } from './helpers';
+import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -65,7 +65,7 @@ async function ensureRemainingInstallmentsExist(
       current_installment: inst.installmentNumber,
       total_installments: tot,
       display_order: 0,
-      account_id: e.account_id ?? null,
+      account_id: null,
     });
 
     throwIfError(insertError);
@@ -96,8 +96,7 @@ async function rollbackExpenseSeries(userId: string, baseExpenseId: string): Pro
 
 export async function createExpense(params: CreateExpenseParams): Promise<Expense> {
   const userId = await resolveUserId(params.userId);
-  const { yearMonth, ...expenseData } = params;
-  const displayOrder = await getMonthItemCount('expenses', userId, yearMonth);
+  const { yearMonth, displayOrder = 0, ...expenseData } = params;
   const itemDate = expenseData.date ?? new Date().toISOString().slice(0, 10);
 
   let createdExpense: Expense | null = null;
@@ -119,7 +118,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
         current_installment: expenseData.currentInstallment ?? null,
         total_installments: expenseData.totalInstallments ?? null,
         display_order: displayOrder,
-        account_id: expenseData.accountId ?? null,
+        account_id: null,
       })
       .select('*')
       .single();
@@ -143,7 +142,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           repeat_all_months: true,
           base_expense_id: createdExpense.id,
           display_order: 0,
-          account_id: expenseData.accountId ?? null,
+          account_id: null,
         }));
         const { error: copyError } = await supabase.from('expenses').insert(rows);
         throwIfError(copyError);
@@ -178,7 +177,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           current_installment: inst.installmentNumber,
           total_installments: expenseData.totalInstallments,
           display_order: 0,
-          account_id: expenseData.accountId ?? null,
+          account_id: null,
         }));
         const { error: instError } = await supabase.from('expenses').insert(rows);
         throwIfError(instError);
@@ -235,7 +234,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           repeat_all_months: true,
           base_expense_id: id,
           display_order: 0,
-          account_id: updates.accountId ?? currentExpense.account_id ?? null,
+          account_id: null,
         }));
         const { error: copyError } = await supabase.from('expenses').insert(rows);
         throwIfError(copyError);
@@ -291,7 +290,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       if (Object.keys(sharedRow).length > 0 && targetIds.length > 0) {
         const { error: sharedError } = await supabase
           .from('expenses')
-          .update(omitEffectiveStatus(sharedRow))
+          .update(omitPerMonthFields(sharedRow))
           .in('id', targetIds)
           .eq('user_id', userId);
         throwIfError(sharedError);
@@ -333,7 +332,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
 
       const { error: updateError } = await supabase
         .from('expenses')
-        .update(omitEffectiveStatus(row))
+        .update(omitPerMonthFields(row))
         .in('id', targetIds)
         .eq('user_id', userId);
 
@@ -343,7 +342,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
 
     const { error: updateError } = await supabase
       .from('expenses')
-      .update(omitEffectiveStatus(row))
+      .update(omitPerMonthFields(row))
       .eq('id', id)
       .eq('user_id', userId);
 

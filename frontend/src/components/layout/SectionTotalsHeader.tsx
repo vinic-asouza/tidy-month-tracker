@@ -25,27 +25,44 @@ export const SectionTotalsHeader = ({
   <div className={cn('min-w-0', className)}>
     <h3 className="text-base sm:text-lg font-semibold tracking-tight">{title}</h3>
     <div className="flex flex-col gap-0.5 mt-0.5">
-      <div className="flex items-baseline gap-1.5 flex-wrap">
-        <span className="text-xs text-muted-foreground">Planejado:</span>
-        <span className={cn('text-sm sm:text-base font-bold tabular-nums', colorClass)}>
-          {formatCurrency(plannedTotal)}
-        </span>
-      </div>
       {secondaryMetric ? (
-        <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-xs text-muted-foreground">{secondaryMetric.label}:</span>
-          <span className={cn('text-sm font-semibold tabular-nums', colorClass)}>
-            {secondaryMetric.value}
-          </span>
-        </div>
+        <>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">{secondaryMetric.label}:</span>
+            <span className={cn('text-sm sm:text-base font-bold tabular-nums', colorClass)}>
+              {secondaryMetric.value}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">Planejado:</span>
+            <span className={cn('text-sm font-medium tabular-nums text-muted-foreground')}>
+              {formatCurrency(plannedTotal)}
+            </span>
+          </div>
+        </>
       ) : !hideEffective ? (
+        <>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">{effectiveLabel}:</span>
+            <span className={cn('text-sm sm:text-base font-bold tabular-nums', colorClass)}>
+              {formatCurrency(effectiveTotal)}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">Planejado:</span>
+            <span className={cn('text-sm font-medium tabular-nums text-muted-foreground')}>
+              {formatCurrency(plannedTotal)}
+            </span>
+          </div>
+        </>
+      ) : (
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-xs text-muted-foreground">{effectiveLabel}:</span>
-          <span className={cn('text-sm font-semibold tabular-nums', colorClass)}>
-            {formatCurrency(effectiveTotal)}
+          <span className="text-xs text-muted-foreground">Planejado:</span>
+          <span className={cn('text-sm sm:text-base font-bold tabular-nums', colorClass)}>
+            {formatCurrency(plannedTotal)}
           </span>
         </div>
-      ) : null}
+      )}
     </div>
   </div>
 );

@@ -3,7 +3,10 @@ import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertT
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { StatusToggleBadge } from '@/components/StatusToggleBadge';
+import { EffectuateWalletDialog } from '@/components/EffectuateWalletDialog';
+import { filterMovementAccounts } from '@/utils/business/accountRoles';
+import { persistEffectuateAccountId } from '@/utils/effectuateWalletDefaults';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -48,6 +51,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SelectionToggle } from '@/components/SelectionToggle';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
@@ -87,6 +91,7 @@ interface ExpenseSectionProps {
   wishConquerPlannedValue?: number;
   variant?: 'default' | 'embedded';
   accounts?: import('@/types/domain').Account[];
+  onRequestAddAccount?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -138,6 +143,7 @@ const ExpenseForm = ({
   accounts?: import('@/types/domain').Account[];
   wishConquerPlannedValue?: number;
 }) => {
+  const movementAccounts = useMemo(() => filterMovementAccounts(accounts), [accounts]);
   const isWishConquerFlow = wishConquerPlannedValue != null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState(initialData?.category || '');
@@ -155,7 +161,7 @@ const ExpenseForm = ({
     initialData?.date ?? formatDateToYYYYMMDD(new Date())
   );
   const [repeatAllMonths, setRepeatAllMonths] = useState(
-    initialData?.repeatAllMonths ?? type === 'fixed'
+    initialData?.repeatAllMonths ?? false
   );
   const [currentInstallment, setCurrentInstallment] = useState(
     initialData?.currentInstallment?.toString() || '1'
@@ -183,6 +189,15 @@ const ExpenseForm = ({
     ...paymentMethods,
     ...creditCards.map(c => ({ label: `Crédito: ${c.name}`, value: c.name }))
   ];
+
+  const isCardPayment = creditCards.some((c) => c.name === paymentMethod);
+  const showWalletOnEdit = Boolean(initialData?.paid && !isCardPayment);
+
+  useEffect(() => {
+    if (isCardPayment && selectedAccountId !== NO_ACCOUNT) {
+      setSelectedAccountId(NO_ACCOUNT);
+    }
+  }, [isCardPayment, selectedAccountId]);
 
   const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
@@ -223,7 +238,14 @@ const ExpenseForm = ({
         repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
         currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
         totalInstallments: type === 'installment' ? parseInt(totalInstallments) || 12 : undefined,
-        accountId: selectedAccountId !== NO_ACCOUNT ? selectedAccountId : undefined,
+        ...(showWalletOnEdit
+          ? {
+              accountId:
+                selectedAccountId !== NO_ACCOUNT
+                  ? selectedAccountId
+                  : (null as unknown as string),
+            }
+          : {}),
       });
       if (result === false) return;
     } finally {
@@ -353,19 +375,19 @@ const ExpenseForm = ({
         {paymentError && <p className="text-destructive text-sm mt-1">{paymentError}</p>}
       </div>
 
-      {/* Account / Carteira */}
-      {accounts.length > 0 && (
+      {/* Account / Carteira — só ao editar gasto já pago (não-cartão) */}
+      {accounts.length > 0 && showWalletOnEdit && (
         <div>
           <label className="text-sm font-medium mb-2 block text-muted-foreground">
-            Carteira (opcional)
+            Carteira
           </label>
           <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
             <SelectTrigger className="rounded-md h-10">
               <SelectValue placeholder="Nenhuma carteira" />
             </SelectTrigger>
             <SelectContent className="rounded-md">
-              <SelectItem value={NO_ACCOUNT} className="rounded-lg">Nenhuma</SelectItem>
-              {accounts.map((acc) => (
+              <SelectItem value={NO_ACCOUNT} className="rounded-lg">Saldo Livre</SelectItem>
+              {movementAccounts.map((acc) => (
                 <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
                   {acc.name}
                 </SelectItem>
@@ -373,6 +395,17 @@ const ExpenseForm = ({
             </SelectContent>
           </Select>
         </div>
+      )}
+      {accounts.length > 0 && !isCardPayment && !initialData?.paid && (
+        <p className="text-xs text-muted-foreground">
+          A carteira é escolhida ao marcar como pago.
+        </p>
+      )}
+      {accounts.length > 0 && isCardPayment && (
+        <p className="text-xs text-muted-foreground">
+          Gastos em cartão não vinculam carteira por item. Ao marcar a fatura como paga, você
+          informa de qual carteira saiu o pagamento.
+        </p>
       )}
 
       {/* Installments for parcelado */}
@@ -429,7 +462,7 @@ const ExpenseForm = ({
             />
           </div>
           <p className="text-xs text-muted-foreground px-1">
-            Repete nos demais meses deste ano.
+            Cria lançamentos nos demais meses deste ano. Em janeiro, duplique ou crie novamente para o ano seguinte.
           </p>
         </div>
       )}
@@ -565,21 +598,32 @@ const ExpenseItem = ({
         isPaid ? 'bg-expense-light hover:bg-expense-light/80' : 'bg-muted/30 hover:bg-muted/50'
       )}
     >
-      {/* Col 1: checkbox centralizado verticalmente */}
-      <div className="flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center justify-center shrink-0 w-[5.5rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {isLinkedToCard ? (
-          <div onClick={onCardItemClick} className="cursor-pointer" title="Pagamento via fatura do cartão">
-            <Checkbox
-              checked={isCardPaid}
-              className="h-4 w-4 rounded border-2 border-expense/30 opacity-50 pointer-events-none data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
-            />
-          </div>
+          <StatusToggleBadge
+            checked={isCardPaid}
+            checkedLabel="Pago"
+            uncheckedLabel="Pendente"
+            onToggle={onCardItemClick}
+            variant="expense"
+            surface="onRow"
+            size="row"
+            className="opacity-60"
+            ariaLabel="Status via fatura do cartão — toque para ver detalhes"
+          />
         ) : (
-          <Checkbox
+          <StatusToggleBadge
             checked={expense.paid}
-            onCheckedChange={onTogglePaid}
-            title="Marcar como pago"
-            className="h-4 w-4 rounded border-2 border-expense/50 data-[state=checked]:bg-expense data-[state=checked]:border-expense data-[state=checked]:text-white"
+            checkedLabel="Pago"
+            uncheckedLabel="Pendente"
+            onToggle={onTogglePaid}
+            variant="expense"
+            surface="onRow"
+            size="row"
+            ariaLabel={expense.paid ? 'Desmarcar como pago' : 'Marcar como pago'}
           />
         )}
       </div>
@@ -731,7 +775,11 @@ const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: 
 
     case 'date': {
       const getSortDate = (e: Expense) => e.date ?? (e.createdAt ? e.createdAt.split('T')[0] : '');
-      return sorted.sort((a, b) => getSortDate(a).localeCompare(getSortDate(b)));
+      return sorted.sort((a, b) => {
+        const dateCmp = getSortDate(b).localeCompare(getSortDate(a));
+        if (dateCmp !== 0) return dateCmp;
+        return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+      });
     }
   }
   return sorted;
@@ -784,17 +832,26 @@ const ExpenseSectionComponent = ({
   wishConquerPlannedValue,
   variant = 'default',
   accounts = [],
+  onRequestAddAccount,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<Partial<Expense> | null>(null);
   const submitSucceededRef = useRef(false);
-
-  useEffect(() => {
-    if (openAddDialog) setIsOpen(true);
-  }, [openAddDialog]);
+  const applyToAllResolvedRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState<Expense['type']>('fixed');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
+  const [applyToAllMonths, setApplyToAllMonths] = useState(false);
+
+  useEffect(() => {
+    if (!openAddDialog) return;
+    setEditingExpense(null);
+    setApplyToAllMonths(false);
+    setPendingAction(null);
+    setIsOpen(true);
+  }, [openAddDialog]);
 
   useEffect(() => {
     if (!expenseDraft) return;
@@ -807,9 +864,8 @@ const ExpenseSectionComponent = ({
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
-  const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
-  const [applyToAllMonths, setApplyToAllMonths] = useState(false);
+  const [effectuateTarget, setEffectuateTarget] = useState<Expense | null>(null);
+  const [pendingPaidExpense, setPendingPaidExpense] = useState<Omit<Expense, 'id'> | null>(null);
 
   // Category management state (similar to Income/Investment)
   const [isCategoryManagerOpenInModal, setIsCategoryManagerOpenInModal] = useState(false);
@@ -975,12 +1031,37 @@ const ExpenseSectionComponent = ({
 
   const clearAddDialogState = (cancelled = true) => {
     setEditingExpense(null);
+    setPendingPaidExpense(null);
     if (addDraft) {
       setAddDraft(null);
       onExpenseDraftConsumed?.(cancelled);
     }
     onAddDialogClose?.();
   };
+
+  const openAddExpense = (type: Expense['type']) => {
+    setEditingExpense(null);
+    setAddDraft(null);
+    setActiveTab(type);
+    setIsOpen(true);
+  };
+
+  const closeDialogAfterSuccess = () => {
+    setEditingExpense(null);
+    setPendingPaidExpense(null);
+    setApplyToAllMonths(false);
+    setPendingAction(null);
+    if (addDraft) {
+      setAddDraft(null);
+      onExpenseDraftConsumed?.(false);
+    }
+    submitSucceededRef.current = true;
+    setIsOpen(false);
+    onAddDialogClose?.();
+  };
+
+  const isCardPaymentMethod = (paymentMethod: string) =>
+    creditCards.some((c) => c.name === paymentMethod);
 
   const buildDraftExpense = (type: Expense['type'], draft: Partial<Expense>): Expense => ({
     id: '',
@@ -1000,16 +1081,20 @@ const ExpenseSectionComponent = ({
       const success = await onUpdate(editingExpense.id, updates, applyToAllMonths);
       if (success === false) return false;
     } else {
+      if (
+        wishConquerPlannedValue != null &&
+        data.paid &&
+        !isCardPaymentMethod(data.paymentMethod)
+      ) {
+        setPendingPaidExpense(data);
+        return false;
+      }
+
       const created = await onAdd(data);
       if (!created) return false;
-      if (accounts.length > 0 && !data.accountId) {
-        toast.info('Salvo sem carteira — não aparecerá nos chips de conta.');
-      }
     }
 
-    setApplyToAllMonths(false);
-    submitSucceededRef.current = true;
-    setIsOpen(false);
+    closeDialogAfterSuccess();
     return true;
   };
 
@@ -1034,6 +1119,7 @@ const ExpenseSectionComponent = ({
 
   const handleEditCurrentMonth = () => {
     if (editingExpense) {
+      applyToAllResolvedRef.current = true;
       setActiveTab(editingExpense.type);
       setIsOpen(true);
       setPendingAction(null);
@@ -1043,6 +1129,7 @@ const ExpenseSectionComponent = ({
 
   const handleEditAllMonths = () => {
     if (editingExpense) {
+      applyToAllResolvedRef.current = true;
       setActiveTab(editingExpense.type);
       setApplyToAllMonths(true); // Marca que deve aplicar em todos os meses
       setIsOpen(true);
@@ -1070,6 +1157,7 @@ const ExpenseSectionComponent = ({
 
   const handleDeleteCurrentMonth = () => {
     if (editingExpense) {
+      applyToAllResolvedRef.current = true;
       setDeleteExpense(editingExpense);
       setEditingExpense(null);
       setPendingAction(null);
@@ -1079,6 +1167,7 @@ const ExpenseSectionComponent = ({
 
   const handleDeleteAllMonths = () => {
     if (editingExpense) {
+      applyToAllResolvedRef.current = true;
       if (editingExpense.type === 'installment') {
         // Para parcelas, deleta todas as parcelas relacionadas
         onDeleteInstallment(editingExpense);
@@ -1103,15 +1192,72 @@ const ExpenseSectionComponent = ({
   const handleTogglePaid = (expense: Expense) => {
     if (isExpenseLinkedToCard(expense)) return;
 
+    if (expense.paid) {
+      const scrollTop = window.scrollY;
+      const scrollLeft = window.scrollX;
+      onUpdate(expense.id, {
+        paid: false,
+        accountId: null as unknown as string,
+      });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+      return;
+    }
+
+    setEffectuateTarget(expense);
+  };
+
+  const handleRequestAddAccount = () => {
+    setEffectuateTarget(null);
+    setPendingPaidExpense(null);
+    onRequestAddAccount?.();
+  };
+
+  const handlePendingPaidExpenseConfirm = async (accountId: string | null) => {
+    if (!pendingPaidExpense) return false;
+
+    const created = await onAdd({
+      ...pendingPaidExpense,
+      accountId: accountId ?? (null as unknown as string),
+    });
+    if (!created) return false;
+
+    persistEffectuateAccountId('expense', accountId, pendingPaidExpense.paymentMethod);
+    closeDialogAfterSuccess();
+    return true;
+  };
+
+  const handleEffectuateConfirm = async (accountId: string | null) => {
+    if (!effectuateTarget) return false;
+
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
-    onUpdate(expense.id, { paid: !expense.paid });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(scrollLeft, scrollTop);
-      });
+    const ok = await onUpdate(effectuateTarget.id, {
+      paid: true,
+      accountId: accountId ?? (null as unknown as string),
     });
+
+    if (ok) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollLeft, scrollTop);
+        });
+      });
+    }
+    return ok;
   };
+
+  const handleWalletDialogConfirm = async (accountId: string | null) => {
+    if (pendingPaidExpense) {
+      return handlePendingPaidExpenseConfirm(accountId);
+    }
+    return handleEffectuateConfirm(accountId);
+  };
+
+  const walletDialogSource = effectuateTarget ?? pendingPaidExpense;
 
   // Calculate paid total (items marked as paid or linked to paid cards)
   const paidTotal = expenses.reduce((sum, e) => {
@@ -1183,6 +1329,10 @@ const ExpenseSectionComponent = ({
           </div>
           <span className="text-sm font-semibold text-expense">{formatCurrency(groupTotal)}</span>
         </div>
+        <SectionAddItemButton
+          onClick={() => openAddExpense(type)}
+          ariaLabel={`Adicionar gasto ${title.toLowerCase()}`}
+        />
         {list.length === 0 ? (
           <p className="text-muted-foreground text-sm text-center py-4 bg-muted/20 rounded-md">
             {emptyMessage}
@@ -1666,7 +1816,16 @@ const ExpenseSectionComponent = ({
       {/* Apply to All Months Dialog */}
       <ApplyToAllDialog
         open={showApplyToAllDialog}
-        onOpenChange={setShowApplyToAllDialog}
+        onOpenChange={(open) => {
+          setShowApplyToAllDialog(open);
+          if (!open) {
+            if (!applyToAllResolvedRef.current) {
+              setEditingExpense(null);
+              setPendingAction(null);
+            }
+            applyToAllResolvedRef.current = false;
+          }
+        }}
         onApplyToCurrentMonth={pendingAction === 'edit' ? handleEditCurrentMonth : handleDeleteCurrentMonth}
         onApplyToAllMonths={pendingAction === 'edit' ? handleEditAllMonths : handleDeleteAllMonths}
         title={
@@ -1715,6 +1874,23 @@ const ExpenseSectionComponent = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EffectuateWalletDialog
+        open={!!walletDialogSource}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEffectuateTarget(null);
+            setPendingPaidExpense(null);
+          }
+        }}
+        kind="expense"
+        description={walletDialogSource?.description ?? ''}
+        amount={walletDialogSource?.value ?? 0}
+        accounts={accounts}
+        paymentMethod={walletDialogSource?.paymentMethod}
+        onConfirm={handleWalletDialogConfirm}
+        onRequestAddAccount={handleRequestAddAccount}
+      />
     </div>
   );
 };
