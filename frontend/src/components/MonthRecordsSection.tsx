@@ -67,8 +67,6 @@ interface MonthRecordsSectionProps {
   addInvestmentTag: (tag: string) => void;
   updateInvestmentTag: (oldTag: string, newTag: string) => void;
   deleteInvestmentTag: (tag: string) => void;
-  addDialogType: 'income' | 'expense' | 'investment' | 'card' | 'wish' | 'account' | null;
-  onAddDialogClose: () => void;
   onRequestAddAccount?: () => void;
   expenseDraft?: Partial<Expense> | null;
   onExpenseDraftConsumed?: (cancelled?: boolean) => void;
@@ -135,8 +133,6 @@ export const MonthRecordsSection = ({
   addInvestmentTag,
   updateInvestmentTag,
   deleteInvestmentTag,
-  addDialogType,
-  onAddDialogClose,
   onRequestAddAccount,
   expenseDraft,
   onExpenseDraftConsumed,
@@ -226,8 +222,6 @@ export const MonthRecordsSection = ({
               onDeleteTag={deleteIncomeTag}
               selectedIds={selectedIncomeIds}
               onSelectionChange={onIncomeSelectionChange}
-              openAddDialog={addDialogType === 'income'}
-              onAddDialogClose={onAddDialogClose}
               accounts={accounts}
               onRequestAddAccount={onRequestAddAccount}
             />
@@ -255,8 +249,6 @@ export const MonthRecordsSection = ({
                 getCardPaidStatus={getCardPaidStatus}
                 payCardInvoice={payCardInvoice}
                 unpayCardInvoice={unpayCardInvoice}
-                openAddDialog={addDialogType === 'card'}
-                onAddDialogClose={onAddDialogClose}
               />
               <Separator />
               <ExpenseSection
@@ -275,12 +267,11 @@ export const MonthRecordsSection = ({
                 onDeleteCategory={deleteExpenseCategory}
                 selectedIds={selectedExpenseIds}
                 onSelectionChange={onExpenseSelectionChange}
-                openAddDialog={addDialogType === 'expense'}
-                onAddDialogClose={onAddDialogClose}
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={onExpenseDraftConsumed}
                 wishConquerPlannedValue={wishConquerPlannedValue}
                 accounts={accounts}
+                accountOperations={accountOperations}
                 onRequestAddAccount={onRequestAddAccount}
               />
             </div>
@@ -296,8 +287,6 @@ export const MonthRecordsSection = ({
               onDelete={deleteInvestment}
               selectedIds={selectedInvestmentIds}
               onSelectionChange={onInvestmentSelectionChange}
-              openAddDialog={addDialogType === 'investment'}
-              onAddDialogClose={onAddDialogClose}
               onRequestAddAccount={onRequestAddAccount}
             />
           )}
@@ -316,8 +305,6 @@ export const MonthRecordsSection = ({
               onRemove={onRemoveWish}
               onConquer={onConquerWish}
               onRenew={onRenewWish}
-              openAddDialog={addDialogType === 'wish'}
-              onAddDialogClose={onAddDialogClose}
             />
           )}
         </div>

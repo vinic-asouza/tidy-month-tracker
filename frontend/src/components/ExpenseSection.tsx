@@ -40,7 +40,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
@@ -52,8 +51,9 @@ import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
+import { comparePendingThenDate } from '@/utils/business/recordSort';
+import { resolveExpenseWalletLabel } from '@/utils/business/accountLabels';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SelectionToggle } from '@/components/SelectionToggle';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
 
@@ -79,7 +79,7 @@ interface ExpenseSectionProps {
   onDeleteCategory: (category: string) => Promise<void> | void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
-  /** Abre o dialog de novo gasto (controlado pelo FAB global) */
+  /** Abre o dialog de novo gasto (controlado externamente) */
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
@@ -91,11 +91,12 @@ interface ExpenseSectionProps {
   wishConquerPlannedValue?: number;
   variant?: 'default' | 'embedded';
   accounts?: import('@/types/domain').Account[];
+  accountOperations?: import('@/types/domain').AccountOperation[];
   onRequestAddAccount?: () => void;
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'date' | 'alphabetic' | 'category' | 'payment' | 'highest' | 'lowest';
+type SortOption = 'date' | 'pending' | 'alphabetic' | 'category' | 'payment' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -113,6 +114,7 @@ const formatValueForInput = (value: number): string => {
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Data' },
+  { value: 'pending', label: 'Pendentes' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'category', label: 'Categoria' },
   { value: 'payment', label: 'Forma de Pagamento' },
@@ -522,22 +524,34 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
   };
 };
 
+const WalletTag = ({ label }: { label: string }) => (
+  <Badge
+    variant="outline"
+    className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground font-normal truncate max-w-[5rem]"
+    title={label}
+  >
+    {label}
+  </Badge>
+);
+
 const ExpenseItem = ({
   expense,
   creditCards,
+  accounts,
+  accountOperations,
   isLinkedToCard,
   isCardPaid,
   onTogglePaid,
-  onUpdate,
   onDelete,
   onEdit,
   onCardItemClick,
   isSelected,
   onItemClick,
-  onToggleSelection,
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
+  accounts: import('@/types/domain').Account[];
+  accountOperations?: import('@/types/domain').AccountOperation[];
   isLinkedToCard: boolean;
   isCardPaid: boolean;
   onTogglePaid: () => void;
@@ -547,7 +561,6 @@ const ExpenseItem = ({
   onCardItemClick: () => void;
   isSelected?: boolean;
   onItemClick?: (e: React.MouseEvent) => void;
-  onToggleSelection?: () => void;
 }) => {
   const installmentText = expense.currentInstallment && expense.totalInstallments
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
@@ -556,26 +569,51 @@ const ExpenseItem = ({
   const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
   const PaymentIcon = !style.isCard && style.iconConfig ? style.iconConfig.Icon : null;
   const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
+  const creditCardId = creditCards.find((c) => c.name === expense.paymentMethod)?.id ?? null;
+  const walletLabel = resolveExpenseWalletLabel(expense, {
+    isLinkedToCard,
+    isCardPaid,
+    creditCardId,
+    accounts,
+    accountOperations,
+  });
 
-  const paymentMethodBadge = (style.isCard || PaymentIcon) && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex shrink-0">
-          {style.isCard ? (
-            <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
-              <CreditCard className="h-3.5 w-3.5" />
-            </Badge>
-          ) : PaymentIcon ? (
-            <Badge variant="secondary" className={cn('text-xs rounded-full border-0 cursor-default p-1', style.className)}>
-              <PaymentIcon className="h-3.5 w-3.5" />
-            </Badge>
-          ) : null}
+  const paymentMethodDisplay = expense.paymentMethod ? (
+    <span className="inline-flex items-center gap-1 min-w-0 max-w-[7rem] shrink">
+      {style.isCard ? (
+        <Badge
+          variant="secondary"
+          className={cn(
+            'text-xs rounded-md border-0 cursor-default px-1.5 py-0.5 gap-1 max-w-full',
+            style.className
+          )}
+        >
+          <CreditCard className="h-3 w-3 shrink-0" />
+          <span className="truncate">{expense.paymentMethod}</span>
+        </Badge>
+      ) : PaymentIcon ? (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs max-w-full',
+            style.className
+          )}
+        >
+          <PaymentIcon className="h-3 w-3 shrink-0" />
+          <span className="truncate">{expense.paymentMethod}</span>
         </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
-        {expense.paymentMethod}
-      </TooltipContent>
-    </Tooltip>
+      ) : (
+        <span className="text-xs text-muted-foreground truncate">{expense.paymentMethod}</span>
+      )}
+    </span>
+  ) : null;
+
+  const dateDisplay = (
+    <div className="flex items-center gap-1.5 shrink-0">
+      {walletLabel && <WalletTag label={walletLabel} />}
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {formatItemDayMonth(expense.date, expense.createdAt)}
+      </span>
+    </div>
   );
 
   const actionButtons = (
@@ -648,14 +686,11 @@ const ExpenseItem = ({
         </div>
       </div>
       <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
-        <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(expense.date, expense.createdAt)}</span>
+        {dateDisplay}
         <div className="flex items-center gap-1.5 min-w-0">
+          {paymentMethodDisplay}
           <span className="font-bold whitespace-nowrap text-sm text-expense tabular-nums shrink-0">{formatCurrency(expense.value)}</span>
-          {paymentMethodBadge}
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {onToggleSelection && (
-              <SelectionToggle isSelected={!!isSelected} onToggle={onToggleSelection} />
-            )}
             <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
               <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
                 {actionButtons}
@@ -677,7 +712,7 @@ const ExpenseItem = ({
             )}
             {expense.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatItemDayMonth(expense.date, expense.createdAt)}</span>
+          {dateDisplay}
         </div>
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           {isLinkedToCard && (
@@ -685,8 +720,8 @@ const ExpenseItem = ({
               Via fatura
             </Badge>
           )}
+          {paymentMethodDisplay}
           <span className="font-bold whitespace-nowrap text-sm text-expense tabular-nums shrink-0">{formatCurrency(expense.value)}</span>
-          {paymentMethodBadge}
           <div className="flex items-center gap-0.5 shrink-0">
             {actionButtons}
           </div>
@@ -745,8 +780,21 @@ const CategorySummaryItem = ({
 };
 
 // Sorting function
-const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: CreditCardType[]): Expense[] => {
+const sortExpenses = (
+  expenses: Expense[],
+  sortOption: SortOption,
+  creditCards: CreditCardType[],
+  getCardPaidStatus?: (cardId: string) => boolean
+): Expense[] => {
   const sorted = [...expenses];
+  const getSortDate = (e: Expense) => e.date ?? (e.createdAt ? e.createdAt.split('T')[0] : '');
+  const isExpensePending = (expense: Expense): boolean => {
+    const card = creditCards.find((c) => c.name === expense.paymentMethod);
+    if (card) {
+      return getCardPaidStatus ? !getCardPaidStatus(card.id) : true;
+    }
+    return !expense.paid;
+  };
 
   switch (sortOption) {
     case 'alphabetic':
@@ -773,14 +821,17 @@ const sortExpenses = (expenses: Expense[], sortOption: SortOption, creditCards: 
     case 'lowest':
       return sorted.sort((a, b) => a.value - b.value);
 
-    case 'date': {
-      const getSortDate = (e: Expense) => e.date ?? (e.createdAt ? e.createdAt.split('T')[0] : '');
+    case 'date':
       return sorted.sort((a, b) => {
         const dateCmp = getSortDate(b).localeCompare(getSortDate(a));
         if (dateCmp !== 0) return dateCmp;
         return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
       });
-    }
+
+    case 'pending':
+      return sorted.sort((a, b) =>
+        comparePendingThenDate(a, b, isExpensePending, getSortDate)
+      );
   }
   return sorted;
 };
@@ -801,6 +852,7 @@ const groupByCategory = (expenses: Expense[], sortOption: SortOption): { categor
     case 'alphabetic':
     case 'category':
     case 'date':
+    case 'pending':
       return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
@@ -832,6 +884,7 @@ const ExpenseSectionComponent = ({
   wishConquerPlannedValue,
   variant = 'default',
   accounts = [],
+  accountOperations = [],
   onRequestAddAccount,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -982,16 +1035,16 @@ const ExpenseSectionComponent = ({
 
   // Apply sorting to each group
   const sortedFixedExpenses = useMemo(
-    () => sortExpenses(fixedExpenses, sortOption, creditCards),
-    [fixedExpenses, sortOption, creditCards]
+    () => sortExpenses(fixedExpenses, sortOption, creditCards, getCardPaidStatus),
+    [fixedExpenses, sortOption, creditCards, getCardPaidStatus]
   );
   const sortedVariableExpenses = useMemo(
-    () => sortExpenses(variableExpenses, sortOption, creditCards),
-    [variableExpenses, sortOption, creditCards]
+    () => sortExpenses(variableExpenses, sortOption, creditCards, getCardPaidStatus),
+    [variableExpenses, sortOption, creditCards, getCardPaidStatus]
   );
   const sortedInstallmentExpenses = useMemo(
-    () => sortExpenses(installmentExpenses, sortOption, creditCards),
-    [installmentExpenses, sortOption, creditCards]
+    () => sortExpenses(installmentExpenses, sortOption, creditCards, getCardPaidStatus),
+    [installmentExpenses, sortOption, creditCards, getCardPaidStatus]
   );
 
   // Group by category for summary view - combine all expense types
@@ -1344,6 +1397,8 @@ const ExpenseSectionComponent = ({
                 key={expense.id}
                 expense={expense}
                 creditCards={groupCreditCards}
+                accounts={accounts}
+                accountOperations={accountOperations}
                 isLinkedToCard={isExpenseLinkedToCard(expense)}
                 isCardPaid={isExpenseCardPaid(expense)}
                 onTogglePaid={() => handleTogglePaid(expense)}
@@ -1353,7 +1408,6 @@ const ExpenseSectionComponent = ({
                 onCardItemClick={() => setCardWarningOpen(true)}
                 isSelected={selectedIds.has(expense.id)}
                 onItemClick={handleItemClick(expense)}
-                onToggleSelection={() => toggleItemSelection(expense.id, selectedIds.has(expense.id))}
               />
             ))}
             {restPart.length > 0 && (
@@ -1369,6 +1423,8 @@ const ExpenseSectionComponent = ({
                       <ExpenseItem
                         expense={expense}
                         creditCards={groupCreditCards}
+                        accounts={accounts}
+                        accountOperations={accountOperations}
                         isLinkedToCard={isExpenseLinkedToCard(expense)}
                         isCardPaid={isExpenseCardPaid(expense)}
                         onTogglePaid={() => handleTogglePaid(expense)}
@@ -1378,7 +1434,6 @@ const ExpenseSectionComponent = ({
                         onCardItemClick={() => setCardWarningOpen(true)}
                         isSelected={selectedIds.has(expense.id)}
                         onItemClick={handleItemClick(expense)}
-                onToggleSelection={() => toggleItemSelection(expense.id, selectedIds.has(expense.id))}
                       />
                     </div>
                   );

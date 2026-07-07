@@ -42,9 +42,10 @@ import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
-import { SelectionToggle } from '@/components/SelectionToggle';
+import { resolveAccountDisplayName } from '@/utils/business/accountLabels';
 import { EffectuateInvestmentDialog } from '@/components/EffectuateInvestmentDialog';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
+import { comparePendingThenDate } from '@/utils/business/recordSort';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import type { Account } from '@/types/domain';
 import { filterInvestmentAccounts } from '@/utils/business/accountRoles';
@@ -64,7 +65,7 @@ interface InvestmentSectionProps {
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
-  /** Abre o dialog de novo investimento (controlado pelo FAB global) */
+  /** Abre o dialog de novo investimento (controlado externamente) */
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
@@ -74,7 +75,7 @@ interface InvestmentSectionProps {
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'date' | 'alphabetic' | 'institution' | 'highest' | 'lowest';
+type SortOption = 'date' | 'pending' | 'alphabetic' | 'institution' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -92,6 +93,7 @@ const formatValueForInput = (value: number): string => {
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Data' },
+  { value: 'pending', label: 'Pendentes' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'institution', label: 'Carteira' },
   { value: 'highest', label: 'Maior Valor' },
@@ -101,11 +103,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 const NO_ACCOUNT = 'none';
 const PENDING_INVESTMENT_TAG = '—';
 
-const getAccountLabel = (investment: Investment, accounts: Account[]): string => {
-  if (investment.accountId) {
-    return accounts.find((a) => a.id === investment.accountId)?.name ?? investment.tag ?? '—';
-  }
-  return investment.invested ? investment.tag ?? '—' : '—';
+const getAccountLabel = (investment: Investment, _accounts: Account[]): string => {
+  return investment.tag ?? '';
 };
 
 const sortInvestments = (
@@ -129,6 +128,10 @@ const sortInvestments = (
         if (dateCmp !== 0) return dateCmp;
         return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
       });
+    case 'pending':
+      return sorted.sort((a, b) =>
+        comparePendingThenDate(a, b, (i) => !i.invested, getSortDate)
+      );
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
@@ -157,6 +160,7 @@ const groupByAccount = (
     case 'alphabetic':
     case 'institution':
     case 'date':
+    case 'pending':
       return result.sort((a, b) => a.institution.localeCompare(b.institution, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
@@ -214,14 +218,23 @@ const InstitutionSummaryItem = ({
   );
 };
 
+const WalletTag = ({ label }: { label: string }) => (
+  <Badge
+    variant="outline"
+    className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground font-normal truncate max-w-[5rem]"
+    title={label}
+  >
+    {label}
+  </Badge>
+);
+
 const InvestmentListItem = ({
   investment,
   accountLabel,
+  accounts,
   isSelected,
   onItemClick,
   onToggleInvested,
-  onToggleSelection,
-  showSelectionToggle,
   onEdit,
   onDelete,
   className,
@@ -229,16 +242,27 @@ const InvestmentListItem = ({
 }: {
   investment: Investment;
   accountLabel: string;
+  accounts: Account[];
   isSelected: boolean;
   onItemClick: (e: React.MouseEvent) => void;
   onToggleInvested: (investment: Investment) => void;
-  onToggleSelection: () => void;
-  showSelectionToggle: boolean;
   onEdit: (investment: Investment) => void;
   onDelete: (id: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }) => {
+  const walletLabel = investment.invested
+    ? resolveAccountDisplayName(investment.accountId, accounts)
+    : null;
+
+  const dateDisplay = (
+    <div className="flex items-center gap-1.5 shrink-0">
+      {walletLabel && <WalletTag label={walletLabel} />}
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {formatItemDayMonth(investment.date, investment.createdAt)}
+      </span>
+    </div>
+  );
   const actionButtons = (
     <>
       <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted shrink-0" onClick={() => onEdit(investment)}>
@@ -280,20 +304,19 @@ const InvestmentListItem = ({
       </div>
       {/* Desktop */}
       <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        {accountLabel && (
+          <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        )}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
           {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
         </div>
       </div>
       <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
-        <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+        {dateDisplay}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {showSelectionToggle && (
-              <SelectionToggle isSelected={isSelected} onToggle={onToggleSelection} />
-            )}
             <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
               <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
                 {actionButtons}
@@ -304,13 +327,15 @@ const InvestmentListItem = ({
       </div>
       {/* Mobile */}
       <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
-        <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        {accountLabel && (
+          <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        )}
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
             {investment.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatItemDayMonth(investment.date, investment.createdAt)}</span>
+          {dateDisplay}
         </div>
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <span className="font-bold text-investment whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(investment.value)}</span>
@@ -937,11 +962,10 @@ const InvestmentSectionComponent = ({
                 key={investment.id}
                 investment={investment}
                 accountLabel={getAccountLabel(investment, accounts)}
+                accounts={accounts}
                 isSelected={isSelected}
                 onItemClick={handleItemClick}
                 onToggleInvested={handleToggleInvested}
-                onToggleSelection={() => toggleItemSelection(investment.id, isSelected)}
-                showSelectionToggle={!!onSelectionChange}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
               />
@@ -962,11 +986,10 @@ const InvestmentSectionComponent = ({
                     key={investment.id}
                     investment={investment}
                     accountLabel={getAccountLabel(investment, accounts)}
+                    accounts={accounts}
                     isSelected={isSelected}
                     onItemClick={handleItemClick}
                     onToggleInvested={handleToggleInvested}
-                    onToggleSelection={() => toggleItemSelection(investment.id, isSelected)}
-                    showSelectionToggle={!!onSelectionChange}
                     onEdit={handleEdit}
                     onDelete={handleDeleteClick}
                     className={isNewlyExpanded ? 'expand-in' : undefined}

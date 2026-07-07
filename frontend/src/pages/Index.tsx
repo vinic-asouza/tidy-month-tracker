@@ -1,14 +1,9 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Plus, TrendingUp, TrendingDown, PiggyBank, CreditCard, Calendar, Gift } from 'lucide-react';
+import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Calendar } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator, getCurrentMonthKey, isCurrentMonthKey } from '@/components/MonthNavigator';
 import { BrandMark } from '@/components/brand/BrandMark';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { AccountStrip } from '@/components/AccountStrip';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
 import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
@@ -41,12 +36,9 @@ const Index = () => {
   const [selectedInvestmentIds, setSelectedInvestmentIds] = useState<Set<string>>(new Set());
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
 
-  // FAB: tipo de registro a adicionar (abre o dialog da seção correspondente)
-  type AddDialogType = 'income' | 'expense' | 'investment' | 'card' | 'wish' | 'account' | null;
-  const [addDialogType, setAddDialogType] = useState<AddDialogType>(null);
+  const [openAccountDialog, setOpenAccountDialog] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState<Partial<Expense> | null>(null);
   const [pendingWishConquer, setPendingWishConquer] = useState<WishItem | null>(null);
-  const [fabPopoverOpen, setFabPopoverOpen] = useState(false);
   const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
   const [monthAnnouncer, setMonthAnnouncer] = useState('');
   const { signOut } = useAuth();
@@ -71,14 +63,6 @@ const Index = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (addDialogType === 'income') setRecordsTab('income');
-    else if (addDialogType === 'expense' || addDialogType === 'card') setRecordsTab('expense');
-    else if (addDialogType === 'investment') setRecordsTab('investment');
-    else if (addDialogType === 'wish') setRecordsTab('wish');
-    // 'account' não muda aba — abre o AccountStrip diretamente
-  }, [addDialogType]);
-  
   const {
     loading,
     monthRefetching,
@@ -360,15 +344,6 @@ const Index = () => {
 
   const hasSelections = selectedCount > 0;
 
-  const handleFabOpenChange = (open: boolean) => {
-    if (open && view === 'statistics') {
-      handleViewChange('dashboard');
-    }
-    setFabPopoverOpen(open);
-  };
-
-  const showFab = view === 'dashboard' || view === 'statistics';
-
   return (
     <div className={`min-h-screen bg-background gradient-subtle ${hasSelections ? 'pb-24' : ''}`}>
       {/* Header */}
@@ -649,8 +624,8 @@ const Index = () => {
             onCreateTransfer={createTransfer}
             onDeleteOperation={deleteOperation}
             accountNameExists={accountNameExists}
-            openAddDialog={addDialogType === 'account'}
-            onAddDialogClose={() => setAddDialogType(null)}
+            openAddDialog={openAccountDialog}
+            onAddDialogClose={() => setOpenAccountDialog(false)}
           />
 
           <MonthRecordsSection
@@ -702,9 +677,7 @@ const Index = () => {
                 addInvestmentTag={addInvestmentTag}
                 updateInvestmentTag={updateInvestmentTag}
                 deleteInvestmentTag={deleteInvestmentTag}
-                addDialogType={addDialogType}
-                onAddDialogClose={() => setAddDialogType(null)}
-                onRequestAddAccount={() => setAddDialogType('account')}
+                onRequestAddAccount={() => setOpenAccountDialog(true)}
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={handleExpenseDraftConsumed}
                 wishConquerPlannedValue={wishConquerPlannedValue}
@@ -746,108 +719,6 @@ const Index = () => {
                 </Suspense>
               )}
             </div>
-        )}
-
-        {/* FAB: Adicionar item — visível na visão mensal e anual */}
-        {showFab && (
-          <div
-            className="fixed left-0 right-0 z-40 flex justify-center pointer-events-none px-4"
-            style={{ bottom: hasSelections ? '5.5rem' : '1.5rem' }}
-          >
-            <Popover open={fabPopoverOpen} onOpenChange={handleFabOpenChange}>
-              <PopoverTrigger asChild>
-                <Button
-                  className={`h-12 px-4 gap-2 rounded-lg shadow-lg transition-all duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 pointer-events-auto ${
-                    isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-black/90'
-                  }`}
-                  aria-label={view === 'statistics' ? 'Adicionar item na visão mensal' : 'Adicionar item'}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="hidden sm:inline">
-                    {view === 'statistics' ? 'Adicionar na visão mensal' : 'Adicionar item'}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-56 p-2 rounded-md glass border border-border/50"
-                align="center"
-                side="top"
-                sideOffset={8}
-              >
-                <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Adicionar
-                </p>
-                <div className="grid gap-0.5">
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-income hover:bg-income-light hover:text-income"
-                    onClick={() => {
-                      setAddDialogType('income');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    Entrada
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-expense hover:bg-expense-light hover:text-expense"
-                    onClick={() => {
-                      setAddDialogType('expense');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <TrendingDown className="h-4 w-4" />
-                    Gasto
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-investment hover:bg-investment-light hover:text-investment"
-                    onClick={() => {
-                      setAddDialogType('investment');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <PiggyBank className="h-4 w-4" />
-                    Investimento
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-primary hover:bg-primary/10 hover:text-primary"
-                    onClick={() => {
-                      setAddDialogType('wish');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <Gift className="h-4 w-4" />
-                    Desejo
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => {
-                      setAddDialogType('account');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <Wallet className="h-4 w-4" />
-                    Carteira
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => {
-                      setAddDialogType('card');
-                      setFabPopoverOpen(false);
-                    }}
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    Cartão
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
         )}
       </main>
 

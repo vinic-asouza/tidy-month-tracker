@@ -43,10 +43,11 @@ import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { isResgateIncome } from '@/utils/business/monthTotals';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
-import { SelectionToggle } from '@/components/SelectionToggle';
+import { resolveAccountDisplayName } from '@/utils/business/accountLabels';
 import { EffectuateWalletDialog } from '@/components/EffectuateWalletDialog';
 import { filterMovementAccounts } from '@/utils/business/accountRoles';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
+import { comparePendingThenDate } from '@/utils/business/recordSort';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
 
@@ -76,7 +77,7 @@ interface IncomeSectionProps {
 }
 
 type ViewMode = 'general' | 'summary';
-type SortOption = 'date' | 'alphabetic' | 'category' | 'highest' | 'lowest';
+type SortOption = 'date' | 'pending' | 'alphabetic' | 'category' | 'highest' | 'lowest';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -94,6 +95,7 @@ const formatValueForInput = (value: number): string => {
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Data' },
+  { value: 'pending', label: 'Pendentes' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
   { value: 'category', label: 'Categoria' },
   { value: 'highest', label: 'Maior Valor' },
@@ -118,6 +120,10 @@ const sortIncomes = (incomes: IncomeEntry[], sortOption: SortOption): IncomeEntr
         if (dateCmp !== 0) return dateCmp;
         return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
       });
+    case 'pending':
+      return sorted.sort((a, b) =>
+        comparePendingThenDate(a, b, (i) => !i.received, getSortDate)
+      );
     case 'highest':
       return sorted.sort((a, b) => b.value - a.value);
     case 'lowest':
@@ -142,6 +148,7 @@ const groupByCategory = (incomes: IncomeEntry[], sortOption: SortOption): { cate
     case 'alphabetic':
     case 'category':
     case 'date':
+    case 'pending':
       return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
     case 'highest':
       return result.sort((a, b) => b.total - a.total);
@@ -199,30 +206,50 @@ const CategorySummaryItem = ({
   );
 };
 
+const WalletTag = ({ label }: { label: string }) => (
+  <Badge
+    variant="outline"
+    className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground font-normal truncate max-w-[5rem]"
+    title={label}
+  >
+    {label}
+  </Badge>
+);
+
 const IncomeListItem = ({
   income,
+  accounts,
   isSelected,
   onItemClick,
   onToggleReceived,
-  onToggleSelection,
-  showSelectionToggle,
   onEdit,
   onDelete,
   className,
   style,
 }: {
   income: IncomeEntry;
+  accounts: import('@/types/domain').Account[];
   isSelected: boolean;
   onItemClick: (e: React.MouseEvent) => void;
   onToggleReceived: (income: IncomeEntry) => void;
-  onToggleSelection: () => void;
-  showSelectionToggle: boolean;
   onEdit: (income: IncomeEntry) => void;
   onDelete: (id: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }) => {
   const isSystemResgate = isResgateIncome(income);
+  const walletLabel = income.received
+    ? resolveAccountDisplayName(income.accountId, accounts)
+    : null;
+
+  const dateDisplay = (
+    <div className="flex items-center gap-1.5 shrink-0">
+      {walletLabel && <WalletTag label={walletLabel} />}
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {formatItemDayMonth(income.date, income.createdAt)}
+      </span>
+    </div>
+  );
 
   const actionButtons = (
     <>
@@ -286,13 +313,10 @@ const IncomeListItem = ({
         </div>
       </div>
       <div className="hidden sm:flex flex-col items-end justify-center gap-0.5 shrink-0">
-        <span className="text-xs text-muted-foreground tabular-nums">{formatItemDayMonth(income.date, income.createdAt)}</span>
+        {dateDisplay}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {showSelectionToggle && (
-              <SelectionToggle isSelected={isSelected} onToggle={onToggleSelection} />
-            )}
             <div className="flex justify-end opacity-100 sm:opacity-60 sm:group-hover:opacity-100 sm:w-0 sm:min-w-0 sm:overflow-hidden sm:group-hover:w-[3.75rem] transition-[width,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shrink-0">
               <div className="flex gap-0.5 shrink-0 sm:translate-x-full sm:group-hover:translate-x-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
                 {actionButtons}
@@ -316,7 +340,7 @@ const IncomeListItem = ({
             <span className="text-sm font-medium truncate text-foreground">{income.description}</span>
             {income.repeatAllMonths && <Repeat className="h-4 w-4 text-muted-foreground shrink-0" />}
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatItemDayMonth(income.date, income.createdAt)}</span>
+          {dateDisplay}
         </div>
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           <span className="font-bold text-income whitespace-nowrap text-sm tabular-nums shrink-0">{formatCurrency(income.value)}</span>
@@ -1119,11 +1143,10 @@ const IncomeSectionComponent = ({
               <IncomeListItem
                 key={income.id}
                 income={income}
+                accounts={accounts}
                 isSelected={isSelected}
                 onItemClick={handleItemClick}
                 onToggleReceived={handleToggleReceived}
-                onToggleSelection={() => toggleItemSelection(income.id, isSelected)}
-                showSelectionToggle={!!onSelectionChange}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
               />
@@ -1143,11 +1166,10 @@ const IncomeSectionComponent = ({
                   <IncomeListItem
                     key={income.id}
                     income={income}
+                    accounts={accounts}
                     isSelected={isSelected}
                     onItemClick={handleItemClick}
                     onToggleReceived={handleToggleReceived}
-                    onToggleSelection={() => toggleItemSelection(income.id, isSelected)}
-                    showSelectionToggle={!!onSelectionChange}
                     onEdit={handleEdit}
                     onDelete={handleDeleteClick}
                     className={isNewlyExpanded ? 'expand-in' : undefined}
