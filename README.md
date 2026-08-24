@@ -28,7 +28,7 @@ Em produção, apenas o **frontend** é publicado ([Vercel](https://tidy-month-t
 
 A camada de serviços em `frontend/src/services/adapters/` permite alternar entre acesso direto ao Supabase e API REST sem alterar os componentes.
 
-📖 Veja [`docs/DEPLOY.md`](./docs/DEPLOY.md) para o guia completo de deploy.
+📖 Deploy e env: [`knowledge/06_integracoes/vercel.md`](./knowledge/06_integracoes/vercel.md) e [`knowledge/03_arquitetura/infraestrutura.md`](./knowledge/03_arquitetura/infraestrutura.md). Índice da KB: [`knowledge/README.md`](./knowledge/README.md).
 
 ## 🚀 Tecnologias
 
@@ -146,7 +146,7 @@ npm run build
 npm run preview --workspace=frontend
 ```
 
-📖 Guia completo: [`docs/DEPLOY.md`](./docs/DEPLOY.md)
+📖 Guia: [`knowledge/06_integracoes/vercel.md`](./knowledge/06_integracoes/vercel.md) e [`knowledge/03_arquitetura/infraestrutura.md`](./knowledge/03_arquitetura/infraestrutura.md).
 
 ## 📁 Estrutura do Projeto
 
@@ -217,8 +217,10 @@ O backend utiliza logging estruturado simples:
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`docs/DEPLOY.md`](./docs/DEPLOY.md) | Deploy na Vercel, variáveis de ambiente e Supabase Auth |
-| [`docs/PLANO_FRONTEND_DIRETO_SUPABASE.md`](./docs/PLANO_FRONTEND_DIRETO_SUPABASE.md) | Plano e decisões da fase frontend → Supabase |
+| [`knowledge/README.md`](./knowledge/README.md) | Índice da base de conhecimento |
+| [`knowledge/06_integracoes/vercel.md`](./knowledge/06_integracoes/vercel.md) | Deploy na Vercel, variáveis de ambiente |
+| [`knowledge/03_arquitetura/infraestrutura.md`](./knowledge/03_arquitetura/infraestrutura.md) | Infra, Auth URLs e workspaces |
+| [`knowledge/07_decisoes-tecnicas/index.md`](./knowledge/07_decisoes-tecnicas/index.md) | ADRs (SPA + Supabase em produção) |
 | [`backend/README.md`](./backend/README.md) | API REST (modo `api`) |
 
 ## 📝 Scripts Disponíveis

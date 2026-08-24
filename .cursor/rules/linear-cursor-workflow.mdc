@@ -1,0 +1,71 @@
+---
+description: "Ledger Flow: Linear é fonte de verdade operacional; knowledge/ só para KB permanente; agentes atualizam Issues via MCP com handoff; decisões bloqueantes vão no chat antes de concluir. Aplica-se a toda sessão."
+alwaysApply: true
+---
+
+# Ledger Flow — Workflow (sempre ativo)
+
+Antes de atuar sobre uma Issue ou demanda **deste projeto**, leia e siga:
+
+- `knowledge/00_meta/linear-cursor-workflow.md`
+- `knowledge/00_meta/mapa-de-agentes.md`
+- `knowledge/README.md`
+
+Não assuma nome, domínio, stack ou tenants de outro produto. Use a KB e o código do repositório atual.
+
+## Fonte de verdade
+
+| Informação | Onde |
+| --- | --- |
+| Status e histórico da Issue | **Linear** (MCP) |
+| Código | Git |
+| Conhecimento permanente | `knowledge/` |
+
+## Regras absolutas
+
+1. Com Issue associada: **ler e atualizar no Linear via MCP** — não depender só do chat.
+2. **Nunca** criar arquivos temporários por Issue (`refinamento-*`, `qa-report-*`, `analise-tecnica-*`, pastas `knowledge/refinamentos/`, etc.).
+3. Atualizar `knowledge/` **somente** quando houver mudança permanente (produto, regra, arquitetura, módulo, integração, padrão, ADR ou release notes).
+4. Respeitar o papel solicitado; não pular etapas do workflow.
+5. Não mover status Linear sem autorização / critérios do workflow §16.
+6. **Gate de Decisão (workflow §15.1):** se precisar de decisão importante para concluir a etapa, **pergunte no chat do Cursor**, registre o bloqueio no Linear, **aguarde a resposta**, atualize o Linear com a decisão e **só então** conclua. Não invente a decisão; não feche a etapa com perguntas bloqueantes só no Linear.
+7. **Status em Document:** a Issue **permanece em `Document`** durante o Technical Writer. É proibido regredir para `In Progress`. Em `save_issue`, omitir `state` (exceto restaurar `Document` ou concluir para `Done`); nunca usar tipo genérico `started`. Se detectar regressão (ex.: automação Git/PR), restaurar `Document` imediatamente (workflow §11.1).
+8. **KB do projeto atual:** a árvore `knowledge/01_produto/` … `knowledge/07_decisoes-tecnicas/` é convenção do Ledger Flow. Consulte o que existir neste repositório. Não invente produto, regras ou stack se o arquivo ainda não existir.
+9. **Time Linear:** neste produto o fluxo usa **somente** o time **Development**. Não usar Marketing. Em `save_issue` / `list_issues`, identifique o time Development. Nunca `state: started` genérico.
+
+## Formato mínimo na Issue
+
+Toda atuação em Issue termina com seção estruturada + handoff:
+
+```markdown
+## [Agente] — [Tipo]
+
+### Resumo
+### Decisões / Recomendações
+### Critérios / Checklist
+### Riscos / Pontos de Atenção
+### Próximo Passo
+
+## Handoff
+**Status:** concluído | requer ajustes | bloqueado
+**Próximo agente recomendado:** …
+**Motivo:** …
+**Pontos de atenção:**
+- …
+```
+
+Templates: `knowledge/00_meta/templates/`.
+
+## Qual MDC carregar
+
+| Situação | Regra |
+| --- | --- |
+| Refinar produto | `.cursor/rules/product-analyst.mdc` |
+| Análise técnica | `.cursor/rules/software-architect.mdc` |
+| Implementar API/backend | `.cursor/rules/backend-engineer.mdc` |
+| Implementar UI | `.cursor/rules/frontend-engineer.mdc` |
+| Code review (status Review) | `.cursor/rules/tech-lead.mdc` |
+| QA (status Review) | `.cursor/rules/qa-analyst.mdc` |
+| Docs internas (status Document, antes de Done) | `.cursor/rules/technical-writer.mdc` |
+
+Se houver conflito entre um MDC de papel e o Ledger Flow, **priorize o Ledger Flow**.
