@@ -2,9 +2,9 @@
 type: modulo
 nome: Desejos
 status: Ativo
-versao: "1.0"
+versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-08-24
 tags: [desejos, wishlist, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -166,7 +166,7 @@ Não há REST de produção.
 5. Cancelar o form / trocar de aba / trocar de mês: pendência some; desejo segue `active`. Toast: *Registro de gasto cancelado. O desejo continua ativo.*
 6. Gasto salva e conquista falha: toast de erro; gasto fica; desejo ativo.
 
-**Lacuna (já em gastos):** `createExpense` grava `account_id: null`. No fluxo “já pago”, a carteira escolhida **não** entra no INSERT.
+No fluxo “já pago” (não-cartão), a carteira escolhida entra no INSERT da linha criada (`account_id` UUID ou `null` = Saldo Livre). Cartão no mesmo fluxo continua `paid: false` e sem carteira. Detalhe do create: [`gastos.md`](./gastos.md).
 
 ### Validação no cliente
 
@@ -313,7 +313,7 @@ Sem `localStorage` próprio.
 - [ ] Só marcar → `conquered` sem `linked_expense_id`; caixa inalterado
 - [ ] Incluir gasto: desejo só fecha após INSERT; cancelar mantém `active`
 - [ ] Cartão no fluxo conquista nasce `paid: false`; não-cartão `paid: true`
-- [ ] `createExpense` ignora `accountId` nesse fluxo (lacuna compartilhada com gastos)
+- [ ] Conquista “já pago” persiste a carteira no gasto (mesmo `createExpense`; QA manual DEV-52; sem spec de adapter)
 - [ ] Apagar o gasto zera o vínculo e **não** reabre o desejo
 - [ ] Express `/api/wish-items` não existe
 
@@ -330,6 +330,7 @@ npm test --workspace=frontend
 | Data | Versão | Descrição | Issue ID | Autor |
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
+| 2026-08-24 | 1.1 | Conquista “já pago” persiste carteira no gasto criado | DEV-52 | Technical Writer |
 
 ---
 

@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.1.1 | 2026-08-24 | Publicado | [v0.1.1-2026-08-24.md](./v0.1.1-2026-08-24.md) |
 | v0.1.0 | 2026-08 | Publicado (foto do **beta fechado**) | [v0.1.0-2026-08.md](./v0.1.0-2026-08.md) |
 
 ---
@@ -58,4 +59,4 @@ Se P3 (`credit_card_id`) ou P4 (CHECK no banco) mudarem contrato, isso é **MAJO
 - Inventar Issue ID, data de deploy ou tag que não existem
 - Duplicar 01–04: a nota aponta para a KB; não reescreve módulos
 
-Próxima nota esperada: a **próxima PR mergeada em `main`** gera `v0.1.1` (PATCH), salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.
+Próxima nota esperada após merge desta: `v0.1.2` (PATCH) na **próxima PR para `main`**, salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.
