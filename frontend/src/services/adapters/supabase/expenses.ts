@@ -118,7 +118,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
         current_installment: expenseData.currentInstallment ?? null,
         total_installments: expenseData.totalInstallments ?? null,
         display_order: displayOrder,
-        account_id: null,
+        account_id: expenseData.accountId ?? null,
       })
       .select('*')
       .single();

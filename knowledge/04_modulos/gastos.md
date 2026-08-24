@@ -2,9 +2,9 @@
 type: modulo
 nome: Gastos
 status: Ativo
-versao: "1.0"
+versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-08-24
 tags: [gastos, expenses, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -163,7 +163,7 @@ Não há REST de produção. Produção = facade + hook + PostgREST.
 | Operação | Onde | Auth | Input | Efeito |
 | --- | --- | --- | --- | --- |
 | Listar mês | `getExpenses(userId, yearMonth)` | JWT + RLS | `YYYY-MM` | `Expense[]` (`display_order`) |
-| Criar | `createExpense` | idem | payload | INSERT com `account_id: null` e `paid` do payload (default false). `fixed`+repeat → clones nos outros 11 meses do **mesmo ano**. `installment` válido → clones das parcelas seguintes (**podem ser outro ano**). Falha nos clones faz rollback da série |
+| Criar | `createExpense` | idem | payload | INSERT da **linha criada:** `paid` do payload (default false) e `account_id` = `accountId ?? null`. Clones de `fixed`+repeat (outros 11 meses do **mesmo ano**) e parcelas seguintes (**podem ser outro ano**): `paid: false`, `account_id: null`. Falha nos clones faz rollback da série |
 | Atualizar | `updateExpense` | idem | `updates`, `applyToAllMonths?` | Ver série abaixo |
 | Excluir um / seguintes (fixo) | `deleteExpense` | idem | `applyToAllMonths?` | Um id; se fixo + all, série com `year_month >=` atual. **Parcelado + all neste método não apaga a série** |
 | Excluir todas as parcelas | `deleteInstallmentExpense` | idem | `Expense` | Todos os ids `id = base` ou `base_expense_id = base` |
@@ -180,7 +180,7 @@ Ligar `repeatAllMonths` num fixo que não é cópia: insere os outros meses do a
 
 **Sanitização no hook:** se `isCreditCardExpense`, `accountId` é forçado `undefined` no create/update.
 
-**Lacuna create + carteira:** `createExpense` **sempre** grava `account_id: null`. O fluxo de desejo “já pago” que passa `accountId` no `onAdd` **não persiste a carteira no INSERT** — só `paid` vai. Carteira no gasto normal entra no `updateExpense` da efetivação.
+**Create + carteira:** a linha criada persiste a carteira informada (`accountId` UUID ou `null` = Saldo Livre). Conquista de desejo “já pago” e create avulso já pago usam o mesmo INSERT. Clones da série **não** recebem carteira. Gasto avulso não-cartão no ritual padrão ainda nasce não pago (RN-X02) e vincula carteira no `updateExpense` da efetivação (RN-X03). Express (`backend`) continua omitindo `account_id` no create — fora de produção ([ADR-001](../07_decisoes-tecnicas/ADR-001-spa-supabase-producao.md)).
 
 ### Validação no cliente (`ExpenseSection`)
 
@@ -220,7 +220,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de
 | ID | Regra | Onde está no código |
 | --- | --- | --- |
 | RN-X01 | Três tipos; parcelado pode cruzar o ano | `Expense.type`; `calculateRemainingInstallments` |
-| RN-X02 | Nasce não pago, sem carteira; campos obrigatórios; valor > 0 | Form + `createExpense` (`paid \|\| false`, `account_id: null`) |
+| RN-X02 | Nasce não pago, sem carteira; campos obrigatórios; valor > 0 | Form padrão + `createExpense` (`paid \|\| false`; `account_id: accountId ?? null` na linha criada). Exceção de produto: conquista “já pago” envia `paid: true` e carteira no mesmo create |
 | RN-X03 | Pago não-cartão → dialog carteira; desmarcar limpa vínculo | `handleTogglePaid` / `handleEffectuateConfirm` |
 | RN-X04 | Cartão: sem checkbox de pago no item; caixa = fatura | UI `isExpenseLinkedToCard`; `isExpenseEffectivelyPaid` no resumo |
 | RN-X05 | Excluir este mês = um registro (buraco ok); todas = série | `deleteExpense(false)` vs `deleteInstallmentExpense` |
@@ -302,7 +302,7 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [ ] Rollback se o insert das parcelas falhar
 - [ ] Efetivar não-cartão pede carteira; cartão não chama `paid` no item
 - [ ] Excluir uma parcela deixa buraco; “todas” apaga a série
-- [ ] `createExpense` ignora `accountId` (desejo já pago + carteira)
+- [ ] Create honra `accountId` na linha principal; clones sem carteira (sem spec de adapter; QA manual DEV-52)
 - [ ] Excluir categoria usada em **outro** mês (RN-G06)
 
 **Como rodar:**
@@ -318,6 +318,7 @@ npm test --workspace=frontend
 | Data | Versão | Descrição | Issue ID | Autor |
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
+| 2026-08-24 | 1.1 | Create persiste `account_id` na linha criada; clones seguem sem carteira | DEV-52 | Technical Writer |
 
 ---
 
