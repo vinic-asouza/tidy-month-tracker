@@ -28,3 +28,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Export financeiro real (Supabase) — não versionar
+notion/dados-2026/
