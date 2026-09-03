@@ -1,5 +1,6 @@
 import { useState, useMemo, ReactNode, useEffect, useRef, memo } from 'react';
-import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, Receipt, Repeat, CreditCard, AlertTriangle, List, LayoutGrid, ArrowUpDown, Settings, Check, Loader2, Banknote, Landmark, FileText, CircleDollarSign, ChevronDown, ChevronUp, FileSpreadsheet } from 'lucide-react';
+import { ImportExpensesCsvDialog } from '@/components/ImportExpensesCsvDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +58,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
 
-type PersistHandler = (expense: Omit<Expense, 'id'>) => Promise<Expense | null> | Expense | null;
+type PersistHandler = (
+  expense: Omit<Expense, 'id'>,
+  yearMonth?: string
+) => Promise<Expense | null> | Expense | null;
 type UpdateHandler = (
   id: string,
   updates: Partial<Expense>,
@@ -93,6 +97,8 @@ interface ExpenseSectionProps {
   accounts?: import('@/types/domain').Account[];
   accountOperations?: import('@/types/domain').AccountOperation[];
   onRequestAddAccount?: () => void;
+  /** Mês aberto na UI (YYYY-MM) — usado na importação CSV */
+  currentMonth?: string;
 }
 
 type ViewMode = 'general' | 'summary';
@@ -886,8 +892,10 @@ const ExpenseSectionComponent = ({
   accounts = [],
   accountOperations = [],
   onRequestAddAccount,
+  currentMonth,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<Partial<Expense> | null>(null);
   const submitSucceededRef = useRef(false);
   const applyToAllResolvedRef = useRef(false);
@@ -1535,7 +1543,38 @@ const ExpenseSectionComponent = ({
             />
           </div>
         </div>
+        {currentMonth && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5"
+            onClick={() => setImportCsvOpen(true)}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar CSV</span>
+          </Button>
+        )}
       </div>
+      {currentMonth && (
+        <ImportExpensesCsvDialog
+          open={importCsvOpen}
+          onOpenChange={setImportCsvOpen}
+          currentMonth={currentMonth}
+          categories={categories}
+          creditCards={creditCards}
+          expenses={expenses}
+          accounts={accounts}
+          onAdd={async (expense, yearMonth) => {
+            const result = await onAdd(expense, yearMonth);
+            return result ?? null;
+          }}
+          onUpdate={async (id, updates) => {
+            const result = await onUpdate(id, updates);
+            return result === true;
+          }}
+        />
+      )}
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
