@@ -193,6 +193,82 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
   }
 }
 
+async function promoteSeriesRootIfNeeded(
+  userId: string,
+  leavingRootId: string
+): Promise<void> {
+  const { data: children, error } = await supabase
+    .from('expenses')
+    .select('id, year_month, current_installment')
+    .eq('user_id', userId)
+    .eq('base_expense_id', leavingRootId);
+
+  throwIfError(error);
+  if (!children || children.length === 0) return;
+
+  const sorted = [...children].sort((a, b) => {
+    const byMonth = a.year_month.localeCompare(b.year_month);
+    if (byMonth !== 0) return byMonth;
+    return (Number(a.current_installment) || 0) - (Number(b.current_installment) || 0);
+  });
+
+  const newRoot = sorted[0];
+  const others = sorted.slice(1);
+
+  const { error: rootError } = await supabase
+    .from('expenses')
+    .update({ base_expense_id: null })
+    .eq('id', newRoot.id)
+    .eq('user_id', userId);
+  throwIfError(rootError);
+
+  if (others.length > 0) {
+    const { error: reparentError } = await supabase
+      .from('expenses')
+      .update({ base_expense_id: newRoot.id })
+      .in(
+        'id',
+        others.map((o) => o.id)
+      )
+      .eq('user_id', userId);
+    throwIfError(reparentError);
+  }
+}
+
+function buildTypeChangeRow(
+  updates: Partial<Omit<Expense, 'id'>>,
+  newType: Expense['type']
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    type: newType,
+    base_expense_id: null,
+  };
+
+  if (updates.category !== undefined) row.category = updates.category;
+  if (updates.description !== undefined) row.description = updates.description;
+  if (updates.paymentMethod !== undefined) row.payment_method = updates.paymentMethod;
+  if (updates.value !== undefined) row.value = updates.value;
+  if (updates.paid !== undefined) row.paid = updates.paid;
+  if (updates.date !== undefined) row.date = updates.date;
+  if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
+
+  if (newType === 'variable') {
+    row.repeat_all_months = false;
+    row.current_installment = null;
+    row.total_installments = null;
+  } else if (newType === 'fixed') {
+    row.repeat_all_months = updates.repeatAllMonths ?? false;
+    row.current_installment = null;
+    row.total_installments = null;
+  } else {
+    row.repeat_all_months = false;
+    row.current_installment = updates.currentInstallment ?? 1;
+    row.total_installments = updates.totalInstallments ?? 12;
+  }
+
+  return row;
+}
+
 export async function updateExpense(params: UpdateExpenseParams): Promise<void> {
   const userId = await resolveUserId(params.userId);
   const { id, updates, applyToAllMonths } = params;
@@ -208,6 +284,98 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
 
   throwIfError(fetchError);
   if (!currentExpense) throw new Error('Despesa não encontrada');
+
+  const isTypeChange =
+    updates.type !== undefined && updates.type !== currentExpense.type;
+
+  // DEV-104: mudança de tipo — unlink série antiga (Q1-A) + gerar nova se aplicável (Q2-A)
+  if (isTypeChange) {
+    const newType = updates.type!;
+
+    // Se este registro é raiz de série, promove o próximo irmão antes de sair
+    await promoteSeriesRootIfNeeded(userId, id);
+
+    const row = buildTypeChangeRow(updates, newType);
+    const { error: updateError } = await supabase
+      .from('expenses')
+      .update(row)
+      .eq('id', id)
+      .eq('user_id', userId);
+    throwIfError(updateError);
+
+    const yearMonth = currentExpense.year_month;
+    const category = (updates.category ?? currentExpense.category) as string;
+    const description = (updates.description ?? currentExpense.description) as string;
+    const paymentMethod = (updates.paymentMethod ??
+      currentExpense.payment_method) as string;
+    const value = Number(updates.value ?? currentExpense.value);
+    const itemDate =
+      updates.date !== undefined
+        ? updates.date
+        : (currentExpense.date ?? new Date().toISOString().slice(0, 10));
+
+    if (newType === 'fixed' && (updates.repeatAllMonths ?? false)) {
+      const remainingMonths = calculateRemainingMonths(yearMonth);
+      if (remainingMonths.length > 0) {
+        const rows = remainingMonths.map((month) => ({
+          user_id: userId,
+          year_month: month,
+          type: newType,
+          category,
+          description,
+          payment_method: paymentMethod,
+          value,
+          paid: false,
+          date: itemDate,
+          repeat_all_months: true,
+          base_expense_id: id,
+          display_order: 0,
+          account_id: null,
+        }));
+        const { error: copyError } = await supabase.from('expenses').insert(rows);
+        throwIfError(copyError);
+      }
+    }
+
+    if (
+      isValidInstallmentExpense({
+        type: newType,
+        currentInstallment: updates.currentInstallment ?? 1,
+        totalInstallments: updates.totalInstallments ?? 12,
+      } as Expense)
+    ) {
+      const currentInstallment = updates.currentInstallment ?? 1;
+      const totalInstallments = updates.totalInstallments ?? 12;
+      const installments = calculateRemainingInstallments(
+        yearMonth,
+        currentInstallment,
+        totalInstallments
+      );
+
+      if (installments.length > 0) {
+        const rows = installments.map((inst) => ({
+          user_id: userId,
+          year_month: inst.yearMonth,
+          type: newType,
+          category,
+          description,
+          payment_method: paymentMethod,
+          value,
+          paid: false,
+          date: itemDate,
+          base_expense_id: id,
+          current_installment: inst.installmentNumber,
+          total_installments: totalInstallments,
+          display_order: 0,
+          account_id: null,
+        }));
+        const { error: instError } = await supabase.from('expenses').insert(rows);
+        throwIfError(instError);
+      }
+    }
+
+    return;
+  }
 
   const wasRepeatAllMonths = currentExpense.repeat_all_months;
   const willBeRepeatAllMonths =

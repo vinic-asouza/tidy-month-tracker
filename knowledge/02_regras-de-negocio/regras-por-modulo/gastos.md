@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: gastos
-ultima_atualizacao: 2026-09-03
+ultima_atualizacao: 2026-09-04
 ---
 
 # Gastos
@@ -40,11 +40,22 @@ Sem checkbox pago no item. Status vem da **fatura** daquele mês. Não vincula c
 
 CRUD na seção. Em uso: não exclui. Renomear: propaga. Mapeamento na regra financeira é outro passo ([`regra-financeira.md`](./regra-financeira.md)).
 
+## RN-X07 — Troca de tipo na edição (DEV-104)
+
+No formulário de criar/editar, trocar Fixo / Variável / Parcelado **preserva** campos comuns (categoria, descrição, valor, pagamento, data, carteira se visível).
+
+Ao **salvar** com `type` diferente do persistido:
+
+- Aplica **somente** ao registro do mês/parcela aberto — **não** propaga via “aplicar a todos”.
+- **Desvincula** da série antiga (`base_expense_id = null`). Se o item era raiz, promove o próximo irmão a nova raiz; irmãos permanecem no tipo antigo.
+- Sanitiza campos do tipo destino (parcelas / `repeat_all_months`).
+- Se o destino for fixo com “repetir todos os meses” ou parcelado com total > parcela atual, **gera** o restante da série como no create (RN-G05 / RN-X05).
+
 ---
 
 ## Importação CSV assistida (DEV-103)
 
-Exceção à política de “sem importação automática”. Só **gastos**. Preserva RN-X01–X06, RN-G01/G02/G04/G05, RN-X04 / RN-C02–C03.
+Exceção à política de “sem importação automática”. Só **gastos**. Preserva RN-X01–X07, RN-G01/G02/G04/G05, RN-X04 / RN-C02–C03.
 
 | ID | Regra |
 | --- | --- |
