@@ -25,7 +25,7 @@ Cabeçalho: marca, `MonthNavigator` (mês anterior/próximo; “Ir para mês atu
 
 Abas de registros (`RecordsTab`): **Entradas** · **Gastos** · **Investimentos** · **Desejos**. Cartões (`CreditCardStrip`) só na aba Gastos.
 
-Rodapé: dialog **Como lemos seus números** (`FinancialGlossaryDialog`). Barra inferior: soma de itens selecionados (`SelectionBottomBar`) — desejos não entram.
+Rodapé: dialog **Como lemos seus números** (`FinancialGlossaryDialog`). Barra inferior: soma de itens selecionados (`SelectionBottomBar`) e exclusão em massa dos selecionados — desejos não entram.
 
 ---
 

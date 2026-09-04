@@ -8,6 +8,7 @@ import { AccountStrip } from '@/components/AccountStrip';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
 import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
+import { BulkDeleteConfirmDialog } from '@/components/BulkDeleteConfirmDialog';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
@@ -19,6 +20,12 @@ import { toast } from 'sonner';
 import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
 import { getWishRealizedMetrics } from '@/utils/business/wishItems';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import {
+  buildBulkDeleteList,
+  executeBulkDelete,
+  type BulkDeleteListItem,
+  type BulkDeleteScope,
+} from '@/utils/business/bulkDelete';
 import { cn } from '@/lib/utils';
 
 const Statistics = lazy(() =>
@@ -35,6 +42,8 @@ const Index = () => {
   const [selectedIncomeIds, setSelectedIncomeIds] = useState<Set<string>>(new Set());
   const [selectedInvestmentIds, setSelectedInvestmentIds] = useState<Set<string>>(new Set());
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteItems, setBulkDeleteItems] = useState<BulkDeleteListItem[]>([]);
 
   const [openAccountDialog, setOpenAccountDialog] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState<Partial<Expense> | null>(null);
@@ -333,6 +342,88 @@ const Index = () => {
     selectedInvestmentIds,
     selectedExpenseIds,
   ]);
+
+  const handleRequestBulkDelete = useCallback(() => {
+    const items = buildBulkDeleteList(
+      monthData,
+      selectedIncomeIds,
+      selectedExpenseIds,
+      selectedInvestmentIds
+    );
+    if (items.length === 0) {
+      toast.error('Nenhum item válido na seleção para excluir.');
+      handleClearAllSelections();
+      return;
+    }
+    setBulkDeleteItems(items);
+    setBulkDeleteOpen(true);
+  }, [
+    monthData,
+    selectedIncomeIds,
+    selectedExpenseIds,
+    selectedInvestmentIds,
+    handleClearAllSelections,
+  ]);
+
+  const handleConfirmBulkDelete = useCallback(
+    async (scopes: Record<string, BulkDeleteScope>) => {
+      const { succeededIds, failedIds } = await executeBulkDelete({
+        items: bulkDeleteItems,
+        scopes,
+        monthData,
+        handlers: {
+          deleteIncome,
+          deleteExpense,
+          deleteInstallmentExpense,
+          deleteInvestment,
+        },
+      });
+
+      const succeeded = new Set(succeededIds);
+      if (succeeded.size > 0) {
+        setSelectedIncomeIds((prev) => {
+          const next = new Set(prev);
+          for (const id of succeeded) next.delete(id);
+          return next;
+        });
+        setSelectedExpenseIds((prev) => {
+          const next = new Set(prev);
+          for (const id of succeeded) next.delete(id);
+          return next;
+        });
+        setSelectedInvestmentIds((prev) => {
+          const next = new Set(prev);
+          for (const id of succeeded) next.delete(id);
+          return next;
+        });
+      }
+
+      if (failedIds.length === 0) {
+        toast.success(
+          succeededIds.length === 1
+            ? '1 item excluído.'
+            : `${succeededIds.length} itens excluídos.`
+        );
+        setBulkDeleteOpen(false);
+        setBulkDeleteItems([]);
+      } else if (succeededIds.length === 0) {
+        toast.error('Não foi possível excluir os itens selecionados.');
+      } else {
+        toast.error(
+          `${succeededIds.length} excluído(s), ${failedIds.length} falhou(aram). Revise a seleção.`
+        );
+        setBulkDeleteItems((prev) => prev.filter((item) => failedIds.includes(item.id)));
+      }
+    },
+    [
+      bulkDeleteItems,
+      monthData,
+      deleteIncome,
+      deleteExpense,
+      deleteInstallmentExpense,
+      deleteInvestment,
+    ]
+  );
 
   if (loading) {
     return (
@@ -737,6 +828,17 @@ const Index = () => {
         effectiveSelectedCount={effectiveSelectedCount}
         plannedTotal={selectionPlannedTotal}
         onClearAll={handleClearAllSelections}
+        onRequestDelete={handleRequestBulkDelete}
+      />
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          setBulkDeleteOpen(open);
+          if (!open) setBulkDeleteItems([]);
+        }}
+        items={bulkDeleteItems}
+        onConfirm={handleConfirmBulkDelete}
       />
     </div>
   );
