@@ -726,10 +726,22 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         ? { ...updates, accountId: undefined }
         : updates;
 
+      const typeChanged =
+        sanitized.type !== undefined && current != null && sanitized.type !== current.type;
+
+      // Type change always applies to this record only (Q1-A)
+      const effectiveApplyToAll = typeChanged ? false : applyToAllMonths;
+
       setMonthBundle((prev) => ({
         ...prev,
         expenses: prev.expenses.map((e) =>
-          e.id === id ? { ...e, ...sanitized } : e
+          e.id === id
+            ? {
+                ...e,
+                ...sanitized,
+                ...(typeChanged ? { baseExpenseId: undefined } : {}),
+              }
+            : e
         ),
       }));
 
@@ -738,12 +750,41 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           id,
           userId: user.id,
           updates: sanitized,
-          applyToAllMonths,
+          applyToAllMonths: effectiveApplyToAll,
         });
         timing.mark('apiDone');
-        if (applyToAllMonths) {
-          scheduleRefreshAffectedYearMonths(true);
+
+        const generatesSeries =
+          typeChanged &&
+          ((sanitized.type === 'fixed' && sanitized.repeatAllMonths) ||
+            (sanitized.type === 'installment' &&
+              sanitized.currentInstallment != null &&
+              sanitized.totalInstallments != null));
+
+        if (effectiveApplyToAll || generatesSeries) {
+          if (generatesSeries) {
+            const affectedMonths = [currentMonth];
+            if (sanitized.type === 'fixed' && sanitized.repeatAllMonths) {
+              affectedMonths.push(...calculateRemainingMonths(currentMonth));
+            }
+            if (
+              sanitized.type === 'installment' &&
+              sanitized.currentInstallment != null &&
+              sanitized.totalInstallments != null
+            ) {
+              const installments = calculateRemainingInstallments(
+                currentMonth,
+                sanitized.currentInstallment,
+                sanitized.totalInstallments
+              );
+              affectedMonths.push(...installments.map((i) => i.yearMonth));
+            }
+            scheduleRefreshAffectedYearMonths(false, affectedMonths);
+          } else {
+            scheduleRefreshAffectedYearMonths(true);
+          }
         }
+
         refreshEarliestMovementMonthIfAccountChanged(sanitized);
         scheduleSyncInvoicePayments();
         timing.mark('syncDone');
@@ -756,7 +797,16 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, monthQuery.data?.expenses, creditCards, setMonthBundle, scheduleRefreshAffectedYearMonths, refreshEarliestMovementMonthIfAccountChanged, scheduleSyncInvoicePayments]
+    [
+      user,
+      monthQuery.data?.expenses,
+      creditCards,
+      currentMonth,
+      setMonthBundle,
+      scheduleRefreshAffectedYearMonths,
+      refreshEarliestMovementMonthIfAccountChanged,
+      scheduleSyncInvoicePayments,
+    ]
   );
 
   const deleteExpense = useCallback(
