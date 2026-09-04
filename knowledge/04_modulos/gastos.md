@@ -2,16 +2,16 @@
 type: modulo
 nome: Gastos
 status: Ativo
-versao: "1.2"
+versao: "1.3"
 owner: Development
-ultima_atualizacao: 2026-09-03
+ultima_atualizacao: 2026-09-04
 tags: [gastos, expenses, frontend, supabase, csv]
 dependencias: [autenticacao]
 ---
 
 # Módulo — Gastos
 
-Documento-base em `knowledge/04_modulos/gastos.md`. Atualize quando tipos, parcelas, efetivação não-cartão, vínculo por nome do cartão, categorias ou **importação CSV assistida** mudarem.
+Documento-base em `knowledge/04_modulos/gastos.md`. Atualize quando tipos, parcelas, efetivação não-cartão, vínculo por nome do cartão, categorias, **troca de tipo na edição** ou **importação CSV assistida** mudarem.
 
 Regras: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de-negocio/regras-por-modulo/gastos.md). Cartão (fatura): [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de-negocio/regras-por-modulo/cartoes.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md).
 
@@ -23,7 +23,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 
 **Responsabilidade única:** persistir e editar linhas na tabela `expenses` (incluindo categorias em `finance_settings.expense_categories`) e o fluxo de efetivação `paid` + carteira **só quando o gasto não é de cartão**. Inclui o wizard de **importação CSV assistida** (parse no browser; gravação só após confirmação).
 
-**Propósito no produto:** a pessoa planeja o que deve sair e confirma o caixa no débito em conta — no cartão, o caixa espera a fatura (RN-G02, RN-X04). A CSV assistida reduz atrito de volume **com** revisão humana (CSV-01…CSV-05).
+**Propósito no produto:** a pessoa planeja o que deve sair e confirma o caixa no débito em conta — no cartão, o caixa espera a fatura (RN-G02, RN-X04). A CSV assistida reduz atrito de volume **com** revisão humana (CSV-01…CSV-05). Trocar o tipo na edição sem perder os campos já preenchidos evita retrabalho no ritual de registro (RN-X07).
 
 ---
 
@@ -39,6 +39,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 - Parcelas: gera o restante da série (`installments.ts`), **pode cruzar o ano**; excluir “este mês” deixa buraco; excluir “todas” pela série `base_expense_id` (RN-X05)
 - Fixo com `repeatAllMonths`: mesmos 11 meses do ano civil que entradas (RN-G05); carteira **não** se copia
 - CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso **no mês aberto** (RN-X06; lacuna vs RN-G06)
+- **Troca de tipo** no formulário (criar/editar): um único form por `activeTab` preserva campos comuns; no update, `type` muda só no registro aberto, com unlink/promote de série e geração de nova série se aplicável (RN-X07)
 - Aceitar rascunho de gasto vindo da conquista de desejo (o desejo só fecha **depois** do INSERT)
 - **Importar CSV** (CTA em Gastos): origem conta | cartão → mapear colunas → revisar ações/match → importar lote com falha parcial (CSV-01…CSV-05)
 
@@ -86,10 +87,10 @@ frontend/src/
 
 | Arquivo | Descrição |
 | --- | --- |
-| `ExpenseSection.tsx` | Validação no cliente; esconde toggle pago no cartão; categorias; dialog série/parcelas; abre CSV |
+| `ExpenseSection.tsx` | Validação no cliente; esconde toggle pago no cartão; categorias; dialog série/parcelas; abre CSV; form único por aba de tipo (preserva campos — RN-X07) |
 | `ImportExpensesCsvDialog.tsx` | Wizard; estado só na sessão; `create`/`update` via props |
-| `expenses.ts` (supabase) | INSERT/UPDATE/DELETE; clones fixos no ano; clones de parcela (podem ir a `YYYY+1`); `ensureRemainingInstallmentsExist` |
-| `useSupabaseFinance.ts` | Optimistic update; gasto no cartão **zera** `accountId` no sanitize; `addExpense(..., yearMonth?)` |
+| `expenses.ts` (supabase) | INSERT/UPDATE/DELETE; clones fixos no ano; clones de parcela; `ensureRemainingInstallmentsExist`; **type change** com unlink/promote + generate |
+| `useSupabaseFinance.ts` | Optimistic update; gasto no cartão **zera** `accountId` no sanitize; `addExpense(..., yearMonth?)`; refresh multi-mês após type change com série |
 | `csv*.ts` / `expenseMatch` / `installmentDetect` | Pipeline puro no browser; sem papaparse no MVP |
 
 Backend `backend/src/routes/expenses.ts` + Zod existe no monorepo; **produção não usa**.
@@ -336,6 +337,7 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [ ] Create honra `accountId` na linha principal; clones sem carteira (sem spec de adapter; QA manual DEV-52)
 - [ ] Excluir categoria usada em **outro** mês (RN-G06)
 - [ ] Wizard CSV ponta a ponta (E2E) — QA manual / Gherkin DEV-103
+- [ ] Troca de tipo na edição preserva campos; unlink só o aberto; generate fixo/parcelado (QA manual DEV-104)
 
 **Como rodar:**
 
@@ -352,6 +354,7 @@ npm test --workspace=frontend
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-08-24 | 1.1 | Create persiste `account_id` na linha criada; clones seguem sem carteira | DEV-52 | Technical Writer |
 | 2026-09-03 | 1.2 | Importação CSV assistida (wizard + utils + CSV-01…05) | DEV-103 | Technical Writer |
+| 2026-09-04 | 1.3 | Troca de tipo na edição (preservar campos + unlink/generate — RN-X07) | DEV-104 | Technical Writer |
 
 ---
 

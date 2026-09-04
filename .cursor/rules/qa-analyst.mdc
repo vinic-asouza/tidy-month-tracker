@@ -72,6 +72,8 @@ Antes de smoke no browser, leia:
 
 URL local, e-mail e senha estão nesse MDC. **Nunca** cole senha na Issue Linear, em PR ou em `knowledge/`.
 
+**Sessão:** se o browser já estiver autenticado com outra conta, **deslogue primeiro** (menu → Sair) e, se preciso, limpe sessão/`localStorage` do Supabase Auth. Só então entre com o e-mail/senha do `test-credentials.mdc` — não reutilize a sessão que já estiver aberta.
+
 Se houver conflito entre este MDC e o Ledger Flow, priorize o Ledger Flow.
 
 ---
