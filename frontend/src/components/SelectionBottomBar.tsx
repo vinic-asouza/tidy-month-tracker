@@ -1,4 +1,4 @@
-import { TrendingUp, PiggyBank, TrendingDown, X } from 'lucide-react';
+import { TrendingUp, PiggyBank, TrendingDown, Trash2, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +14,7 @@ interface SelectionBottomBarProps {
   effectiveSelectedCount: number;
   plannedTotal: number;
   onClearAll: () => void;
+  onRequestDelete?: () => void;
 }
 
 export const SelectionBottomBar = ({
@@ -22,6 +23,7 @@ export const SelectionBottomBar = ({
   effectiveSelectedCount,
   plannedTotal,
   onClearAll,
+  onRequestDelete,
 }: SelectionBottomBarProps) => {
   if (selectedCount === 0) return null;
 
@@ -31,8 +33,8 @@ export const SelectionBottomBar = ({
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border shadow-lg animate-in slide-in-from-bottom duration-300">
       <div className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between mb-1.5">
-          <div>
+        <div className="flex items-center justify-between mb-1.5 gap-2">
+          <div className="min-w-0">
             <h3 className="text-sm font-semibold text-foreground">Resumo da seleção</h3>
             <p
               className={`text-xs ${showAmberHint ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'}`}
@@ -43,15 +45,28 @@ export const SelectionBottomBar = ({
               {showAmberHint && ' (marque como recebido/pago/investido para somar)'}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearAll}
-            className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5 mr-1.5" />
-            Desmarcar todos
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            {onRequestDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRequestDelete}
+                className="h-7 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearAll}
+              className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5 mr-1.5" />
+              Desmarcar todos
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-4">
