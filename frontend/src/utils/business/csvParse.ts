@@ -80,7 +80,7 @@ export function parseCsvText(text: string): CsvParseResult {
   return { headers, rows, delimiter };
 }
 
-export type CsvFieldKey = 'date' | 'value' | 'description' | 'ignore';
+export type CsvFieldKey = 'date' | 'value' | 'description' | 'installment' | 'ignore';
 
 export interface CsvColumnMapping {
   /** Índice da coluna no CSV → campo Finto (ou ignore) */
@@ -91,6 +91,8 @@ export interface MappedCsvRow {
   dateRaw: string;
   valueRaw: string;
   descriptionRaw: string;
+  /** Coluna opcional de parcela (ex.: `1/2`, `Única`) */
+  installmentRaw?: string;
   sourceIndex: number;
 }
 
@@ -106,6 +108,7 @@ export function applyColumnMapping(
   const dateIdx = entries.find(([, k]) => k === 'date')?.[0];
   const valueIdx = entries.find(([, k]) => k === 'value')?.[0];
   const descIdx = entries.find(([, k]) => k === 'description')?.[0];
+  const installmentIdx = entries.find(([, k]) => k === 'installment')?.[0];
 
   if (dateIdx == null || valueIdx == null || descIdx == null) {
     throw new Error('Mapeamento incompleto: data, valor e descrição são obrigatórios.');
@@ -116,5 +119,34 @@ export function applyColumnMapping(
     dateRaw: cells[dateIdx] ?? '',
     valueRaw: cells[valueIdx] ?? '',
     descriptionRaw: cells[descIdx] ?? '',
+    installmentRaw:
+      installmentIdx != null ? (cells[installmentIdx] ?? '').trim() : undefined,
   }));
+}
+
+/**
+ * Sugere mapeamento a partir dos headers (pt-BR / EN comuns em fatura/extrato).
+ * Nubank: date/title/amount · C6: Data / Descrição / Parcela / Valor (em R$).
+ */
+export function guessColumnMapping(headers: string[]): CsvColumnMapping {
+  const mapping: CsvColumnMapping = {};
+  headers.forEach((h, i) => {
+    const n = h.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+    if (/data|date/.test(n)) mapping[i] = 'date';
+    else if (/us\$|usd|dolar/.test(n)) mapping[i] = 'ignore';
+    else if (/^(parcela|parcelas|installment)$/.test(n) || /^parcela\b/.test(n)) {
+      mapping[i] = 'installment';
+    } else if (
+      /valor.*r\$|r\$.*valor|valor \(em r|value|amount|quantia|(^| )valor($| )/.test(n)
+    ) {
+      mapping[i] = 'value';
+    } else if (
+      /descric|description|desc|historico|memo|estabelecimento|lancamento|\btitle\b|\btitulo\b/.test(
+        n
+      )
+    ) {
+      mapping[i] = 'description';
+    } else mapping[i] = 'ignore';
+  });
+  return mapping;
 }

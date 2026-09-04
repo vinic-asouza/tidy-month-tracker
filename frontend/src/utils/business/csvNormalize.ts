@@ -12,9 +12,11 @@ export function stripAccents(value: string): string {
  */
 export function normalizeDescription(description: string): string {
   let s = stripAccents(description).toLowerCase().trim();
-  s = s.replace(/\bparc(?:ela)?\.?\s*\d+\s*\/\s*\d+\b/gi, ' ');
-  s = s.replace(/\b\d{1,2}\s*\/\s*\d{1,2}\b/g, ' ');
+  s = s.replace(/\bparc(?:ela)?\.?\s*\d+\s*[\/\-]\s*\d+\s*x?\b/gi, ' ');
+  s = s.replace(/\bpcl\.?\s*\d+\s*[\/\-]\s*\d+\s*x?\b/gi, ' ');
+  s = s.replace(/\b\d{1,2}\s*[\/\-]\s*\d{1,2}\s*x?\b/g, ' ');
   s = s.replace(/\b\d{1,2}\s+de\s+\d{1,2}\b/gi, ' ');
+  s = s.replace(/\b\d{1,2}\s*x\b(?:\s*(?:de\s+)?r\$?\s*[\d.]+(?:,\d{2})?)?/gi, ' ');
   s = s.replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/g, ' ');
   s = s.replace(/[^a-z0-9\s]/gi, ' ');
   s = s.replace(/\s+/g, ' ').trim();

@@ -31,6 +31,7 @@ import {
 } from '@/utils/effectuateWalletDefaults';
 import {
   applyColumnMapping,
+  guessColumnMapping,
   parseCsvText,
   type CsvColumnMapping,
   type CsvFieldKey,
@@ -84,6 +85,7 @@ const FIELD_OPTIONS: { value: CsvFieldKey; label: string }[] = [
   { value: 'date', label: 'Data' },
   { value: 'value', label: 'Valor' },
   { value: 'description', label: 'Descrição' },
+  { value: 'installment', label: 'Parcela' },
 ];
 
 const ACTION_LABELS: Record<SuggestedImportAction, string> = {
@@ -94,21 +96,6 @@ const ACTION_LABELS: Record<SuggestedImportAction, string> = {
   ignore: 'Ignorar',
   review: 'Revisar',
 };
-
-function guessMapping(headers: string[]): CsvColumnMapping {
-  const mapping: CsvColumnMapping = {};
-  headers.forEach((h, i) => {
-    const n = h.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-    if (/data|date/.test(n)) mapping[i] = 'date';
-    else if (/us\$|usd|dolar/.test(n)) mapping[i] = 'ignore';
-    else if (/valor.*r\$|r\$.*valor|valor \(em r|value|amount|quantia|(^| )valor($| )/.test(n)) {
-      mapping[i] = 'value';
-    } else if (/descric|desc|historico|memo|estabelecimento|lancamento/.test(n)) {
-      mapping[i] = 'description';
-    } else mapping[i] = 'ignore';
-  });
-  return mapping;
-}
 
 function mappingComplete(mapping: CsvColumnMapping): boolean {
   const values = Object.values(mapping);
@@ -184,7 +171,7 @@ export function ImportExpensesCsvDialog({
       }
       setHeaders(parsed.headers);
       setRawRows(parsed.rows);
-      setMapping(guessMapping(parsed.headers));
+      setMapping(guessColumnMapping(parsed.headers));
     } catch {
       setParseError('Não foi possível ler o arquivo.');
     }
@@ -682,11 +669,20 @@ function ReviewRowCard({
       : row.accountId ??
         getDefaultEffectuateAccountId('expense', movementAccounts);
 
+  const installmentDetected =
+    typeof row.currentInstallment === 'number' &&
+    typeof row.totalInstallments === 'number' &&
+    row.currentInstallment >= 1 &&
+    row.totalInstallments >= 2;
+
+  const isInstallmentAction = row.action === 'create_installment';
+
   const hasExtras =
     row.ineligible ||
     row.action === 'review' ||
     row.action === 'link_existing' ||
-    row.action === 'create_installment' ||
+    isInstallmentAction ||
+    installmentDetected ||
     row.action === 'create_fixed' ||
     (originMode === 'account' && row.effectuate) ||
     (row.monthDiverges && row.monthResolution === 'pending');
@@ -697,8 +693,12 @@ function ReviewRowCard({
         'rounded-md border px-2 py-1.5 text-sm transition-colors',
         row.ineligible && 'opacity-60 bg-muted/40',
         row.action === 'review' && 'border-amber-500/50',
+        isInstallmentAction &&
+          !row.ineligible &&
+          'border-sky-500/55 bg-sky-500/[0.06] dark:bg-sky-400/[0.08]',
         row.selected &&
           !row.ineligible &&
+          !isInstallmentAction &&
           'bg-muted/55 border-border/80 dark:bg-muted/40'
       )}
     >
@@ -801,6 +801,16 @@ function ReviewRowCard({
           </SelectContent>
         </Select>
 
+        {installmentDetected && (
+          <Badge
+            variant="outline"
+            className="shrink-0 border-sky-500/50 text-sky-800 dark:text-sky-200 font-medium tabular-nums"
+            title="Parcela detectada na descrição do CSV"
+          >
+            {row.currentInstallment}/{row.totalInstallments}
+          </Badge>
+        )}
+
         {originMode === 'account' && !row.ineligible && row.action !== 'ignore' && (
           <label
             className="flex items-center gap-1 text-xs shrink-0 whitespace-nowrap text-muted-foreground"
@@ -834,6 +844,12 @@ function ReviewRowCard({
           {row.action === 'review' && (
             <span className="text-xs text-muted-foreground">{row.suggestionReason}</span>
           )}
+          {installmentDetected && !isInstallmentAction && (
+            <span className="text-xs text-sky-800 dark:text-sky-200">
+              Detectado parcelamento {row.currentInstallment}/{row.totalInstallments} na
+              descrição — confira a ação
+            </span>
+          )}
           {row.monthDiverges && (
             <Badge variant="secondary">Mês CSV: {row.csvYearMonth}</Badge>
           )}
@@ -856,8 +872,9 @@ function ReviewRowCard({
             </Select>
           )}
 
-          {row.action === 'create_installment' && (
-            <div className="flex items-center gap-1">
+          {isInstallmentAction && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground shrink-0">Parcela</span>
               <Input
                 className="h-8 w-14 text-sm"
                 type="number"
@@ -866,9 +883,10 @@ function ReviewRowCard({
                 onChange={(e) =>
                   onChange({ currentInstallment: Number(e.target.value) || 1 })
                 }
+                aria-label="Parcela atual"
                 title="Parcela atual"
               />
-              <span className="text-xs">/</span>
+              <span className="text-xs text-muted-foreground">de</span>
               <Input
                 className="h-8 w-14 text-sm"
                 type="number"
@@ -877,7 +895,8 @@ function ReviewRowCard({
                 onChange={(e) =>
                   onChange({ totalInstallments: Number(e.target.value) || 2 })
                 }
-                title="Total"
+                aria-label="Total de parcelas"
+                title="Total de parcelas"
               />
             </div>
           )}
