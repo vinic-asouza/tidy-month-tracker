@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Visão geral do sistema
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Visão geral
@@ -60,4 +60,4 @@ O Express **não** cobre ainda carteiras, desejos nem `account_operations` (rota
 
 ## O que este sistema não tem (código)
 
-Admin de usuários, pagamentos, Open Finance, export/import, analytics, push, feature flags além de `VITE_DATA_PROVIDER`. Alinhado a [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
+Admin de usuários, pagamentos, Open Finance, exportação CSV/PDF, importação automática (sem revisão), analytics, push, feature flags além de `VITE_DATA_PROVIDER`. Importação **CSV assistida de gastos** (parse no cliente) é exceção documentada em [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).

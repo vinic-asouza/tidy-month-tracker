@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Glossário
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Glossário
@@ -25,6 +25,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 | **Saldo planejado** | Mesma fórmula sobre lançamentos planejados. Não inclui resgates (operações de carteira). Toggle **Planejados** no resumo. |
 | **Repetição mensal** | Cópia do lançamento nos demais meses do **mesmo ano civil**. |
 | **Parcela** | Parte de uma compra dividida em meses (pode atravessar o ano). |
+| **Importação CSV assistida** | Fluxo em Gastos em que um CSV **propõe** linhas; a pessoa mapeia colunas, revisa e só então grava. Não é Open Finance nem lançamento automático. |
 
 ---
 

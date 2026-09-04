@@ -1,12 +1,12 @@
 ---
 type: regras-modulo
 modulo: gastos
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Gastos
 
-`ExpenseSection`. Cartão: [`cartoes.md`](./cartoes.md). Conquista de desejo: [`desejos.md`](./desejos.md).
+`ExpenseSection`. Cartão: [`cartoes.md`](./cartoes.md). Conquista de desejo: [`desejos.md`](./desejos.md). Importação CSV: [`../../04_modulos/gastos.md`](../../04_modulos/gastos.md).
 
 ---
 
@@ -39,3 +39,25 @@ Sem checkbox pago no item. Status vem da **fatura** daquele mês. Não vincula c
 ## RN-X06 — Categorias
 
 CRUD na seção. Em uso: não exclui. Renomear: propaga. Mapeamento na regra financeira é outro passo ([`regra-financeira.md`](./regra-financeira.md)).
+
+---
+
+## Importação CSV assistida (DEV-103)
+
+Exceção à política de “sem importação automática”. Só **gastos**. Preserva RN-X01–X06, RN-G01/G02/G04/G05, RN-X04 / RN-C02–C03.
+
+| ID | Regra |
+| --- | --- |
+| **CSV-01** | Upload e mapeamento **não** criam nem atualizam `expenses`. Gravação só após **Importar selecionados**. |
+| **CSV-02** | Match com fixo/parcela existente é **sugestão**. Nunca auto-vincular só por score. Ambiguidade → estado **Revisar** (fora do lote até decidir). |
+| **CSV-03** | **Associar existente** atualiza a linha escolhida; **não** cria segundo gasto no mês. |
+| **CSV-04** | Origem **conta**: métodos `DEFAULT_PAYMENT_METHODS`; efetivar opcional (default off) + carteira/Saldo Livre. Origem **cartão X**: `paymentMethod` = nome do cartão; sem efetivar / sem `account_id` (RN-X04). |
+| **CSV-05** | Data da linha ≠ mês aberto na UI → exige escolha explícita (data/mês do CSV **ou** mês da UI) antes de importar. |
+
+### Comportamentos adicionais
+
+- Valor Finto sempre `> 0`; créditos / valor ≤ 0 → inelegíveis (ignorar).
+- Ações por linha: novo variável · novo parcelado · tornar fixo (± `repeatAllMonths`, default off) · associar existente · ignorar · revisar.
+- Novo parcelado: série a partir da parcela atual em diante (não inventa passado).
+- Estado só na sessão do modal; re-upload = nova sessão. Sem inbox / `external_id` / presets de banco.
+- Lote com falha parcial: linhas válidas gravam; inválidas falham com relatório.
