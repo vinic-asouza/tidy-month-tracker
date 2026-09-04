@@ -2,7 +2,7 @@
 type: modulo
 nome: Gastos
 status: Ativo
-versao: "1.3"
+versao: "1.4"
 owner: Development
 ultima_atualizacao: 2026-09-04
 tags: [gastos, expenses, frontend, supabase, csv]
@@ -23,7 +23,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 
 **Responsabilidade única:** persistir e editar linhas na tabela `expenses` (incluindo categorias em `finance_settings.expense_categories`) e o fluxo de efetivação `paid` + carteira **só quando o gasto não é de cartão**. Inclui o wizard de **importação CSV assistida** (parse no browser; gravação só após confirmação).
 
-**Propósito no produto:** a pessoa planeja o que deve sair e confirma o caixa no débito em conta — no cartão, o caixa espera a fatura (RN-G02, RN-X04). A CSV assistida reduz atrito de volume **com** revisão humana (CSV-01…CSV-05). Trocar o tipo na edição sem perder os campos já preenchidos evita retrabalho no ritual de registro (RN-X07).
+**Propósito no produto:** a pessoa planeja o que deve sair e confirma o caixa no débito em conta — no cartão, o caixa espera a fatura (RN-G02, RN-X04). A CSV assistida reduz atrito de volume **com** revisão humana (CSV-01…CSV-06). Trocar o tipo na edição sem perder os campos já preenchidos evita retrabalho no ritual de registro (RN-X07).
 
 ---
 
@@ -41,7 +41,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 - CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso **no mês aberto** (RN-X06; lacuna vs RN-G06)
 - **Troca de tipo** no formulário (criar/editar): um único form por `activeTab` preserva campos comuns; no update, `type` muda só no registro aberto, com unlink/promote de série e geração de nova série se aplicável (RN-X07)
 - Aceitar rascunho de gasto vindo da conquista de desejo (o desejo só fecha **depois** do INSERT)
-- **Importar CSV** (CTA em Gastos): origem conta | cartão → mapear colunas → revisar ações/match → importar lote com falha parcial (CSV-01…CSV-05)
+- **Importar CSV** (CTA em Gastos): origem conta | cartão → mapear colunas (incl. Parcela opcional) → revisar ações/match + evidência de parcela → importar lote com falha parcial (CSV-01…CSV-06)
 
 ### O que este módulo NÃO FAZ
 
@@ -79,19 +79,19 @@ frontend/src/
   utils/business/monthTotals.ts                # isExpenseEffectivelyPaid (caixa)
   utils/business/csvParse.ts                   # parse CSV (;/, aspas, BOM)
   utils/business/csvNormalize.ts               # data BR/ISO, money, rebase mês
-  utils/business/installmentDetect.ts          # heurística N/M, PARC
+  utils/business/installmentDetect.ts          # N/M, Nx, Única/À vista; resolveInstallmentFromCsv
   utils/business/expenseMatch.ts               # score fixo/parcela + sugestão de ação
   utils/business/csvImportBuild.ts             # monta linhas de revisão
-  utils/business/__tests__/csvImport.test.ts   # Vitest parse/normalize/match
+  utils/business/__tests__/csvImport.test.ts   # Vitest parse/normalize/match/parcela
 ```
 
 | Arquivo | Descrição |
 | --- | --- |
 | `ExpenseSection.tsx` | Validação no cliente; esconde toggle pago no cartão; categorias; dialog série/parcelas; abre CSV; form único por aba de tipo (preserva campos — RN-X07) |
-| `ImportExpensesCsvDialog.tsx` | Wizard; estado só na sessão; `create`/`update` via props |
+| `ImportExpensesCsvDialog.tsx` | Wizard; badge N/total; aviso se override após detecção; `create`/`update` via props |
 | `expenses.ts` (supabase) | INSERT/UPDATE/DELETE; clones fixos no ano; clones de parcela; `ensureRemainingInstallmentsExist`; **type change** com unlink/promote + generate |
 | `useSupabaseFinance.ts` | Optimistic update; gasto no cartão **zera** `accountId` no sanitize; `addExpense(..., yearMonth?)`; refresh multi-mês após type change com série |
-| `csv*.ts` / `expenseMatch` / `installmentDetect` | Pipeline puro no browser; sem papaparse no MVP |
+| `csv*.ts` / `expenseMatch` / `installmentDetect` | Pipeline puro no browser; coluna `installment`; sem papaparse no MVP |
 
 Backend `backend/src/routes/expenses.ts` + Zod existe no monorepo; **produção não usa**.
 
@@ -233,9 +233,9 @@ Conquista de desejo: `Index` monta `expenseDraft` e só chama `conquerWish(..., 
 ## Fluxo — Importação CSV assistida
 
 1. CTA **Importar CSV** → escolhe origem (conta | cartão da lista).
-2. File API local → `parseCsvText` → mapeamento coluna → campos Finto (guess de headers; Valor R$ priorizado vs US$).
-3. `buildReviewRows`: normaliza valor/data; créditos inelegíveis; `detectInstallment` + `suggestImportAction` (nunca auto-aplica vínculo).
-4. Revisão: override por linha; mês divergente → pending até escolha CSV ou mês UI; Revisar fora do lote.
+2. File API local → `parseCsvText` → mapeamento coluna → campos Finto (guess: Data/Valor/Descrição/`title`→Descrição/`Parcela`; Valor R$ priorizado vs US$).
+3. `buildReviewRows`: normaliza valor/data; créditos inelegíveis; `resolveInstallmentFromCsv` (coluna Parcela preferencial) + `suggestImportAction` (nunca auto-aplica vínculo).
+4. Revisão: badge `N/total` e campos de parcela quando detectado; default **Novo parcelado** se CSV-06; override por linha (aviso se mudar a ação); mês divergente → pending até escolha CSV ou mês UI; Revisar fora do lote.
 5. **Importar selecionados:** por linha create (variável/parcelado/fixo) ou update (associar); cartão força `paid=false`; efetivar só conta com carteira/Saldo Livre; relatório ok/fail/ignored.
 
 Limitações MVP: match de séries só no mês carregado; sem virtualização da grade; parser próprio (sem papaparse).
@@ -256,7 +256,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de
 | RN-X06 | CRUD categorias; rename propaga | `updateExpenseCategory` no hook |
 | RN-G05 | Fixo+repeat = outros 11 meses do **mesmo** ano civil | `calculateRemainingMonths` (não usa `installments.ts`) |
 | RN-G06 | Não excluir categoria em uso em **qualquer** mês | **Parcial:** `handleDeleteCategory` só olha `expenses` do mês aberto |
-| CSV-01…05 | Assistida; match só sugestão; associar não duplica; origem; mês divergente | `ImportExpensesCsvDialog` + `csvImportBuild` / `expenseMatch` |
+| CSV-01…06 | Assistida; match só sugestão; associar não duplica; origem; mês divergente; evidência de parcela | `ImportExpensesCsvDialog` + `csvImportBuild` / `expenseMatch` / `installmentDetect` |
 
 **Código vs RN-X05 na edição em lote de parcelas:** `applyToAllMonths` no parcelado atualiza a **série inteira**, não só `year_month >=` atual (diferente do fixo).
 
@@ -355,6 +355,7 @@ npm test --workspace=frontend
 | 2026-08-24 | 1.1 | Create persiste `account_id` na linha criada; clones seguem sem carteira | DEV-52 | Technical Writer |
 | 2026-09-03 | 1.2 | Importação CSV assistida (wizard + utils + CSV-01…05) | DEV-103 | Technical Writer |
 | 2026-09-04 | 1.3 | Troca de tipo na edição (preservar campos + unlink/generate — RN-X07) | DEV-104 | Technical Writer |
+| 2026-09-04 | 1.4 | CSV-06: coluna Parcela + evidência N/total na revisão do import | DEV-105 | Technical Writer |
 
 ---
 

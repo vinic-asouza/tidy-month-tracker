@@ -64,11 +64,14 @@ Exceção à política de “sem importação automática”. Só **gastos**. Pr
 | **CSV-03** | **Associar existente** atualiza a linha escolhida; **não** cria segundo gasto no mês. |
 | **CSV-04** | Origem **conta**: métodos `DEFAULT_PAYMENT_METHODS`; efetivar opcional (default off) + carteira/Saldo Livre. Origem **cartão X**: `paymentMethod` = nome do cartão; sem efetivar / sem `account_id` (RN-X04). |
 | **CSV-05** | Data da linha ≠ mês aberto na UI → exige escolha explícita (data/mês do CSV **ou** mês da UI) antes de importar. |
+| **CSV-06** | Detecção de parcela no CSV é **heurística + evidência na revisão**, não gravação automática. Coluna **Parcela** (se mapeada) tem prioridade sobre a descrição; `Única` / `À vista` / `1x` / `1/1` → **sem** série. Se detectar N/total (ou `Nx` → atual=1), sugerir **Novo parcelado**, exibir badge `N/total` e pré-preencher parcela/total. Override da ação pelo usuário prevalece; se houver detecção e a ação não for criar parcelado, avisar. |
 
 ### Comportamentos adicionais
 
 - Valor Finto sempre `> 0`; créditos / valor ≤ 0 → inelegíveis (ignorar).
 - Ações por linha: novo variável · novo parcelado · tornar fixo (± `repeatAllMonths`, default off) · associar existente · ignorar · revisar.
 - Novo parcelado: série a partir da parcela atual em diante (não inventa passado).
+- Mapeamento opcional: coluna Parcela; guess de headers inclui `Parcela` e `title` → Descrição (ex.: Nubank).
+- Padrões suportados na célula/descrição: `N/M`, `N/Mx`, `PARC N/M`, `N de M`, `Nx` / `Nx R$ …` (atual=1).
 - Estado só na sessão do modal; re-upload = nova sessão. Sem inbox / `external_id` / presets de banco.
 - Lote com falha parcial: linhas válidas gravam; inválidas falham com relatório.

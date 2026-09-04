@@ -10,7 +10,7 @@ import {
   rebaseDateToYearMonth,
   yearMonthFromDate,
 } from './csvNormalize';
-import { detectInstallment } from './installmentDetect';
+import { resolveInstallmentFromCsv } from './installmentDetect';
 import {
   suggestImportAction,
   type SuggestedImportAction,
@@ -131,7 +131,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
 
     const csvYm = yearMonthFromDate(date);
     const monthDiverges = csvYm !== uiYearMonth;
-    const installment = detectInstallment(description);
+    const installment = resolveInstallmentFromCsv(description, row.installmentRaw);
     const suggestion = suggestImportAction(
       {
         description,
