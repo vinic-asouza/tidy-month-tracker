@@ -16,10 +16,10 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
 - **Produção:** frontend na Vercel (`https://tidy-month-tracker.vercel.app`), Supabase direto (Auth + Postgres + RLS). Backend Express no repositório, **não** deployado nesta fase.
 - **Produto no ar:** entradas, gastos, investimentos, carteiras (papéis movimentação/investimento), cartões, desejos, regra 50/30/20, visão anual, resgate, transferência, Saldo Livre, toggle efetivado/planejado.
-- **Em entrega (PR):** importação **CSV assistida de gastos** (DEV-103) — fase 0 antes de Open Finance.
+- **Recente em produção:** importação **CSV assistida de gastos** (DEV-103 / v0.2.0) — fase 0 antes de Open Finance.
 - **Veredito de produto (docs internas, jul/2026):** **aprovado para beta fechado**. Gate pré-lançamento (Fases 1, 2 e 2.5) implementado e revalidado; sem achados críticos/altos pendentes nesses gates.
 - **Linear:** projeto **Finto**; fluxo Ledger Flow no time **Development**.
-- **Release notes:** baseline [`../releases/v0.1.0-2026-08.md`](../releases/v0.1.0-2026-08.md); CSV assistida em [`../releases/v0.2.0-2026-09-03.md`](../releases/v0.2.0-2026-09-03.md) (Draft até merge em `main`).
+- **Release notes:** baseline [`../releases/v0.1.0-2026-08.md`](../releases/v0.1.0-2026-08.md); CSV assistida em [`../releases/v0.2.0-2026-09-03.md`](../releases/v0.2.0-2026-09-03.md) (**Publicado**).
 
 ---
 

@@ -16,7 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
-| v0.2.0 | 2026-09-03 | Draft (até merge em `main`) | [v0.2.0-2026-09-03.md](./v0.2.0-2026-09-03.md) |
+| v0.2.0 | 2026-09-03 | Publicado | [v0.2.0-2026-09-03.md](./v0.2.0-2026-09-03.md) |
 | v0.1.1 | 2026-08-24 | Publicado | [v0.1.1-2026-08-24.md](./v0.1.1-2026-08-24.md) |
 | v0.1.0 | 2026-08 | Publicado (foto do **beta fechado**) | [v0.1.0-2026-08.md](./v0.1.0-2026-08.md) |
 
