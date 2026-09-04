@@ -1,7 +1,7 @@
 ---
 type: regras-negocio
 titulo: Políticas e restrições
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Políticas e restrições
@@ -25,14 +25,17 @@ O que o produto **não faz**, **não permite** ou trata como restrição conscie
 
 Não há, e não deve ser prometido sem decisão de produto:
 
-- Open Finance / conexão bancária
-- Importação ou exportação de planilha/CSV/PDF (exportação está no roadmap P4)
+- Open Finance / conexão bancária (DEV-96 adiada)
 - Sync de fatura ou corretora
 - Push, WhatsApp, e-mail transacional além da confirmação de cadastro
 - Assinatura / gateway de pagamento
 - Multiplayer ou papéis
+- Exportação CSV/PDF (roadmap P4)
+- Importação automática / inbox persistente / presets de banco
 
-Registro **manual** é política, não débito técnico. Ver visão do produto.
+**Exceção consciente (DEV-103):** importação **CSV assistida de gastos** — o arquivo só propõe linhas; a pessoa mapeia, revisa e confirma. Nada grava em `expenses` até **Importar selecionados**. Parse no browser; o CSV não sobe ao Supabase. Regras: [`regras-por-modulo/gastos.md`](./regras-por-modulo/gastos.md) (CSV-01…CSV-05). Módulo: [`../04_modulos/gastos.md`](../04_modulos/gastos.md).
+
+Registro com participação ativa continua sendo política (visão do produto): a assistida acelera volume **com** revisão, não substitui o ritual por extrato automático.
 
 ---
 

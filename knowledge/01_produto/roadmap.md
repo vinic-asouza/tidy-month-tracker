@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Roadmap
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Roadmap
@@ -12,13 +12,14 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
 ---
 
-## Onde estamos (agosto/2026)
+## Onde estamos (setembro/2026)
 
 - **Produção:** frontend na Vercel (`https://tidy-month-tracker.vercel.app`), Supabase direto (Auth + Postgres + RLS). Backend Express no repositório, **não** deployado nesta fase.
 - **Produto no ar:** entradas, gastos, investimentos, carteiras (papéis movimentação/investimento), cartões, desejos, regra 50/30/20, visão anual, resgate, transferência, Saldo Livre, toggle efetivado/planejado.
+- **Em entrega (PR):** importação **CSV assistida de gastos** (DEV-103) — fase 0 antes de Open Finance.
 - **Veredito de produto (docs internas, jul/2026):** **aprovado para beta fechado**. Gate pré-lançamento (Fases 1, 2 e 2.5) implementado e revalidado; sem achados críticos/altos pendentes nesses gates.
-- **Linear:** projeto **Finto** no workspace White Space; status operacional ainda **Backlog** (o ciclo Ledger Flow começa a partir daí).
-- **Release notes:** foto do beta em [`../releases/v0.1.0-2026-08.md`](../releases/v0.1.0-2026-08.md) (`v0.1.0`; não é go-live público).
+- **Linear:** projeto **Finto**; fluxo Ledger Flow no time **Development**.
+- **Release notes:** baseline [`../releases/v0.1.0-2026-08.md`](../releases/v0.1.0-2026-08.md); CSV assistida em [`../releases/v0.2.0-2026-09-03.md`](../releases/v0.2.0-2026-09-03.md) (Draft até merge em `main`).
 
 ---
 
@@ -61,6 +62,7 @@ Não bloqueiam a primeira campanha.
 - PWA (objeção “não tem app”)
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)
 - Métodos de pagamento customizáveis — fora do MVP (D8)
+- Open Finance / agregador (DEV-96 **adiada**; reaproveitar UX da importação assistida quando voltar)
 
 ---
 
@@ -69,7 +71,8 @@ Não bloqueiam a primeira campanha.
 Alinhado à visão e ao gate:
 
 - Espelhar saldo bancário 1:1
-- Open Finance, sync de fatura ou corretora
+- Open Finance, sync de fatura ou corretora (ainda)
+- Importação **sem** revisão humana
 - “A regra explica 100% dos gastos” sem mapear categorias
 - Gestão de ativos no lugar da corretora
 - Contas compartilhadas ou família

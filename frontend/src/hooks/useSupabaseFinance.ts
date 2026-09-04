@@ -596,9 +596,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
   );
 
   const addExpense = useCallback(
-    async (expense: Omit<Expense, 'id'>): Promise<Expense | null> => {
+    async (
+      expense: Omit<Expense, 'id'>,
+      yearMonthOverride?: string
+    ): Promise<Expense | null> => {
       if (!user) return null;
 
+      const targetMonth = yearMonthOverride || currentMonth;
       const timing = startSaveTiming('addExpense');
       const sanitized: Omit<Expense, 'id'> = isCreditCardExpense(
         { ...expense, id: '' },
@@ -609,26 +613,31 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
 
       const tempId = `temp-${Date.now()}`;
       const optimistic: Expense = { id: tempId, ...sanitized };
+      const affectsOpenMonth = targetMonth === currentMonth;
 
-      setMonthBundle((prev) => ({
-        ...prev,
-        expenses: [...prev.expenses, optimistic],
-      }));
+      if (affectsOpenMonth) {
+        setMonthBundle((prev) => ({
+          ...prev,
+          expenses: [...prev.expenses, optimistic],
+        }));
+      }
 
       try {
         const created = await expensesService.createExpense({
           ...sanitized,
           userId: user.id,
-          yearMonth: currentMonth,
-          displayOrder: expenses.length,
+          yearMonth: targetMonth,
+          displayOrder: affectsOpenMonth ? expenses.length : 0,
         });
 
-        setMonthBundle((prev) => ({
-          ...prev,
-          expenses: prev.expenses
-            .filter((e) => e.id !== tempId)
-            .concat(created),
-        }));
+        if (affectsOpenMonth) {
+          setMonthBundle((prev) => ({
+            ...prev,
+            expenses: prev.expenses
+              .filter((e) => e.id !== tempId)
+              .concat(created),
+          }));
+        }
 
         timing.mark('apiDone');
 
@@ -636,12 +645,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           (sanitized.type === 'fixed' && sanitized.repeatAllMonths) ||
           (sanitized.type === 'installment' &&
             sanitized.currentInstallment != null &&
-            sanitized.totalInstallments != null);
+            sanitized.totalInstallments != null) ||
+          !affectsOpenMonth;
 
         if (needsMultiMonthRefresh) {
-          const affectedMonths = [currentMonth];
+          const affectedMonths = [targetMonth];
           if (sanitized.type === 'fixed' && sanitized.repeatAllMonths) {
-            affectedMonths.push(...calculateRemainingMonths(currentMonth));
+            affectedMonths.push(...calculateRemainingMonths(targetMonth));
           }
           if (
             sanitized.type === 'installment' &&
@@ -649,7 +659,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
             sanitized.totalInstallments != null
           ) {
             const installments = calculateRemainingInstallments(
-              currentMonth,
+              targetMonth,
               sanitized.currentInstallment,
               sanitized.totalInstallments
             );
@@ -665,10 +675,12 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return created;
       } catch {
         toast.error('Erro ao adicionar gasto');
-        setMonthBundle((prev) => ({
-          ...prev,
-          expenses: prev.expenses.filter((e) => e.id !== tempId),
-        }));
+        if (affectsOpenMonth) {
+          setMonthBundle((prev) => ({
+            ...prev,
+            expenses: prev.expenses.filter((e) => e.id !== tempId),
+          }));
+        }
         timing.end();
         return null;
       }

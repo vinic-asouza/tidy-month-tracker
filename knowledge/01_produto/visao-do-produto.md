@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Visão do produto
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Visão do produto
@@ -88,12 +88,15 @@ O **saldo do mês** usa o efetivado por padrão. Dá para alternar para planejad
 Deliberado, não “falta técnica”:
 
 - Open Finance / conexão bancária
-- Importação ou exportação de planilhas
+- Importação **automática** de extrato/fatura (sem revisão humana)
+- Exportação de planilhas/CSV/PDF (roadmap P4)
 - Assinaturas ou gateway de pagamento
 - Múltiplos usuários ou contas compartilhadas
 - Push, WhatsApp ou e-mail transacional além da confirmação de cadastro (Supabase Auth)
-- Integração com corretoras ou importação automática de faturas
+- Integração com corretoras ou sync automático de faturas
 - Administração de usuários, analytics de produto
+
+**Exceção alinhada à visão:** importação **CSV assistida de gastos** (fase 0) — o arquivo propõe; a pessoa mapeia e confirma. Não é agregador passivo. Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
 
 Carteiras mostram **saldo estimado**, não extrato bancário em tempo real.
 

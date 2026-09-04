@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Credenciais de teste locais (Playwright/QA) — não versionar
+.cursor/rules/test-credentials.mdc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

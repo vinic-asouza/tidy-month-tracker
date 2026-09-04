@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-09-03
 ---
 
 # Jornadas de usuário
@@ -132,10 +132,24 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 
 ---
 
+## 9. Importar gastos via CSV (assistido)
+
+**Persona:** Marina (fatura CSV) / Rafael (extrato com muitos Pix).
+
+1. Aba **Gastos** → **Importar CSV** (`ImportExpensesCsvDialog`).
+2. Escolhe origem: **conta** ou **cartão X**.
+3. Sobe o arquivo; mapeia colunas Data / Valor / Descrição (preview).
+4. Revisa linhas: ação (variável, parcelado, fixo, associar existente, ignorar), mês divergente se precisar, efetivar só em conta (default off).
+5. **Importar selecionados** → relatório parcial. Nada grava antes deste passo.
+
+Regras CSV-01…CSV-05: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de-negocio/regras-por-modulo/gastos.md). Open Finance continua fora (DEV-96 adiada).
+
+---
+
 ## Ritual contínuo (hábito)
 
 Não é uma tela: é a jornada que o produto existe para formar.
 
 Registrar → efetivar (escolher onde o dinheiro está) → olhar resumo e regra → no tempo, olhar o ano → desejos antes da compra.
 
-Se o registro for só “conferir um extrato importado”, a jornada sai da visão do produto ([`visao-do-produto.md`](./visao-do-produto.md)).
+A importação CSV assistida (jornada 9) **acelera o volume com revisão**; se o uso virar só “conferir extrato sem decidir”, sai da visão do produto ([`visao-do-produto.md`](./visao-do-produto.md)).

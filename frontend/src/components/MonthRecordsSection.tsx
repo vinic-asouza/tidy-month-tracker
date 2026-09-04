@@ -253,6 +253,7 @@ export const MonthRecordsSection = ({
               <Separator />
               <ExpenseSection
                 variant="embedded"
+                currentMonth={currentMonth}
                 expenses={expenses}
                 categories={expenseCategories}
                 paymentMethods={paymentMethods}
