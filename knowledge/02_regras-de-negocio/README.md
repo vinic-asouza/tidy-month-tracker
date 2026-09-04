@@ -14,7 +14,7 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 | --- | --- |
 | [resumo-e-estatisticas.md](./regras-por-modulo/resumo-e-estatisticas.md) | Resumo mensal e visão anual |
 | [entradas.md](./regras-por-modulo/entradas.md) | Receitas e resgate automático |
-| [gastos.md](./regras-por-modulo/gastos.md) | Fixo, variável, parcelado; CSV-01…CSV-05 |
+| [gastos.md](./regras-por-modulo/gastos.md) | Fixo, variável, parcelado; CSV-01…CSV-06 |
 | [cartoes.md](./regras-por-modulo/cartoes.md) | Fatura e pagamento |
 | [investimentos.md](./regras-por-modulo/investimentos.md) | Aportes origem → destino |
 | [carteiras.md](./regras-por-modulo/carteiras.md) | Papéis, transferência, resgate, Saldo Livre |

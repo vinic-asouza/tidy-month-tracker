@@ -33,7 +33,7 @@ Não há, e não deve ser prometido sem decisão de produto:
 - Exportação CSV/PDF (roadmap P4)
 - Importação automática / inbox persistente / presets de banco
 
-**Exceção consciente (DEV-103):** importação **CSV assistida de gastos** — o arquivo só propõe linhas; a pessoa mapeia, revisa e confirma. Nada grava em `expenses` até **Importar selecionados**. Parse no browser; o CSV não sobe ao Supabase. Regras: [`regras-por-modulo/gastos.md`](./regras-por-modulo/gastos.md) (CSV-01…CSV-05). Módulo: [`../04_modulos/gastos.md`](../04_modulos/gastos.md).
+**Exceção consciente (DEV-103 / DEV-105):** importação **CSV assistida de gastos** — o arquivo só propõe linhas; a pessoa mapeia, revisa e confirma. Nada grava em `expenses` até **Importar selecionados**. Parse no browser; o CSV não sobe ao Supabase. Heurística de parcela (CSV-06) só sugere e evidencia na revisão. Regras: [`regras-por-modulo/gastos.md`](./regras-por-modulo/gastos.md) (CSV-01…CSV-06). Módulo: [`../04_modulos/gastos.md`](../04_modulos/gastos.md).
 
 Registro com participação ativa continua sendo política (visão do produto): a assistida acelera volume **com** revisão, não substitui o ritual por extrato automático.
 

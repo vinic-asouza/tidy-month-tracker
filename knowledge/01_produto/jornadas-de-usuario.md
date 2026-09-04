@@ -138,11 +138,11 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 
 1. Aba **Gastos** → **Importar CSV** (`ImportExpensesCsvDialog`).
 2. Escolhe origem: **conta** ou **cartão X**.
-3. Sobe o arquivo; mapeia colunas Data / Valor / Descrição (preview).
-4. Revisa linhas: ação (variável, parcelado, fixo, associar existente, ignorar), mês divergente se precisar, efetivar só em conta (default off).
+3. Sobe o arquivo; mapeia colunas Data / Valor / Descrição e, se houver, **Parcela** (preview; guess cobre C6 `Parcela`, Nubank `title`).
+4. Revisa linhas: ação (variável, parcelado, fixo, associar existente, ignorar), badge `N/total` quando detectado, mês divergente se precisar, efetivar só em conta (default off).
 5. **Importar selecionados** → relatório parcial. Nada grava antes deste passo.
 
-Regras CSV-01…CSV-05: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de-negocio/regras-por-modulo/gastos.md). Open Finance continua fora (DEV-96 adiada).
+Regras CSV-01…CSV-06: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de-negocio/regras-por-modulo/gastos.md). Open Finance continua fora (DEV-96 adiada).
 
 ---
 
