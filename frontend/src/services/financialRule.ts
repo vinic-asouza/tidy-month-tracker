@@ -28,3 +28,10 @@ export async function updateFinancialRule(
 export async function deleteFinancialRule(): Promise<void> {
   return financialRuleAdapter().deleteFinancialRule();
 }
+
+export async function renameCategoryInMapping(
+  oldCategory: string,
+  newCategory: string
+): Promise<FinancialRule | null> {
+  return financialRuleAdapter().renameCategoryInMapping(oldCategory, newCategory);
+}

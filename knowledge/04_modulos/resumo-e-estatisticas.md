@@ -124,7 +124,7 @@ Modo **efetivado** (`calculateEffectiveMonthTotals`):
 - Investimentos: `invested === true`
 - Saldo: entradas − gastos − investimentos
 
-Modo **planejado** (`calculatePlannedMonthTotals`): soma **todos** os lançamentos do array, sem flags. Inclui linhas de resgate **se já estiverem** em `incomes`. Não soma `accountOperations`. (A RN-G03 descreve a intenção de produto de não tratar resgate como lançamento planejado; o cálculo atual não filtra a tag.)
+Modo **planejado** (`calculatePlannedMonthTotals`): soma lançamentos do array **exceto** resgates (`isResgateIncome`). Não soma `accountOperations`. Alinhado a RN-G03.
 
 Pendências (`calculatePendingMonthTotals`, só na UI efetivada):
 

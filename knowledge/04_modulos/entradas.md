@@ -36,7 +36,7 @@ Registra **receitas do mês** (salário, extras, resgate automático) e as marca
 - Marcar recebida via `EffectuateWalletDialog`: carteira de **movimentação** ou Saldo Livre; desmarcar zera `account_id` (RN-E02)
 - Repetir nos outros 11 meses do **mesmo ano civil**; editar/excluir “só este mês” ou “este e os seguintes da série”; carteira **não** se copia (RN-E03, RN-G05)
 - Exibir (e permitir excluir) a entrada automática de **resgate** — já `received`, tag `Resgate de investimentos`, ligada à operação (RN-E04)
-- CRUD de tags de entrada; renomear propaga em **todas** as `incomes` do usuário; excluir bloqueado se a tag estiver em uso **no mês aberto** (RN-E05; ver lacuna vs RN-G06)
+- CRUD de tags de entrada; renomear propaga em **todas** as `incomes` do usuário; excluir bloqueado se a tag estiver em uso em **qualquer** mês (RN-E05 / RN-G06)
 
 ### O que este módulo NÃO FAZ
 
@@ -188,7 +188,7 @@ Resgate: sem lápis; toggle “Recebido” **disabled**; exclusão permitida (re
 | Falha create | Erro ao adicionar entrada |
 | Falha update | Erro ao atualizar entrada |
 | Falha delete | Erro ao excluir entrada |
-| Tag em uso no mês (UI) | Não é possível excluir: existem entradas usando esta categoria |
+| Tag em uso no histórico | Não é possível excluir: esta categoria está em uso no histórico de entradas |
 
 Falha de um mês em `fetchYearData` não é deste módulo (resumo/estatísticas).
 
@@ -205,7 +205,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/entradas.md`](../02_regras-
 | RN-E03 | Série no ano civil; carteira não copia; edição “siguientes” = `year_month >=` atual | `calculateRemainingMonths`, `omitPerMonthFields`, `updateIncome`/`deleteIncome` |
 | RN-E04 | Resgate já recebido, tag fixa, ligado à operação | `createResgateIncome`; UI `isResgateIncome` |
 | RN-E05 | CRUD tags; rename propaga | `updateIncomeTag` no hook |
-| RN-G06 | Não excluir tag em uso **em qualquer mês** | **Parcial:** `handleDeleteTag` só olha `incomes` do mês aberto |
+| RN-G06 | Não excluir tag em uso **em qualquer mês** | Adapter `updateIncomeTags` (existence check em `incomes`); UI propaga erro |
 | RN-G08 | Caixa lê a entrada, não a operação | `monthTotals.ts` (módulo resumo) |
 
 ---
@@ -276,7 +276,7 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [ ] Apply to following não altera carteira dos outros meses
 - [ ] Resgate não é editável nem “desrecebível” na UI
 - [ ] Excluir resgate remove a operação de carteira
-- [ ] Excluir tag usada em **outro** mês (RN-G06) — hoje pode passar se o mês aberto não tiver a tag
+- [x] Excluir tag usada em **outro** mês (RN-G06) — adapter recusa; toast de histórico
 
 **Como rodar:**
 

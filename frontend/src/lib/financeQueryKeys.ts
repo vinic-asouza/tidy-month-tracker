@@ -6,3 +6,8 @@ export const financeKeys = {
   accountHistory: (userId: string, from: string, to: string) =>
     ['finance', 'accountHistory', userId, from, to] as const,
 };
+
+/** Regra financeira: cache único compartilhado entre visão mensal e anual. */
+export const financialRuleKeys = {
+  detail: (userId: string) => ['financial-rule', userId] as const,
+};

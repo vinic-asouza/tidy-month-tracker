@@ -79,10 +79,6 @@ export async function getSettings(userId: string): Promise<FinanceSettings> {
   };
 }
 
-export async function updateInvestmentTags(userId: string, tags: string[]): Promise<void> {
-  await updateSettingsColumn(userId, 'investment_tags', tags);
-}
-
 export async function updateInvestmentTagInInvestments(
   userId: string,
   oldTag: string,
@@ -97,7 +93,68 @@ export async function updateInvestmentTagInInvestments(
   throwIfError(error);
 }
 
+/**
+ * Rename de tag de aporte: grava a lista direto (rename não é exclusão, então
+ * não passa pelo guard de uso) e propaga o novo nome para o histórico.
+ */
+export async function renameInvestmentTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  const current = await getSettings(userId);
+  const tags = current.investmentTags.map((t) => (t === oldTag ? newTag : t));
+
+  await updateSettingsColumn(userId, 'investment_tags', tags);
+  await updateInvestmentTagInInvestments(userId, oldTag, newTag);
+}
+
+export async function isIncomeTagInUse(userId: string, tag: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('incomes')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('tag', tag);
+
+  throwIfError(error);
+  return (count ?? 0) > 0;
+}
+
+export async function isExpenseCategoryInUse(
+  userId: string,
+  category: string
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('expenses')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('category', category);
+
+  throwIfError(error);
+  return (count ?? 0) > 0;
+}
+
+export async function isInvestmentTagInUse(userId: string, tag: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('investments')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('tag', tag);
+
+  throwIfError(error);
+  return (count ?? 0) > 0;
+}
+
 export async function updateIncomeTags(userId: string, tags: string[]): Promise<void> {
+  const current = await getSettings(userId);
+  const removed = current.incomeTags.filter((t) => !tags.includes(t));
+  for (const tag of removed) {
+    if (await isIncomeTagInUse(userId, tag)) {
+      throw new Error(
+        'Não é possível excluir: esta categoria está em uso no histórico de entradas'
+      );
+    }
+  }
   await updateSettingsColumn(userId, 'income_tags', tags);
 }
 
@@ -115,11 +172,46 @@ export async function updateIncomeTagInIncomes(
   throwIfError(error);
 }
 
+/** Rename de categoria de entrada: sem guard de uso, propagando para o histórico. */
+export async function renameIncomeTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  const current = await getSettings(userId);
+  const tags = current.incomeTags.map((t) => (t === oldTag ? newTag : t));
+
+  await updateSettingsColumn(userId, 'income_tags', tags);
+  await updateIncomeTagInIncomes(userId, oldTag, newTag);
+}
+
 export async function updateExpenseCategories(
   userId: string,
   categories: string[]
 ): Promise<void> {
+  const current = await getSettings(userId);
+  const removed = current.expenseCategories.filter((c) => !categories.includes(c));
+  for (const category of removed) {
+    if (await isExpenseCategoryInUse(userId, category)) {
+      throw new Error(
+        'Não é possível excluir: esta categoria está em uso no histórico de gastos'
+      );
+    }
+  }
   await updateSettingsColumn(userId, 'expense_categories', categories);
+}
+
+export async function updateInvestmentTags(userId: string, tags: string[]): Promise<void> {
+  const current = await getSettings(userId);
+  const removed = current.investmentTags.filter((t) => !tags.includes(t));
+  for (const tag of removed) {
+    if (await isInvestmentTagInUse(userId, tag)) {
+      throw new Error(
+        'Não é possível excluir: esta tag está em uso no histórico de aportes'
+      );
+    }
+  }
+  await updateSettingsColumn(userId, 'investment_tags', tags);
 }
 
 export async function updateExpenseCategoryInExpenses(
@@ -134,4 +226,19 @@ export async function updateExpenseCategoryInExpenses(
     .eq('category', oldCategory);
 
   throwIfError(error);
+}
+
+/** Rename de categoria de gasto: sem guard de uso, propagando para o histórico. */
+export async function renameExpenseCategory(
+  userId: string,
+  oldCategory: string,
+  newCategory: string
+): Promise<void> {
+  const current = await getSettings(userId);
+  const categories = current.expenseCategories.map((c) =>
+    c === oldCategory ? newCategory : c
+  );
+
+  await updateSettingsColumn(userId, 'expense_categories', categories);
+  await updateExpenseCategoryInExpenses(userId, oldCategory, newCategory);
 }

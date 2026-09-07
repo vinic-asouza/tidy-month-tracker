@@ -1022,16 +1022,13 @@ const ExpenseSectionComponent = ({
   };
 
   const handleDeleteCategory = async (category: string) => {
-    const hasExpenses = expenses.some((expense) => expense.category === category);
-    if (hasExpenses) {
-      toast.error('Não é possível excluir: existem gastos usando esta categoria');
-      return;
-    }
     if (isCategoryLoading) return;
 
     setIsCategoryLoading(true);
     try {
       await onDeleteCategory(category);
+    } catch {
+      // Adapter/hook já exibem toast (uso em qualquer mês / erro de rede).
     } finally {
       setIsCategoryLoading(false);
     }
@@ -1927,10 +1924,10 @@ const ExpenseSectionComponent = ({
         description={
           pendingAction === 'edit'
             ? editingExpense?.type === 'installment'
-              ? 'Este gasto é parcelado. Deseja editar apenas esta parcela ou todas as parcelas?'
+              ? 'Este gasto é parcelado. Alterar a série atinge todas as parcelas, incluindo as anteriores a este mês. Deseja editar apenas esta parcela ou toda a série?'
               : 'Este gasto se repete nos meses. Deseja editar apenas este mês ou em todos os meses seguintes?'
             : editingExpense?.type === 'installment'
-              ? 'Este gasto é parcelado. Deseja excluir apenas esta parcela ou todas as parcelas?'
+              ? 'Este gasto é parcelado. Deseja excluir apenas esta parcela ou toda a série, incluindo as parcelas anteriores?'
               : 'Este gasto se repete nos meses. Deseja excluir apenas este mês ou em todos os meses seguintes?'
         }
         actionLabel={pendingAction === 'edit' ? 'Editar' : 'Excluir'}
@@ -1940,7 +1937,22 @@ const ExpenseSectionComponent = ({
             ? `${editingExpense.description} — ${formatCurrency(editingExpense.value)}`
             : undefined
         }
-        applyToAllButtonLabel={editingExpense?.type === 'installment' ? undefined : (pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes')}
+        applyToCurrentButtonLabel={
+          editingExpense?.type === 'installment'
+            ? pendingAction === 'edit'
+              ? 'Editar apenas esta parcela'
+              : 'Excluir apenas esta parcela'
+            : undefined
+        }
+        applyToAllButtonLabel={
+          editingExpense?.type === 'installment'
+            ? pendingAction === 'edit'
+              ? 'Alterar toda a série (incluindo parcelas anteriores)'
+              : 'Excluir toda a série (incluindo parcelas anteriores)'
+            : pendingAction === 'edit'
+              ? 'Alterar todos os meses seguintes'
+              : 'Excluir todos os meses seguintes'
+        }
       />
 
       {/* Card Item Warning Dialog */}

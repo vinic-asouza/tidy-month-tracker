@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, memo } from 'react';
-import { Plus, Pencil, Trash2, PiggyBank, List, LayoutGrid, ArrowUpDown, Repeat, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, List, LayoutGrid, ArrowUpDown, Repeat, Loader2, ChevronDown, ChevronUp, Settings, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -60,9 +60,13 @@ type UpdateHandler = (
 interface InvestmentSectionProps {
   investments: Investment[];
   accounts: Account[];
+  tags: string[];
   onAdd: PersistHandler;
   onUpdate: UpdateHandler;
   onDelete: (id: string, applyToAllMonths?: boolean) => void;
+  onAddTag: (tag: string) => void | Promise<void>;
+  onUpdateTag: (oldTag: string, newTag: string) => void | Promise<void>;
+  onDeleteTag: (tag: string) => void | Promise<void>;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   /** Abre o dialog de novo investimento (controlado externamente) */
@@ -101,10 +105,12 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 const NO_ACCOUNT = 'none';
-const PENDING_INVESTMENT_TAG = '—';
+const PENDING_WALLET_LABEL = 'Pendente';
 
-const getAccountLabel = (investment: Investment, _accounts: Account[]): string => {
-  return investment.tag ?? '';
+/** Carteira de destino do aporte: vem da lista de contas, não da tag. */
+const getWalletLabel = (investment: Investment, accounts: Account[]): string => {
+  if (!investment.invested) return PENDING_WALLET_LABEL;
+  return resolveAccountDisplayName(investment.accountId, accounts);
 };
 
 const sortInvestments = (
@@ -120,7 +126,7 @@ const sortInvestments = (
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
     case 'institution':
       return sorted.sort((a, b) =>
-        getAccountLabel(a, accounts).localeCompare(getAccountLabel(b, accounts), 'pt-BR')
+        getWalletLabel(a, accounts).localeCompare(getWalletLabel(b, accounts), 'pt-BR')
       );
     case 'date':
       return sorted.sort((a, b) => {
@@ -146,7 +152,7 @@ const groupByAccount = (
   accounts: Account[]
 ): { institution: string; total: number }[] => {
   const grouped = investments.reduce((acc, investment) => {
-    const label = getAccountLabel(investment, accounts);
+    const label = getWalletLabel(investment, accounts);
     if (!acc[label]) {
       acc[label] = 0;
     }
@@ -230,7 +236,6 @@ const WalletTag = ({ label }: { label: string }) => (
 
 const InvestmentListItem = ({
   investment,
-  accountLabel,
   accounts,
   isSelected,
   onItemClick,
@@ -241,7 +246,6 @@ const InvestmentListItem = ({
   style,
 }: {
   investment: Investment;
-  accountLabel: string;
   accounts: Account[];
   isSelected: boolean;
   onItemClick: (e: React.MouseEvent) => void;
@@ -304,8 +308,8 @@ const InvestmentListItem = ({
       </div>
       {/* Desktop */}
       <div className="hidden sm:flex flex-1 min-w-0 flex-col justify-center gap-0.5">
-        {accountLabel && (
-          <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        {investment.tag && (
+          <span className="text-xs text-investment font-medium">{investment.tag}</span>
         )}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium truncate text-foreground">{investment.description}</span>
@@ -327,8 +331,8 @@ const InvestmentListItem = ({
       </div>
       {/* Mobile */}
       <div className="flex sm:hidden flex-1 min-w-0 flex-col justify-center gap-0.5">
-        {accountLabel && (
-          <span className="text-xs text-investment font-medium">{accountLabel}</span>
+        {investment.tag && (
+          <span className="text-xs text-investment font-medium">{investment.tag}</span>
         )}
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -351,9 +355,13 @@ const InvestmentListItem = ({
 const InvestmentSectionComponent = ({
   investments,
   accounts,
+  tags,
   onAdd,
   onUpdate,
   onDelete,
+  onAddTag,
+  onUpdateTag,
+  onDeleteTag,
   selectedIds = new Set(),
   onSelectionChange,
   openAddDialog,
@@ -370,6 +378,7 @@ const InvestmentSectionComponent = ({
   }, [openAddDialog]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState('');
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
   const [itemDate, setItemDate] = useState(() => formatDateToYYYYMMDD(new Date()));
@@ -383,9 +392,17 @@ const InvestmentSectionComponent = ({
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [effectuateTarget, setEffectuateTarget] = useState<Investment | null>(null);
 
+  // Tag management
+  const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editingTagValue, setEditingTagValue] = useState('');
+  const [isTagLoading, setIsTagLoading] = useState(false);
+
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [tagError, setTagError] = useState<string | null>(null);
 
   const INITIAL_ITEMS_LIMIT = 10;
 
@@ -452,16 +469,76 @@ const InvestmentSectionComponent = ({
     }
   }, [viewMode]);
 
+  // Tag management handlers
+  const handleAddTag = async () => {
+    const trimmed = newTag.trim();
+    if (!trimmed || tags.includes(trimmed) || isTagLoading) return;
+
+    setIsTagLoading(true);
+    try {
+      await onAddTag(trimmed);
+      // Se a tag foi adicionada no modal, seleciona automaticamente
+      if (isTagsOpenInModal) {
+        setSelectedTag(trimmed);
+        setTagError(null);
+      }
+      setNewTag('');
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
+
+  const handleSaveTagEdit = async () => {
+    if (!editingTag) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
+    }
+
+    const trimmed = editingTagValue.trim();
+    if (!trimmed || trimmed === editingTag || isTagLoading) {
+      setEditingTag(null);
+      setEditingTagValue('');
+      return;
+    }
+
+    setIsTagLoading(true);
+    try {
+      await onUpdateTag(editingTag, trimmed);
+      setSelectedTag((prev) => (prev === editingTag ? trimmed : prev));
+    } finally {
+      setIsTagLoading(false);
+      setEditingTag(null);
+      setEditingTagValue('');
+    }
+  };
+
+  const handleDeleteTag = async (tag: string) => {
+    if (isTagLoading) return;
+
+    setIsTagLoading(true);
+    try {
+      await onDeleteTag(tag);
+      setSelectedTag((prev) => (prev === tag ? '' : prev));
+    } catch {
+      // Erro já reportado pelo hook (ex.: tag em uso no histórico)
+    } finally {
+      setIsTagLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setDescription('');
     setValue('');
     setItemDate(formatDateToYYYYMMDD(new Date()));
     setRepeatAllMonths(false);
     setEditingId(null);
+    setSelectedTag('');
     setSelectedAccountId(NO_ACCOUNT);
     setDescriptionError(null);
     setValueError(null);
     setAccountError(null);
+    setTagError(null);
   };
 
   const handleSubmit = async () => {
@@ -476,10 +553,15 @@ const InvestmentSectionComponent = ({
       setValueError('Valor deve ser maior que zero');
       hasError = true;
     }
+    if (!selectedTag.trim()) {
+      setTagError('Selecione uma categoria');
+      hasError = true;
+    }
 
     if (hasError) return;
 
     const editingItem = editingId ? investments.find((i) => i.id === editingId) : null;
+    const tag = selectedTag.trim();
 
     setIsSubmitting(true);
     try {
@@ -490,9 +572,7 @@ const InvestmentSectionComponent = ({
               ? {
                   description: description.trim(),
                   value: numValue,
-                  tag:
-                    accounts.find((a) => a.id === selectedAccountId)?.name ??
-                    editingItem.tag,
+                  tag,
                   date: itemDate,
                   repeatAllMonths,
                   accountId:
@@ -503,6 +583,7 @@ const InvestmentSectionComponent = ({
               : {
                   description: description.trim(),
                   value: numValue,
+                  tag,
                   date: itemDate,
                   repeatAllMonths,
                 },
@@ -511,7 +592,7 @@ const InvestmentSectionComponent = ({
         : await onAdd({
             description: description.trim(),
             value: numValue,
-            tag: PENDING_INVESTMENT_TAG,
+            tag,
             date: itemDate,
             repeatAllMonths,
             invested: false,
@@ -546,6 +627,7 @@ const InvestmentSectionComponent = ({
       setValue(formatValueForInput(investment.value));
       setItemDate(investment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(investment.repeatAllMonths || false);
+      setSelectedTag(investment.tag);
       setSelectedAccountId(investment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
     }
@@ -558,6 +640,7 @@ const InvestmentSectionComponent = ({
       setValue(formatValueForInput(editingInvestment.value));
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setSelectedTag(editingInvestment.tag);
       setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
       setEditingInvestment(null);
@@ -573,6 +656,7 @@ const InvestmentSectionComponent = ({
       setValue(formatValueForInput(editingInvestment.value));
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
+      setSelectedTag(editingInvestment.tag);
       setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setApplyToAllMonths(true);
       setIsOpen(true);
@@ -653,14 +737,12 @@ const InvestmentSectionComponent = ({
   ) => {
     if (!effectuateTarget) return false;
 
-    const destAccount = accounts.find((a) => a.id === destinationAccountId);
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
     const ok = await onUpdate(effectuateTarget.id, {
       invested: true,
       sourceAccountId,
       accountId: destinationAccountId,
-      tag: destAccount?.name ?? PENDING_INVESTMENT_TAG,
     });
 
     if (ok) {
@@ -734,6 +816,150 @@ const InvestmentSectionComponent = ({
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-5 pt-4">
+                {/* Tag Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                    Categoria
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select value={selectedTag} onValueChange={(v) => { setSelectedTag(v); setTagError(null); }}>
+                        <SelectTrigger
+                          className={`rounded-md h-10 ${tagError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
+                        >
+                          <SelectValue placeholder="Selecione uma categoria..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-md">
+                          {tags.map((tag) => (
+                            <SelectItem
+                              key={tag}
+                              value={tag}
+                              className="rounded-lg focus:bg-investment-light focus:text-investment hover:bg-investment-light/50"
+                            >
+                              {tag}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Popover open={isTagsOpenInModal} onOpenChange={setIsTagsOpenInModal}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-md h-10 w-11 text-investment hover:bg-investment-light hover:text-investment focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 rounded-md p-4 bg-background border shadow-lg" align="end">
+                        <h4 className="font-semibold mb-3 text-sm">Gerenciar Categorias</h4>
+
+                        {/* Add new category */}
+                        <div className="flex gap-2 mb-3">
+                          <Input
+                            value={newTag}
+                            onChange={(e) => setNewTag(e.target.value)}
+                            placeholder="Nova categoria..."
+                            className="rounded-lg h-9 text-sm focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                            disabled={isTagLoading}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleAddTag}
+                            className="rounded-lg h-9 px-3 bg-investment hover:bg-investment/90 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                            disabled={isTagLoading || !newTag.trim() || tags.includes(newTag.trim())}
+                          >
+                            {isTagLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* List of categories */}
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {tags.map((tag) => {
+                            const isUsed = investments.some((i) => i.tag === tag);
+                            const isEditing = editingTag === tag;
+
+                            return (
+                              <div
+                                key={tag}
+                                className="flex items-center gap-2 p-2 rounded-lg bg-investment-light/40 hover:bg-investment-light"
+                              >
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1 flex-1">
+                                    <Input
+                                      value={editingTagValue}
+                                      onChange={(e) => setEditingTagValue(e.target.value)}
+                                      className="h-7 text-sm rounded-md flex-1 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2"
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTagEdit()}
+                                      autoFocus
+                                      disabled={isTagLoading}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-md text-investment hover:bg-investment-light flex-shrink-0"
+                                      onClick={handleSaveTagEdit}
+                                      title="Confirmar edição"
+                                      disabled={isTagLoading}
+                                    >
+                                      {isTagLoading ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Check className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="flex-1 text-sm truncate">{tag}</span>
+                                )}
+
+                                {!isEditing && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md text-investment hover:bg-investment-light"
+                                      onClick={() => {
+                                        setEditingTag(tag);
+                                        setEditingTagValue(tag);
+                                      }}
+                                      disabled={isTagLoading}
+                                    >
+                                      <Pencil className="h-3 w-3 text-investment" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md hover:bg-investment-light"
+                                      onClick={() => handleDeleteTag(tag)}
+                                      disabled={isUsed || isTagLoading}
+                                      title={isUsed ? 'Esta categoria está em uso' : 'Excluir'}
+                                    >
+                                      <Trash2
+                                        className={`h-3 w-3 ${isUsed ? 'text-muted-foreground/40' : 'text-investment'}`}
+                                      />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {tagError && (
+                    <p className="text-destructive text-sm mt-1">{tagError}</p>
+                  )}
+                </div>
+
                 {/* Data do item */}
                 <div>
                   <label className="text-sm font-medium mb-2 block text-muted-foreground">
@@ -961,7 +1187,6 @@ const InvestmentSectionComponent = ({
               <InvestmentListItem
                 key={investment.id}
                 investment={investment}
-                accountLabel={getAccountLabel(investment, accounts)}
                 accounts={accounts}
                 isSelected={isSelected}
                 onItemClick={handleItemClick}
@@ -985,7 +1210,6 @@ const InvestmentSectionComponent = ({
                   <InvestmentListItem
                     key={investment.id}
                     investment={investment}
-                    accountLabel={getAccountLabel(investment, accounts)}
                     accounts={accounts}
                     isSelected={isSelected}
                     onItemClick={handleItemClick}

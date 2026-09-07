@@ -18,6 +18,7 @@ interface ApplyToAllDialogProps {
   description: string;
   actionLabel: string;
   applyToAllButtonLabel?: string;
+  applyToCurrentButtonLabel?: string;
   itemSummary?: string;
   isDestructive?: boolean;
 }
@@ -31,6 +32,7 @@ export const ApplyToAllDialog = ({
   description,
   actionLabel,
   applyToAllButtonLabel,
+  applyToCurrentButtonLabel,
   itemSummary,
   isDestructive = false,
 }: ApplyToAllDialogProps) => {
@@ -55,7 +57,7 @@ export const ApplyToAllDialog = ({
             onClick={onApplyToCurrentMonth}
             className="rounded-md w-full sm:w-auto sm:flex-shrink-0"
           >
-            {actionLabel} apenas este mês
+            {applyToCurrentButtonLabel ?? `${actionLabel} apenas este mês`}
           </Button>
           {isDestructive ? (
             <Button

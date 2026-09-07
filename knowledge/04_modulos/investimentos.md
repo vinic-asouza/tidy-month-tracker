@@ -31,7 +31,7 @@ Registra **aportes do mês** (“quanto apliquei neste período?”), não a car
 
 ### O que este módulo FAZ
 
-- CRUD de aportes do mês (`description`, `value`, `date`; tag preenchida pelo fluxo — ver lacuna RN-I05)
+- CRUD de aportes do mês (`description`, `value`, `date`, tag obrigatória via CRUD de tags — RN-I05)
 - Nascer `invested = false`, sem origem nem destino (RN-I01)
 - Efetivar via `EffectuateInvestmentDialog`: origem = movimentação **ou** Saldo Livre (`source_account_id` nulo); destino = carteira `role = investment`; origem ≠ destino (RN-I02)
 - Desefetivar zera `invested`, `account_id` e `source_account_id`
@@ -196,11 +196,11 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/investimentos.md`](../02_re
 | RN-I02 | Efetivar: origem movimentação ou Saldo Livre; destino investimentos; distintos; caixa desconta | Dialog + `updateInvestment`; `calculateMonthTotals` filtra `invested` |
 | RN-I03 | Sem papel, oferece criar carteira | `onRequestAddMovementAccount` / `onRequestAddInvestmentAccount` |
 | RN-I04 | Legado: destino preenchido, origem nula — liquidez da origem pode estar errada até re-efetivar | Modelo permite `invested && !sourceAccountId`; métricas de movimentação só debitam `sourceAccountId` |
-| RN-I05 | Série no ano civil; tags como entradas | Série: `calculateRemainingMonths` + `omitPerMonthFields`. **Tags: hook existe; UI desta seção não faz CRUD** (tag = `'—'` ou nome do destino) |
+| RN-I05 | Série no ano civil; tags como entradas | Série: `calculateRemainingMonths` + `omitPerMonthFields`. Tags: CRUD na UI (`InvestmentSection`) + hook; efetivação **não** sobrescreve tag com nome do destino |
 | RN-G03 | Saldo do mês subtrai aportes `invested` | `monthTotals.ts` |
 | RN-G06 | Não excluir tag em uso | **Não aplicável na UI atual** de aportes |
 
-**Código vs RN-I05:** a regra descreve CRUD de tags como em entradas. O código da aba Investimentos **não** usa `investmentTags`. O hook ainda expõe `addInvestmentTag` / `updateInvestmentTag` / `deleteInvestmentTag` (rename propaga em todas as `investments` do user).
+**Código vs RN-I05:** CRUD de tags de aporte na aba Investimentos (espelha entradas). Tag classifica o hábito; carteira destino é independente. Exclusão de tag bloqueada se em uso em qualquer mês (adapter).
 
 ---
 
@@ -275,7 +275,7 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 - [ ] Desefetivar limpa origem e destino
 - [ ] Apply to following não copia carteiras
 - [ ] Legado `invested` sem `sourceAccountId` (RN-I04)
-- [ ] CRUD de tags da regra RN-I05 (UI ausente)
+- [x] CRUD de tags da regra RN-I05 (UI)
 
 **Como rodar:**
 

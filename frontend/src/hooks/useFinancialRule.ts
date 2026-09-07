@@ -1,124 +1,87 @@
 /**
- * Hook para gerenciar regra financeira
+ * Hook para gerenciar regra financeira (cache compartilhado mês/ano — DEV-61).
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import type { FinancialRule, CreateFinancialRuleInput, UpdateFinancialRuleInput } from '@/types/domain';
+import type {
+  FinancialRule,
+  CreateFinancialRuleInput,
+  UpdateFinancialRuleInput,
+} from '@/types/domain';
 import * as financialRuleService from '@/services/financialRule';
+import { financialRuleKeys } from '@/lib/financeQueryKeys';
 
 export const useFinancialRule = () => {
   const { user } = useAuth();
-  const userId = user?.id;
-  const [loading, setLoading] = useState(true);
-  const [rule, setRule] = useState<FinancialRule | null>(null);
-  const hasLoadedRef = useRef(false);
+  const userId = user?.id ?? '';
+  const queryClient = useQueryClient();
 
-  // Carregar regra ao montar ou quando userId mudar
-  useEffect(() => {
-    if (!userId) {
-      setRule(null);
-      setLoading(false);
-      hasLoadedRef.current = false;
-      return;
-    }
+  const { data: rule = null, isLoading: loading } = useQuery({
+    queryKey: financialRuleKeys.detail(userId),
+    queryFn: () => financialRuleService.getFinancialRule(),
+    enabled: !!userId,
+  });
 
-    const loadRule = async () => {
-      const isInitialLoad = !hasLoadedRef.current;
+  const createRule = useCallback(
+    async (data: CreateFinancialRuleInput): Promise<FinancialRule> => {
+      if (!user) throw new Error('Usuário não autenticado');
+
       try {
-        if (isInitialLoad) {
-          setLoading(true);
-        }
-        const data = await financialRuleService.getFinancialRule();
-        setRule(data);
-        hasLoadedRef.current = true;
+        const newRule = await financialRuleService.createFinancialRule(data);
+        queryClient.setQueryData(financialRuleKeys.detail(user.id), newRule);
+        toast.success('Regra financeira criada com sucesso');
+        return newRule;
       } catch (error) {
-        // Se não houver regra, é normal (retorna null)
-        setRule(null);
-      } finally {
-        setLoading(false);
+        const message =
+          error instanceof Error ? error.message : 'Erro ao criar regra financeira';
+        toast.error(message);
+        throw error;
       }
-    };
+    },
+    [user, queryClient]
+  );
 
-    loadRule();
-  }, [userId]);
+  const updateRule = useCallback(
+    async (data: UpdateFinancialRuleInput): Promise<FinancialRule> => {
+      if (!user) throw new Error('Usuário não autenticado');
 
-  // Criar regra
-  const createRule = useCallback(async (data: CreateFinancialRuleInput): Promise<FinancialRule> => {
-    if (!user) {
-      throw new Error('Usuário não autenticado');
-    }
+      try {
+        const updatedRule = await financialRuleService.updateFinancialRule(data);
+        queryClient.setQueryData(financialRuleKeys.detail(user.id), updatedRule);
+        toast.success('Regra financeira atualizada com sucesso');
+        return updatedRule;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Erro ao atualizar regra financeira';
+        toast.error(message);
+        throw error;
+      }
+    },
+    [user, queryClient]
+  );
 
-    try {
-      const newRule = await financialRuleService.createFinancialRule(data);
-      setRule(newRule);
-      toast.success('Regra financeira criada com sucesso');
-      return newRule;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao criar regra financeira';
-      toast.error(message);
-      throw error;
-    }
-  }, [user]);
-
-  // Atualizar regra
-  const updateRule = useCallback(async (data: UpdateFinancialRuleInput): Promise<FinancialRule> => {
-    if (!user) {
-      throw new Error('Usuário não autenticado');
-    }
-
-    if (!rule) {
-      throw new Error('Regra financeira não encontrada');
-    }
-
-    try {
-      const updatedRule = await financialRuleService.updateFinancialRule(data);
-      setRule(updatedRule);
-      toast.success('Regra financeira atualizada com sucesso');
-      return updatedRule;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar regra financeira';
-      toast.error(message);
-      throw error;
-    }
-  }, [user, rule]);
-
-  // Deletar regra
   const deleteRule = useCallback(async (): Promise<void> => {
-    if (!user) {
-      throw new Error('Usuário não autenticado');
-    }
-
-    if (!rule) {
-      throw new Error('Regra financeira não encontrada');
-    }
+    if (!user) throw new Error('Usuário não autenticado');
 
     try {
       await financialRuleService.deleteFinancialRule();
-      setRule(null);
+      queryClient.setQueryData(financialRuleKeys.detail(user.id), null);
       toast.success('Regra financeira deletada com sucesso');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao deletar regra financeira';
+      const message =
+        error instanceof Error ? error.message : 'Erro ao deletar regra financeira';
       toast.error(message);
       throw error;
     }
-  }, [user, rule]);
+  }, [user, queryClient]);
 
-  // Recarregar regra
   const refreshRule = useCallback(async () => {
     if (!user) return;
-
-    try {
-      setLoading(true);
-      const data = await financialRuleService.getFinancialRule();
-      setRule(data);
-    } catch (error) {
-      setRule(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    await queryClient.invalidateQueries({ queryKey: financialRuleKeys.detail(user.id) });
+  }, [user, queryClient]);
 
   return {
     rule,

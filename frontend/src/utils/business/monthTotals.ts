@@ -98,7 +98,10 @@ export function calculatePendingMonthTotals(
 }
 
 export function calculatePlannedMonthTotals(monthData: MonthData): EffectiveMonthTotals {
-  const totalIncome = monthData.incomes.reduce((sum, i) => sum + i.value, 0);
+  // Resgates só entram no efetivado: no planejado inflariam a renda sem lançamento previsto.
+  const totalIncome = monthData.incomes
+    .filter((i) => !isResgateIncome(i))
+    .reduce((sum, i) => sum + i.value, 0);
   const totalExpenses = monthData.expenses.reduce((sum, e) => sum + e.value, 0);
   const totalInvestments = monthData.investments.reduce((sum, i) => sum + i.value, 0);
 
