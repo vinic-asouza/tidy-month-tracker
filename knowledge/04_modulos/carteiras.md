@@ -370,17 +370,17 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 - [x] `resolveAccountRole` / filtros por papel
 - [x] Label Saldo Livre vs nome; label de gasto pago (carteira vs fatura)
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (adapter / residual QA — DEV-66):**
 
-- [ ] Adapter recusa nome duplicado `ilike`
-- [x] Adapter bloqueia troca de papel com movimentos (RN-W01)
-- [ ] UI bloqueia papel quando há movimentos no histórico carregado
-- [ ] Transferência não cria `incomes` e não altera `calculateMonthTotals`
-- [ ] Resgate com destino → par transfer + entrada no destino
-- [ ] Resgate para Saldo Livre → `withdrawal` + entrada sem `account_id`
-- [ ] Rollback das ops se `createResgateIncome` falhar
-- [ ] Excluir carteira deixa lançamentos; SET NULL
-- [x] `getEarliestAccountMovementMonth` inclui `account_operations` e `source_account_id`
+- [x] Adapter recusa nome duplicado `ilike` (`accountsAdapter.test.ts`)
+- [x] Adapter bloqueia troca de papel com movimentos (RN-W01) (`accountsAdapter.test.ts`)
+- [ ] UI bloqueia papel quando há movimentos no histórico carregado — **residual QA**
+- [x] Transferência / withdrawal shapes em `accountOperations.test.ts` (não cria income no adapter de ops)
+- [ ] Resgate com destino → par transfer + entrada no destino — **residual QA** (orquestração hook)
+- [ ] Resgate para Saldo Livre → `withdrawal` + entrada sem `account_id` — **residual QA**
+- [ ] Rollback das ops se `createResgateIncome` falhar — **residual QA**
+- [ ] Excluir carteira deixa lançamentos; SET NULL no DB — **residual QA** (cache otimista DEV-60)
+- [x] `getEarliestAccountMovementMonth` inclui `account_operations` e `source_account_id` (`accountsAdapter.test.ts`)
 
 **Como rodar:**
 

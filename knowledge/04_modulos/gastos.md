@@ -326,16 +326,16 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [x] `omitPerMonthFields` tira `paid` e `account_id` do lote
 - [x] Parse CSV `;`/aspas; decimal BR; DD/MM sem ano; detect parcela; suggest link / installment / variável
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (adapter / residual QA — DEV-64):**
 
-- [ ] Create recusa categoria/descrição/pagamento vazios e valor ≤ 0
-- [ ] Fixo+repeat clona 11 meses do mesmo ano, todos `paid: false` e sem carteira
-- [ ] Parcelado gera N−1 linhas, inclusive no ano seguinte
-- [ ] Rollback se o insert das parcelas falhar
-- [ ] Efetivar não-cartão pede carteira; cartão não chama `paid` no item
-- [ ] Excluir uma parcela deixa buraco; “todas” apaga a série
-- [ ] Create honra `accountId` na linha principal; clones sem carteira (sem spec de adapter; QA manual DEV-52)
-- [x] Excluir categoria usada em **outro** mês (RN-G06)
+- [ ] Create recusa categoria/descrição/pagamento vazios e valor ≤ 0 — **residual QA** (validação na UI)
+- [x] Fixo+repeat clona 11 meses do ano civil, todos `paid: false` e sem carteira (`expenses.test.ts`)
+- [x] Parcelado gera N−1 linhas, inclusive no ano seguinte (`expenses.test.ts`)
+- [x] Rollback se o insert das parcelas falhar (`expenses.test.ts`)
+- [ ] Efetivar não-cartão pede carteira; cartão não chama `paid` no item — **residual QA** (UI/hook)
+- [x] Excluir série (“todas”) apaga pelo `base_expense_id` (`deleteInstallmentExpense`)
+- [x] Create honra `accountId` na linha principal; clones sem carteira (`expenses.test.ts`)
+- [x] Excluir categoria usada em **outro** mês (RN-G06) — `settings.test.ts`
 - [ ] Wizard CSV ponta a ponta (E2E) — QA manual / Gherkin DEV-103
 - [ ] Troca de tipo na edição preserva campos; unlink só o aberto; generate fixo/parcelado (QA manual DEV-104)
 

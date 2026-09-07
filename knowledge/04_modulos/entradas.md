@@ -268,15 +268,15 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [x] `omitPerMonthFields` tira `received` e `account_id` do update em lote
 - [x] Resgate recebido entra no total efetivado (módulo resumo)
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (adapter / residual QA — DEV-63):**
 
-- [ ] Create recusa descrição vazia / valor ≤ 0 / sem tag
-- [ ] Create com repeat clona 11 meses sem `received` e sem `account_id`
-- [ ] Efetivar pede carteira de movimentação ou Saldo Livre; desefetivar limpa vínculo
-- [ ] Apply to following não altera carteira dos outros meses
-- [ ] Resgate não é editável nem “desrecebível” na UI
-- [ ] Excluir resgate remove a operação de carteira
-- [x] Excluir tag usada em **outro** mês (RN-G06) — adapter recusa; toast de histórico
+- [ ] Create recusa descrição vazia / valor ≤ 0 / sem tag — **residual QA** (validação na UI; adapter não valida)
+- [x] Create com repeat clona 11 meses do ano civil sem `received` e sem `account_id` (`incomes.test.ts`)
+- [ ] Efetivar pede carteira de movimentação ou Saldo Livre; desefetivar limpa vínculo — **residual QA** (UI; adapter update coberto em parte)
+- [x] Apply to following não altera carteira dos outros meses — `omitPerMonthFields` + adapter série
+- [ ] Resgate não é editável nem “desrecebível” na UI — **residual QA** (`isResgateIncome` pure já coberto)
+- [x] `createResgateIncome` grava tag/source_operation_id/`received: true` (`incomes.test.ts`); exclusão da op — residual hook/QA
+- [x] Excluir tag usada em **outro** mês (RN-G06) — `settings.test.ts`
 
 **Como rodar:**
 

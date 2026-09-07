@@ -301,15 +301,14 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 - [x] `canAddExpenseToCreditCard` sempre true
 - [x] Default de carteira no dialog (primeira movimentação / localStorage / Saldo Livre)
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (adapter / residual QA — DEV-65):**
 
-- [ ] Create recusa nome vazio / duplicado ignore-case
-- [ ] Rename propaga `payment_method` e recusa nome exato já usado
-- [ ] Delete bloqueado com gasto em **outro** mês
-- [ ] Pagar cria um `invoice_payment` do total e marca status; total 0 não cria operação
-- [ ] Desmarcar apaga a operação e tira gastos do caixa efetivado
-- [ ] Sync atualiza `amount` sem desmarcar
-- [ ] Dois cartões com o mesmo nome (buraco de UNIQUE)
+- [x] Create recusa nome vazio / duplicado ignore-case (`creditCards.test.ts`)
+- [x] Rename propaga `payment_method` e recusa nome já usado ignore-case (`creditCards.test.ts`)
+- [x] Delete bloqueado com gasto (`canDeleteCreditCard` — `creditCards.test.ts`)
+- [x] Camada de dados: create/update/delete `invoice_payment` (`invoicePayment.test.ts`)
+- [ ] Orquestração hook `payCardInvoice` / unpay / sync amount — **residual QA**
+- [x] UNIQUE ignore-case no adapter (`.ilike`); índice DB aplicado (DEV-57) — residual race/constraint
 
 **Como rodar:**
 

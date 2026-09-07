@@ -214,17 +214,17 @@ Nenhum. Este módulo é a raiz. Os demais (resumo-e-estatisticas, entradas, …)
 
 | Item | Valor |
 | --- | --- |
-| Arquivos de teste | Nenhum (`authErrors` / `Auth` / `AuthContext` sem spec) |
-| Cobertura | Lacuna — não inventar % |
-| Casos críticos cobertos | — |
+| Arquivos de teste | `utils/__tests__/authErrors.test.ts`, `pages/__tests__/Auth.test.tsx`, `components/__tests__/ProtectedRoute.test.tsx` |
+| Cobertura | Cliente coberto (DEV-69) — não inventar % |
+| Casos críticos cobertos | Senhas divergentes, toast e-mail não confirmado, redirects |
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (DEV-69):**
 
-- [ ] Cadastro com senhas diferentes é recusado no cliente
-- [ ] Login sem confirmar e-mail mostra toast específico
-- [ ] Sem sessão, `/` redireciona para `/auth`
-- [ ] Com sessão, `/auth` redireciona para `/`
-- [ ] Refresh de token ao focar a aba não desloga
+- [x] Cadastro com senhas diferentes é recusado no cliente (`Auth.test.tsx`)
+- [x] Login sem confirmar e-mail → mensagem via `getAuthErrorMessage` (`authErrors.test.ts` + Auth)
+- [x] Sem sessão, `/` redireciona para `/auth` (`ProtectedRoute.test.tsx`)
+- [x] Com sessão, `/auth` redireciona para `/` (`Auth.test.tsx`)
+- [ ] Refresh de token ao focar a aba não desloga — **residual QA** (DEV-68)
 
 **Como rodar** (quando existirem testes deste módulo):
 

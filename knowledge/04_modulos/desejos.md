@@ -290,8 +290,8 @@ Sem `localStorage` próprio.
 
 | Item | Valor |
 | --- | --- |
-| Arquivos deste módulo | `utils/business/__tests__/wishItems.test.ts` |
-| UI / hook / adapters | Nenhum spec |
+| Arquivos deste módulo | `utils/business/__tests__/wishItems.test.ts`, `services/adapters/supabase/__tests__/wishItems.test.ts` |
+| UI / hook / adapters | Adapter coberto (DEV-67); orquestração Index residual QA |
 | Cobertura | Não inventar % |
 
 **Casos cobertos hoje:**
@@ -305,17 +305,17 @@ Sem `localStorage` próprio.
 - [x] Filtro conquistas `currentMonth` / `yearToDate`; exclui outro ano e mês futuro
 - [x] Sort de display: pendentes antes de conquistados
 
-**Casos críticos (não automatizados hoje):**
+**Casos críticos (adapter / residual QA — DEV-67):**
 
-- [ ] Create recusa descrição vazia / valor ≤ 0; grava `active` e `startMonth` = mês aberto
-- [ ] Adapter não envia status no INSERT
-- [ ] Load expira lote e mostra toast
-- [ ] Só marcar → `conquered` sem `linked_expense_id`; caixa inalterado
-- [ ] Incluir gasto: desejo só fecha após INSERT; cancelar mantém `active`
-- [ ] Cartão no fluxo conquista nasce `paid: false`; não-cartão `paid: true`
-- [ ] Conquista “já pago” persiste a carteira no gasto (mesmo `createExpense`; QA manual DEV-52; sem spec de adapter)
-- [ ] Apagar o gasto zera o vínculo e **não** reabre o desejo
-- [ ] Express `/api/wish-items` não existe
+- [x] Create grava `status: 'active'` + `start_month` (`wishItems.test.ts`); validação vazia/≤0 — **residual UI**
+- [x] Adapter fixa `status: 'active'` no INSERT (chamador não sobrescreve) — checklist antigo “não envia status” desatualizado
+- [x] `expireWishItems` / `updateWishItem` conquered (`wishItems.test.ts`); toast no load — **residual hook/QA**
+- [ ] Só marcar → `conquered` sem `linked_expense_id`; caixa inalterado — **residual QA**
+- [ ] Incluir gasto: desejo só fecha após INSERT; cancelar mantém `active` — **residual QA**
+- [ ] Cartão no fluxo conquista nasce `paid: false`; não-cartão `paid: true` — **residual QA**
+- [x] `createExpense` persiste `accountId` (DEV-52 / `expenses.test.ts`)
+- [ ] Apagar o gasto zera o vínculo e **não** reabre o desejo — **residual QA**
+- [ ] Express `/api/wish-items` não existe — **fora** (ADR-001)
 
 **Como rodar:**
 
