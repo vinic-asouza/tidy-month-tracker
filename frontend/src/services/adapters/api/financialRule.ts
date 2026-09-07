@@ -24,3 +24,11 @@ export async function updateFinancialRule(
 export async function deleteFinancialRule(): Promise<void> {
   await apiClient.delete('/api/financial-rule');
 }
+
+export async function renameCategoryInMapping(
+  _oldCategory: string,
+  _newCategory: string
+): Promise<FinancialRule | null> {
+  // Express incompleto (ADR-001); produção usa adapter Supabase.
+  return getFinancialRule();
+}

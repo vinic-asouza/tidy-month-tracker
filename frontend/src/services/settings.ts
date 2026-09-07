@@ -47,3 +47,27 @@ export async function updateExpenseCategoryInExpenses(
 ): Promise<void> {
   return settingsAdapter().updateExpenseCategoryInExpenses(userId, oldCategory, newCategory);
 }
+
+export async function renameIncomeTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  return settingsAdapter().renameIncomeTag(userId, oldTag, newTag);
+}
+
+export async function renameExpenseCategory(
+  userId: string,
+  oldCategory: string,
+  newCategory: string
+): Promise<void> {
+  return settingsAdapter().renameExpenseCategory(userId, oldCategory, newCategory);
+}
+
+export async function renameInvestmentTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  return settingsAdapter().renameInvestmentTag(userId, oldTag, newTag);
+}

@@ -119,7 +119,7 @@ describe('calculatePendingMonthTotals', () => {
 });
 
 describe('calculatePlannedMonthTotals', () => {
-  it('inclui resgates no planejado e so recebidos no efetivado', () => {
+  it('exclui resgates do planejado e mantem so recebidos no efetivado', () => {
     const data = mockMonthData({
       incomes: [
         {
@@ -137,8 +137,28 @@ describe('calculatePlannedMonthTotals', () => {
     const planned = calculatePlannedMonthTotals(data);
     const effective = calculateEffectiveMonthTotals(data, []);
 
-    expect(planned.totalIncome).toBe(3400);
+    expect(planned.totalIncome).toBe(3000);
+    expect(planned.balance).toBe(3000);
     expect(effective.totalIncome).toBe(3000);
+  });
+
+  it('exclui resgate recebido do planejado mas soma no efetivado', () => {
+    const data = mockMonthData({
+      incomes: [
+        {
+          id: 'i1',
+          description: 'Salario',
+          value: 3000,
+          tag: 'Salario',
+          date: null,
+          received: true,
+        },
+        mockResgateIncome(400),
+      ],
+    });
+
+    expect(calculatePlannedMonthTotals(data).totalIncome).toBe(3000);
+    expect(calculateEffectiveMonthTotals(data, []).totalIncome).toBe(3400);
   });
 });
 

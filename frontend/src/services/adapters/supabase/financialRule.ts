@@ -5,6 +5,12 @@ import type {
   UpdateFinancialRuleInput,
 } from '@/types/domain';
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/types/finance';
+import {
+  getUnmappedCategories,
+  mergeMappingWithCategories,
+  renameCategoryInMapping as renameMappingKey,
+  type CategoryMapping,
+} from '@/utils/business/financialRuleMapping';
 import { toFinancialRule } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
 
@@ -21,21 +27,7 @@ function validatePercentages(
   }
 }
 
-function validateCategoryMapping(
-  categoryMapping: Record<string, 'essentials' | 'lifestyle'>,
-  allCategories: string[]
-): void {
-  const mappedCategories = Object.keys(categoryMapping);
-  const unmappedCategories = allCategories.filter(
-    (cat) => !mappedCategories.includes(cat)
-  );
-
-  if (unmappedCategories.length > 0) {
-    throw new Error(
-      `Todas as categorias devem estar mapeadas. Categorias não mapeadas: ${unmappedCategories.join(', ')}`
-    );
-  }
-
+function validateBuckets(categoryMapping: CategoryMapping): void {
   for (const [category, type] of Object.entries(categoryMapping)) {
     if (type !== 'essentials' && type !== 'lifestyle') {
       throw new Error(
@@ -43,6 +35,21 @@ function validateCategoryMapping(
       );
     }
   }
+}
+
+function validateCategoryMapping(
+  categoryMapping: CategoryMapping,
+  allCategories: string[]
+): void {
+  const unmappedCategories = getUnmappedCategories(categoryMapping, allCategories);
+
+  if (unmappedCategories.length > 0) {
+    throw new Error(
+      `Todas as categorias devem estar mapeadas. Categorias não mapeadas: ${unmappedCategories.join(', ')}`
+    );
+  }
+
+  validateBuckets(categoryMapping);
 }
 
 async function getExpenseCategories(userId: string): Promise<string[]> {
@@ -130,9 +137,19 @@ export async function updateFinancialRule(
     updatedData.investmentsPercentage
   );
 
+  // Sempre alinhar o mapping às categorias atuais (remove chaves órfãs).
+  // Validação completa (todas mapeadas) só quando o caller envia categoryMapping
+  // (ex.: wizard passo 2). Update só de % preserva buckets e deixa novas pendentes.
+  const categories = await getExpenseCategories(userId);
+  updatedData.categoryMapping = mergeMappingWithCategories(
+    updatedData.categoryMapping,
+    categories
+  );
+
   if (data.categoryMapping) {
-    const categories = await getExpenseCategories(userId);
     validateCategoryMapping(updatedData.categoryMapping, categories);
+  } else {
+    validateBuckets(updatedData.categoryMapping);
   }
 
   const { data: row, error } = await supabase
@@ -144,6 +161,29 @@ export async function updateFinancialRule(
       category_mapping: updatedData.categoryMapping,
       is_custom: updatedData.isCustom,
     })
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  throwIfError(error);
+  return toFinancialRule(row!);
+}
+
+/** Renomeia a chave no category_mapping preservando o bucket (DEV-55). */
+export async function renameCategoryInMapping(
+  oldCategory: string,
+  newCategory: string
+): Promise<FinancialRule | null> {
+  const userId = await getAuthUserId();
+  const currentRule = await getFinancialRule();
+  if (!currentRule) return null;
+
+  const mapping = renameMappingKey(currentRule.categoryMapping, oldCategory, newCategory);
+  if (!mapping) return currentRule;
+
+  const { data: row, error } = await supabase
+    .from('financial_rule')
+    .update({ category_mapping: mapping })
     .eq('user_id', userId)
     .select('*')
     .single();

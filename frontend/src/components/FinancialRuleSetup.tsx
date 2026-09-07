@@ -52,40 +52,49 @@ export const FinancialRuleSetup = ({
     cat.toLowerCase().includes(categorySearch.trim().toLowerCase())
   );
   useEffect(() => {
-    if (open) {
-      // Se houver categorias não mapeadas, ir direto para o passo 2
-      setStep(unmappedCategories && unmappedCategories.length > 0 ? 2 : 1);
-      setErrors({});
+    if (!open) return;
 
-      if (initialRule) {
-        // Modo edição: carregar dados existentes
-        if (initialRule.isCustom) {
-          setRuleModel('custom');
-          setEssentialsPercentage(String(initialRule.essentialsPercentage));
-          setLifestylePercentage(String(initialRule.lifestylePercentage));
-          setInvestmentsPercentage(String(initialRule.investmentsPercentage));
-        } else {
-          setRuleModel('default');
-          setEssentialsPercentage('50');
-          setLifestylePercentage('30');
-          setInvestmentsPercentage('20');
-        }
+    // Se houver categorias não mapeadas, ir direto para o passo 2
+    setStep(unmappedCategories && unmappedCategories.length > 0 ? 2 : 1);
+    setErrors({});
 
-        // Carrega mapeamento salvo
-        setCategoryMapping(initialRule.categoryMapping || {});
+    if (initialRule) {
+      if (initialRule.isCustom) {
+        setRuleModel('custom');
+        setEssentialsPercentage(String(initialRule.essentialsPercentage));
+        setLifestylePercentage(String(initialRule.lifestylePercentage));
+        setInvestmentsPercentage(String(initialRule.investmentsPercentage));
       } else {
-        // Primeira configuração
         setRuleModel('default');
         setEssentialsPercentage('50');
         setLifestylePercentage('30');
         setInvestmentsPercentage('20');
-        setCategoryMapping({});
       }
-
-      setErrors({});
-      setCategorySearch('');
+      setCategoryMapping(initialRule.categoryMapping || {});
+    } else {
+      setRuleModel('default');
+      setEssentialsPercentage('50');
+      setLifestylePercentage('30');
+      setInvestmentsPercentage('20');
+      setCategoryMapping({});
     }
-  }, [open, initialRule, unmappedCategories]);
+
+    setCategorySearch('');
+    // Só reidrata ao abrir / mudar a regra salva — categorias novas sincronizam sem resetar %.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmappedCategories propositalmente fora
+  }, [open, initialRule]);
+
+  // Com dialog aberto: preservar buckets; categorias novas ficam pendentes (sem auto-classificar).
+  useEffect(() => {
+    if (!open) return;
+    setCategoryMapping((prev) => {
+      const next: Record<string, 'essentials' | 'lifestyle'> = {};
+      for (const cat of categories) {
+        if (prev[cat] !== undefined) next[cat] = prev[cat];
+      }
+      return next;
+    });
+  }, [open, categories]);
 
   // Validação do passo 1
   const validateStep1 = (): boolean => {

@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.4.0 | 2026-09-07 | Draft | [v0.4.0-2026-09-07.md](./v0.4.0-2026-09-07.md) |
 | v0.3.1 | 2026-09-04 | Publicado | [v0.3.1-2026-09-04.md](./v0.3.1-2026-09-04.md) |
 | v0.3.0 | 2026-09-04 | Publicado | [v0.3.0-2026-09-04.md](./v0.3.0-2026-09-04.md) |
 | v0.2.1 | 2026-09-04 | Publicado | [v0.2.1-2026-09-04.md](./v0.2.1-2026-09-04.md) |
@@ -33,7 +34,7 @@ Gatilho: **PR com destino `main`** (produção / Vercel). A nota entra **no mesm
 - Template: [`../00_meta/templates/template-release-notes.md`](../00_meta/templates/template-release-notes.md)
 - Nome: `vX.Y.Z-YYYY-MM-DD.md` (ex.: `v0.1.1-2026-08-24.md`)
 - Frontmatter: `ambiente: production`; IDs Linear no campo `issues`
-- SemVer: última publicada é `v0.3.1`. Próxima padrão = **PATCH** `v0.3.2`. MINOR se funcionalidade visível; MAJOR se breaking.
+- SemVer: última publicada é `v0.3.1`. Próxima Draft = **MINOR** `v0.4.0` (lote DEV-50). Depois: PATCH `v0.4.1` ou MINOR se feature.
 - `v1.0.0` só no go-live público do [roadmap](../01_produto/roadmap.md).
 
 Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, migrations, landing).

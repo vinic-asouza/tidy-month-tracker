@@ -3,7 +3,11 @@
  */
 
 import type { CreditCard, FinancialRule, FinancialRuleStats, MonthData } from '@/types/domain';
-import { isExpenseEffectivelyPaid, type SummaryViewMode } from '@/utils/business/monthTotals';
+import {
+  isExpenseEffectivelyPaid,
+  isResgateIncome,
+  type SummaryViewMode,
+} from '@/utils/business/monthTotals';
 
 /**
  * Calcula as estatísticas da regra financeira baseado nos dados do mês
@@ -67,7 +71,10 @@ export function calculatePlannedFinancialRuleStats(
   rule: FinancialRule,
   monthData: MonthData
 ): FinancialRuleStats {
-  const totalIncome = monthData.incomes.reduce((sum, income) => sum + income.value, 0);
+  // Resgates só entram no efetivado: no planejado inflariam a base de renda da regra.
+  const totalIncome = monthData.incomes
+    .filter((income) => !isResgateIncome(income))
+    .reduce((sum, income) => sum + income.value, 0);
 
   const allExpenses = monthData.expenses;
   const totalEffectiveExpenses = allExpenses.reduce((sum, expense) => sum + expense.value, 0);

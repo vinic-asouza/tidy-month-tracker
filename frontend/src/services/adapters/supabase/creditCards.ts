@@ -17,6 +17,19 @@ export async function getCreditCards(userId: string): Promise<CreditCard[]> {
 
 export async function createCreditCard(params: CreateCreditCardParams): Promise<CreditCard> {
   const userId = params.userId ?? (await getAuthUserId());
+  const name = params.name?.trim() ?? '';
+  if (!name) throw new Error('Nome do cartão é obrigatório');
+
+  const { data: existingCard, error: dupError } = await supabase
+    .from('credit_cards')
+    .select('id')
+    .eq('user_id', userId)
+    .ilike('name', name)
+    .maybeSingle();
+
+  throwIfError(dupError);
+  if (existingCard) throw new Error('Já existe um cartão com este nome');
+
   const displayOrder =
     params.displayOrder ?? (await getGlobalItemCount('credit_cards', userId));
 
@@ -24,7 +37,7 @@ export async function createCreditCard(params: CreateCreditCardParams): Promise<
     .from('credit_cards')
     .insert({
       user_id: userId,
-      name: params.name,
+      name,
       color: params.color,
       paid: params.paid || false,
       display_order: displayOrder,
@@ -41,8 +54,11 @@ export async function createCreditCard(params: CreateCreditCardParams): Promise<
 export async function updateCreditCard(params: UpdateCreditCardParams): Promise<void> {
   const userId = params.userId ?? (await getAuthUserId());
   const { id, updates } = params;
+  const newName = updates.name?.trim() ?? '';
 
   if (updates.name !== undefined) {
+    if (!newName) throw new Error('Nome do cartão é obrigatório');
+
     const { data: currentCard, error: fetchError } = await supabase
       .from('credit_cards')
       .select('name')
@@ -54,12 +70,12 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
     if (!currentCard) throw new Error('Cartão não encontrado');
 
     const oldName = currentCard.name;
-    if (oldName !== updates.name) {
+    if (oldName !== newName) {
       const { data: existingCard, error: dupError } = await supabase
         .from('credit_cards')
         .select('id')
         .eq('user_id', userId)
-        .eq('name', updates.name)
+        .ilike('name', newName)
         .neq('id', id)
         .maybeSingle();
 
@@ -68,7 +84,7 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
 
       const { error: expenseError } = await supabase
         .from('expenses')
-        .update({ payment_method: updates.name })
+        .update({ payment_method: newName })
         .eq('user_id', userId)
         .eq('payment_method', oldName);
 
@@ -77,7 +93,7 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
   }
 
   const row: Record<string, unknown> = {};
-  if (updates.name !== undefined) row.name = updates.name;
+  if (updates.name !== undefined) row.name = newName;
   if (updates.color !== undefined) row.color = updates.color;
   if (updates.paid !== undefined) row.paid = updates.paid;
   if (updates.dueDay !== undefined) row.due_day = updates.dueDay;

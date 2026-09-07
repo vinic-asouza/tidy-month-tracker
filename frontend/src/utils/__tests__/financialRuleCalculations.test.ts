@@ -177,4 +177,38 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
     expect(stats.essentials.current).toBeCloseTo((1500 / 7000) * 100, 5);
     expect(stats.essentials.currentValue).toBe(1500);
   });
+
+  it('exclui resgates da base de renda no planejado', () => {
+    const monthData: MonthData = {
+      incomes: [
+        { id: '1', description: 'Salario', value: 5000, tag: 'Salario', received: false },
+        {
+          id: '2',
+          description: 'Resgate',
+          value: 2000,
+          tag: RESGATE_INCOME_TAG,
+          received: false,
+          sourceOperationId: 'op-1',
+        },
+      ],
+      expenses: [
+        {
+          id: 'e1',
+          type: 'fixed',
+          category: 'Moradia',
+          description: 'Aluguel',
+          paymentMethod: 'Pix',
+          value: 1500,
+          paid: false,
+        },
+      ],
+      investments: [],
+      cardMonthlyStatuses: {},
+    };
+
+    const stats = calculatePlannedFinancialRuleStats(baseRule, monthData);
+
+    expect(stats.totalIncome).toBe(5000);
+    expect(stats.essentials.current).toBeCloseTo((1500 / 5000) * 100, 5);
+  });
 });

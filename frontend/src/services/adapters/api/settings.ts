@@ -46,3 +46,39 @@ export async function updateExpenseCategoryInExpenses(
     newCategory,
   });
 }
+
+export async function renameIncomeTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  const settings = await getSettings(userId);
+  await updateIncomeTags(userId, settings.incomeTags.map((t) => (t === oldTag ? newTag : t)));
+  await updateIncomeTagInIncomes(userId, oldTag, newTag);
+}
+
+export async function renameExpenseCategory(
+  userId: string,
+  oldCategory: string,
+  newCategory: string
+): Promise<void> {
+  const settings = await getSettings(userId);
+  await updateExpenseCategories(
+    userId,
+    settings.expenseCategories.map((c) => (c === oldCategory ? newCategory : c))
+  );
+  await updateExpenseCategoryInExpenses(userId, oldCategory, newCategory);
+}
+
+export async function renameInvestmentTag(
+  userId: string,
+  oldTag: string,
+  newTag: string
+): Promise<void> {
+  const settings = await getSettings(userId);
+  await updateInvestmentTags(
+    userId,
+    settings.investmentTags.map((t) => (t === oldTag ? newTag : t))
+  );
+  await updateInvestmentTagInInvestments(userId, oldTag, newTag);
+}

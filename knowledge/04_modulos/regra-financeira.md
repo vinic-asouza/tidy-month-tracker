@@ -210,7 +210,7 @@ Modo planejado: todas as linhas, sem flags.
 
 ### Código vs regra
 
-- **Mapping completo no save:** o wizard não deixa “não classificado” no create. O bucket aparece quando a pessoa **cria ou renomeia** categoria em gastos **depois** — as chaves do JSON não acompanham o rename (`gastos.md` propaga `expenses.category`, não `financial_rule.category_mapping`).
+- **Mapping completo no save:** o wizard exige todas as categorias mapeadas no passo 2. Categorias novas após o save aparecem como “não classificado” (badge) sem reabrir o wizard. Rename de categoria atualiza a chave em `financial_rule.category_mapping` (mesmo bucket). `useFinancialRule` compartilha cache React Query entre mês e ano.
 - **CHECK 100.00 vs JS ±0,01:** valores que passam no adapter podem falhar no Postgres (e o contrário, com arredondamento DECIMAL).
 - **Update só de percentuais:** não revalida mapping contra a lista atual de categorias (categorias novas continuam de fora até o usuário reabrir o passo 2).
 - **Dois hooks:** mensal e anual não compartilham `rule` em memória; depois de salvar num, o outro só vê no próximo mount/`refreshRule`.

@@ -34,7 +34,9 @@ Sem checkbox pago no item. Status vem da **fatura** daquele mês. Não vincula c
 
 - Excluir “este mês”: só o registro corrente; a série pode ficar com buraco.
 - Excluir “todas”: série pelo `base_expense_id`.
-- Editar “todas as parcelas / meses seguintes”: escopo da série, sem copiar carteira.
+- Editar em lote **parcelado**: atualiza a **série inteira** (parcelas passadas, atual e futuras), sem copiar carteira/pago.
+- Editar em lote **fixo**: só `year_month >=` o mês aberto (resto do ano civil), sem copiar carteira/pago.
+- A diferença parcelado vs fixo é intencional (produto): parcelado pode cruzar o ano; fixo vive no ano civil.
 
 ## RN-X06 — Categorias
 

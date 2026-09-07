@@ -511,16 +511,13 @@ const IncomeSectionComponent = ({
   };
 
   const handleDeleteTag = async (tag: string) => {
-    const hasIncomes = incomes.some((income) => income.tag === tag);
-    if (hasIncomes) {
-      toast.error('Não é possível excluir: existem entradas usando esta categoria');
-      return;
-    }
     if (isTagLoading) return;
 
     setIsTagLoading(true);
     try {
       await onDeleteTag(tag);
+    } catch {
+      // Adapter/hook já exibem toast (uso em qualquer mês / erro de rede).
     } finally {
       setIsTagLoading(false);
     }

@@ -20,7 +20,7 @@ import {
   DEFAULT_PAYMENT_METHODS,
 } from '@/types/finance';
 import type { Account, AccountBalance, UpsertAccountBalanceInput } from '@/types/domain';
-import { financeKeys } from '@/lib/financeQueryKeys';
+import { financeKeys, financialRuleKeys } from '@/lib/financeQueryKeys';
 import {
   fetchMonthBundle,
   fetchYearData,
@@ -48,6 +48,7 @@ import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
 import * as investmentsService from '@/services/investments';
 import * as creditCardsService from '@/services/creditCards';
+import * as financialRuleService from '@/services/financialRule';
 import * as settingsService from '@/services/settings';
 import * as accountOperationsService from '@/services/accountOperations';
 
@@ -1055,9 +1056,28 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           expenses: prev.expenses.map((expense) =>
             expense.accountId === id ? { ...expense, accountId: undefined } : expense
           ),
-          investments: prev.investments.map((investment) =>
-            investment.accountId === id ? { ...investment, accountId: undefined } : investment
-          ),
+          investments: prev.investments.map((investment) => {
+            if (investment.accountId !== id && investment.sourceAccountId !== id) {
+              return investment;
+            }
+            return {
+              ...investment,
+              accountId: investment.accountId === id ? undefined : investment.accountId,
+              sourceAccountId:
+                investment.sourceAccountId === id ? undefined : investment.sourceAccountId,
+            };
+          }),
+          accountOperations: (prev.accountOperations ?? []).map((operation) => {
+            if (operation.sourceAccountId !== id && operation.destinationAccountId !== id) {
+              return operation;
+            }
+            return {
+              ...operation,
+              sourceAccountId: operation.sourceAccountId === id ? null : operation.sourceAccountId,
+              destinationAccountId:
+                operation.destinationAccountId === id ? null : operation.destinationAccountId,
+            };
+          }),
         }));
         await invalidateCurrentMonth();
         await queryClient.invalidateQueries({
@@ -1285,12 +1305,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         t === oldTag ? newTag : t
       );
       try {
-        await settingsService.updateInvestmentTags(user.id, newTags);
-        await settingsService.updateInvestmentTagInInvestments(
-          user.id,
-          oldTag,
-          newTag
-        );
+        await settingsService.renameInvestmentTag(user.id, oldTag, newTag);
         setSettings((prev) => ({ ...prev, investmentTags: newTags }));
         setMonthBundle((prev) => ({
           ...prev,
@@ -1312,8 +1327,10 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       try {
         await settingsService.updateInvestmentTags(user.id, newTags);
         setSettings((prev) => ({ ...prev, investmentTags: newTags }));
-      } catch {
-        toast.error('Erro ao excluir tag');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Erro ao excluir tag';
+        toast.error(message);
+        throw error;
       }
     },
     [user, settings.investmentTags]
@@ -1340,8 +1357,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         t === oldTag ? newTag : t
       );
       try {
-        await settingsService.updateIncomeTags(user.id, newTags);
-        await settingsService.updateIncomeTagInIncomes(user.id, oldTag, newTag);
+        await settingsService.renameIncomeTag(user.id, oldTag, newTag);
         setSettings((prev) => ({ ...prev, incomeTags: newTags }));
         setMonthBundle((prev) => ({
           ...prev,
@@ -1363,8 +1379,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       try {
         await settingsService.updateIncomeTags(user.id, newTags);
         setSettings((prev) => ({ ...prev, incomeTags: newTags }));
-      } catch {
-        toast.error('Erro ao excluir categoria');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erro ao excluir categoria';
+        toast.error(message);
+        throw error;
       }
     },
     [user, settings.incomeTags]
@@ -1391,12 +1412,12 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         c === oldCategory ? newCategory : c
       );
       try {
-        await settingsService.updateExpenseCategories(user.id, newCategories);
-        await settingsService.updateExpenseCategoryInExpenses(
-          user.id,
-          oldCategory,
-          newCategory
-        );
+        // Mapping antes do rename nos gastos (CA-04: evita chave órfã).
+        await financialRuleService.renameCategoryInMapping(oldCategory, newCategory);
+        await queryClient.invalidateQueries({
+          queryKey: financialRuleKeys.detail(user.id),
+        });
+        await settingsService.renameExpenseCategory(user.id, oldCategory, newCategory);
         setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
         setMonthBundle((prev) => ({
           ...prev,
@@ -1410,7 +1431,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         toast.error('Erro ao atualizar categoria de gasto');
       }
     },
-    [user, settings.expenseCategories, setMonthBundle]
+    [user, settings.expenseCategories, setMonthBundle, queryClient]
   );
 
   const deleteExpenseCategory = useCallback(
@@ -1422,8 +1443,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       try {
         await settingsService.updateExpenseCategories(user.id, newCategories);
         setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
-      } catch {
-        toast.error('Erro ao excluir categoria de gasto');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erro ao excluir categoria de gasto';
+        toast.error(message);
+        throw error;
       }
     },
     [user, settings.expenseCategories]

@@ -33,7 +33,7 @@ Cadastro de **carteiras** (globais, não por mês) e a leitura do **saldo estima
 
 - CRUD de carteira: nome, papel `movement` | `investment`, subtipo, cor (`CARD_COLORS`), `display_order` no create (RN-W01)
 - Recusar nome duplicado (UI ignore-case + adapter `ilike`); **não** há UNIQUE de nome no Postgres
-- Trocar papel na UI se não houver movimentos nos meses carregados do histórico + mês atual (RN-W01; ver lacuna no adapter)
+- Trocar papel: UI bloqueia se houver movimentos no histórico carregado; **adapter** também recusa troca se existir qualquer movimento (RN-W01)
 - Subtipo (corrente, poupança, dinheiro, outro) só na UI de movimentação; papel investimentos força `type = 'investment'`
 - Chip do mês: métricas efetivadas por papel + saldo de fechamento (RN-W02, RN-W04)
 - Declarar saldo de abertura do mês (`account_balances`, unique `(account_id, year_month)`); senão carry-forward (RN-W03)
@@ -261,7 +261,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/carteiras.md`](../02_regras
 
 | ID | Regra | Onde está no código |
 | --- | --- | --- |
-| RN-W01 | Papel obrigatório; troca bloqueada se houver movimentos; subtipo só em movimentação | Form + `accountHasAnyMovements` (histórico carregado + mês atual). Adapter **aceita** `role` sem checar |
+| RN-W01 | Papel obrigatório; troca bloqueada se houver movimentos; subtipo só em movimentação | Form + `accountHasAnyMovements` (UX); adapter `updateAccount` + `hasAccountMovements` (fonte de verdade) |
 | RN-W02 | Métricas efetivadas; paridade com resumo (`received` / `isExpenseEffectivelyPaid` / `invested`) | `getAccountMonthTotals` |
 | RN-W03 | Abertura = declaração ou carry-forward; aviso se já houver efetivados | `getAccountOpeningBalance` / `getBalanceDeclarationWarning` |
 | RN-W04 | Movimentação: `inflow − outflow` (aportes enviados saem). Investimentos: `inflow + invested − outflow` | `getAccountNetVariation` |
@@ -293,9 +293,9 @@ Efetivados sem `account_id` + `withdrawal`/`transfer_*`/`invoice_payment` sem ca
 
 ### Código vs regra
 
-- **RN-W01 no adapter:** `updateAccount` grava `role` sem consultar movimentos. O bloqueio é só na UI, e só olha meses em `accountHistoryMonths` + mês aberto — movimentos só em `account_operations` (e o fetch de “primeiro mês” **não** lê operations) podem passar batido.
-- **`getEarliestAccountMovementMonth`:** mínimo de `year_month` em incomes/expenses/investments com `account_id` not null. Ignora operations e `source_account_id`.
-- **Delete otimista:** o hook limpa `accountId` em incomes/expenses/investments do mês; **não** zera `sourceAccountId` dos aportes no bundle. O banco faz SET NULL; o invalidate corrige.
+- **RN-W01 no adapter:** `updateAccount` recusa troca de `role` se houver movimentos em incomes/expenses/investments (destino ou origem) ou `account_operations`.
+- **`getEarliestAccountMovementMonth`:** mínimo de `year_month` em incomes/expenses/investments (`account_id` ou `source_account_id`) e `account_operations` (source/destination).
+- **Delete otimista:** o hook limpa `accountId` e `sourceAccountId` dos aportes (e vínculos em operações do bundle) alinhado ao SET NULL do banco.
 - **Sem UNIQUE de nome** no Postgres (igual cartões).
 
 ---
@@ -373,14 +373,14 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 **Casos críticos (não automatizados hoje):**
 
 - [ ] Adapter recusa nome duplicado `ilike`
-- [ ] Adapter **não** bloqueia troca de papel (lacuna RN-W01)
+- [x] Adapter bloqueia troca de papel com movimentos (RN-W01)
 - [ ] UI bloqueia papel quando há movimentos no histórico carregado
 - [ ] Transferência não cria `incomes` e não altera `calculateMonthTotals`
 - [ ] Resgate com destino → par transfer + entrada no destino
 - [ ] Resgate para Saldo Livre → `withdrawal` + entrada sem `account_id`
 - [ ] Rollback das ops se `createResgateIncome` falhar
 - [ ] Excluir carteira deixa lançamentos; SET NULL
-- [ ] `getEarliestAccountMovementMonth` ignora `account_operations`
+- [x] `getEarliestAccountMovementMonth` inclui `account_operations` e `source_account_id`
 
 **Como rodar:**
 

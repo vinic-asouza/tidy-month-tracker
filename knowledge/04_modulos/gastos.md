@@ -38,7 +38,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 - Cartão: sem toggle de pago no item; status visual e caixa efetivado vêm da fatura (`credit_card_monthly_status`); match por `paymentMethod === creditCard.name` (RN-X04)
 - Parcelas: gera o restante da série (`installments.ts`), **pode cruzar o ano**; excluir “este mês” deixa buraco; excluir “todas” pela série `base_expense_id` (RN-X05)
 - Fixo com `repeatAllMonths`: mesmos 11 meses do ano civil que entradas (RN-G05); carteira **não** se copia
-- CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso **no mês aberto** (RN-X06; lacuna vs RN-G06)
+- CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso em **qualquer** mês (RN-X06 / RN-G06)
 - **Troca de tipo** no formulário (criar/editar): um único form por `activeTab` preserva campos comuns; no update, `type` muda só no registro aberto, com unlink/promote de série e geração de nova série se aplicável (RN-X07)
 - Aceitar rascunho de gasto vindo da conquista de desejo (o desejo só fecha **depois** do INSERT)
 - **Importar CSV** (CTA em Gastos): origem conta | cartão → mapear colunas (incl. Parcela opcional) → revisar ações/match + evidência de parcela → importar lote com falha parcial (CSV-01…CSV-06)
@@ -255,10 +255,10 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de
 | RN-X05 | Excluir este mês = um registro (buraco ok); todas = série | `deleteExpense(false)` vs `deleteInstallmentExpense` |
 | RN-X06 | CRUD categorias; rename propaga | `updateExpenseCategory` no hook |
 | RN-G05 | Fixo+repeat = outros 11 meses do **mesmo** ano civil | `calculateRemainingMonths` (não usa `installments.ts`) |
-| RN-G06 | Não excluir categoria em uso em **qualquer** mês | **Parcial:** `handleDeleteCategory` só olha `expenses` do mês aberto |
+| RN-G06 | Não excluir categoria em uso em **qualquer** mês | Adapter `updateExpenseCategories` (existence check em `expenses`); UI propaga erro |
 | CSV-01…06 | Assistida; match só sugestão; associar não duplica; origem; mês divergente; evidência de parcela | `ImportExpensesCsvDialog` + `csvImportBuild` / `expenseMatch` / `installmentDetect` |
 
-**Código vs RN-X05 na edição em lote de parcelas:** `applyToAllMonths` no parcelado atualiza a **série inteira**, não só `year_month >=` atual (diferente do fixo).
+**Código vs RN-X05 na edição em lote de parcelas:** `applyToAllMonths` no parcelado atualiza a **série inteira** (incluindo passadas), não só `year_month >=` atual (diferente do fixo). Copy da UI documenta a diferença (decisão de produto B).
 
 ---
 
@@ -335,7 +335,7 @@ Nenhuma env exclusiva. Mesmo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KE
 - [ ] Efetivar não-cartão pede carteira; cartão não chama `paid` no item
 - [ ] Excluir uma parcela deixa buraco; “todas” apaga a série
 - [ ] Create honra `accountId` na linha principal; clones sem carteira (sem spec de adapter; QA manual DEV-52)
-- [ ] Excluir categoria usada em **outro** mês (RN-G06)
+- [x] Excluir categoria usada em **outro** mês (RN-G06)
 - [ ] Wizard CSV ponta a ponta (E2E) — QA manual / Gherkin DEV-103
 - [ ] Troca de tipo na edição preserva campos; unlink só o aberto; generate fixo/parcelado (QA manual DEV-104)
 

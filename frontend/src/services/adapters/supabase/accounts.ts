@@ -3,6 +3,8 @@ import type { Account, CreateAccountInput, UpdateAccountInput } from '@/types/do
 import { toAccount } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
 
+type MovementTable = 'incomes' | 'expenses' | 'investments' | 'account_operations';
+
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
 }
@@ -50,6 +52,29 @@ export async function createAccount(
   return toAccount(data!);
 }
 
+/** Verifica se a carteira já foi usada em qualquer lançamento ou operação. */
+async function hasAccountMovements(userId: string, accountId: string): Promise<boolean> {
+  const checks: { table: MovementTable; columns: string[] }[] = [
+    { table: 'incomes', columns: ['account_id'] },
+    { table: 'expenses', columns: ['account_id'] },
+    { table: 'investments', columns: ['account_id', 'source_account_id'] },
+    { table: 'account_operations', columns: ['source_account_id', 'destination_account_id'] },
+  ];
+
+  for (const { table, columns } of checks) {
+    const { count, error } = await supabase
+      .from(table)
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .or(columns.map((column) => `${column}.eq.${accountId}`).join(','));
+
+    throwIfError(error);
+    if ((count ?? 0) > 0) return true;
+  }
+
+  return false;
+}
+
 export async function updateAccount(
   id: string,
   userId: string,
@@ -68,6 +93,22 @@ export async function updateAccount(
 
     throwIfError(dupError);
     if (existing) throw new Error('Já existe uma carteira com este nome');
+  }
+
+  if (updates.role !== undefined) {
+    const { data: current, error: currentError } = await supabase
+      .from('accounts')
+      .select('role')
+      .eq('id', id)
+      .eq('user_id', uid)
+      .maybeSingle();
+
+    throwIfError(currentError);
+
+    const roleChanges = current != null && current.role !== updates.role;
+    if (roleChanges && (await hasAccountMovements(uid, id))) {
+      throw new Error('Não é possível alterar o papel: esta carteira já tem movimentos');
+    }
   }
 
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -97,14 +138,15 @@ export async function deleteAccount(id: string, userId: string): Promise<void> {
 }
 
 async function getEarliestYearMonthFromTable(
-  table: 'incomes' | 'expenses' | 'investments',
-  userId: string
+  table: MovementTable,
+  userId: string,
+  columns: string[]
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from(table)
     .select('year_month')
     .eq('user_id', userId)
-    .not('account_id', 'is', null)
+    .or(columns.map((column) => `${column}.not.is.null`).join(','))
     .order('year_month', { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -115,15 +157,17 @@ async function getEarliestYearMonthFromTable(
 
 export async function getEarliestAccountMovementMonth(userId: string): Promise<string | null> {
   const uid = await resolveUserId(userId);
-  const [incomeMonth, expenseMonth, investmentMonth] = await Promise.all([
-    getEarliestYearMonthFromTable('incomes', uid),
-    getEarliestYearMonthFromTable('expenses', uid),
-    getEarliestYearMonthFromTable('investments', uid),
+  const months = await Promise.all([
+    getEarliestYearMonthFromTable('incomes', uid, ['account_id']),
+    getEarliestYearMonthFromTable('expenses', uid, ['account_id']),
+    getEarliestYearMonthFromTable('investments', uid, ['account_id', 'source_account_id']),
+    getEarliestYearMonthFromTable('account_operations', uid, [
+      'source_account_id',
+      'destination_account_id',
+    ]),
   ]);
 
-  const candidates = [incomeMonth, expenseMonth, investmentMonth].filter(
-    (month): month is string => month !== null
-  );
+  const candidates = months.filter((month): month is string => month !== null);
   if (candidates.length === 0) return null;
   return candidates.sort()[0];
 }
