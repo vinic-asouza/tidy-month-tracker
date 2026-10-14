@@ -21,7 +21,7 @@ Cabeçalho: marca, seletor do período, toggle **Mensal** / **Anual**, tema clar
 | Visão | Conteúdo principal |
 | --- | --- |
 | **Mensal** (`view = dashboard`) | `MonthSummarySection` → `AccountStrip` → `MonthRecordsSection` |
-| **Anual** (`view = statistics`) | `Statistics` — total ou média do ano, gráfico mês a mês e regra na mesma janela |
+| **Anual** (`view = statistics`) | `Statistics` — média e total do ano, gráfico mês a mês, regra e exportação do recorte na mesma janela |
 
 Abas de registros (`RecordsTab`): **Entradas** · **Gastos** · **Investimentos** · **Desejos**. Cartões (`CreditCardStrip`) só na aba Gastos.
 
@@ -129,7 +129,8 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 1. Cabeçalho → **Anual**. O seletor passa a ser o ano e guarda o mês que estava aberto.
 2. `Statistics`: cada card mostra a média da janela em destaque e o total dos 12 meses abaixo. Mês vazio sai do divisor. Sem mês na janela, a média mostra ausência. O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico, regra e seções de dinheiro.
 3. A regra anual usa a mesma média nas barras. Abaixo dela, quatro leituras: gastos por categoria (e por tipo), forma de pagamento (com a soma dos cartões), aportes por tag e desejos do ano. Desejos não entram no caixa. Não há seção de carteiras.
-4. Volta a **Mensal** no mesmo mês do ano escolhido. A visão Mensal continua com um valor só.
+4. **Exportar CSV** ou **Exportar PDF** baixa o ano e o modo que estão na tela: resumo, série mensal, regra, categorias, tipo, pagamento e aportes. Desejos ficam só na tela. A visão Mensal não oferece essas ações.
+5. Volta a **Mensal** no mesmo mês do ano escolhido. A visão Mensal continua com um valor só.
 
 ---
 

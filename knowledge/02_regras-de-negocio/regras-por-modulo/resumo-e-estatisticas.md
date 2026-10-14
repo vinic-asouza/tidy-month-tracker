@@ -54,3 +54,13 @@ Nas três seções de dinheiro, cada linha mostra total e média ao mesmo tempo.
 - Método de pagamento: uma linha por forma usada. Cartão é a forma cujo nome coincide com um cartão cadastrado. Abaixo das linhas, o sub-bloco Cartões soma só essas formas, com a mesma média e o mesmo total do ano. Sem cartão no modo ativo, o sub-bloco não aparece. Pix e as demais formas ficam de fora da soma.
 - Investimentos: aportes agrupados pela tag (RN-I05), não pela carteira de destino. Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `invested`. Planejado inclui todos os aportes do ano.
 - Desejos, três grupos, fora do caixa: conquistado com mês de conquista no ano; ativo cujo intervalo do mês de criação até o prazo cruza o ano; expirado com prazo no ano. A lista não expira nem grava status.
+
+## RN-R07 — Exportação anual
+
+Na visão Anual, **Exportar CSV** e **Exportar PDF** baixam o ano selecionado e o modo ativo (RN-R02). Um arquivo por ação.
+
+O arquivo repete as leituras já exibidas: resumo (média da janela e total dos 12 meses), série dos 12 meses, regra financeira, categorias, tipo, método de pagamento, soma dos cartões e aportes por tag. Média ausente continua `—`, não R$ 0,00. Linha com total zero no modo ativo continua de fora. Seção vazia permanece vazia. Sem regra configurada, o arquivo diz isso, sem faixas inventadas.
+
+Desejos ficam só na tela (RN-R05). Não entram lançamentos linha a linha, carteiras, visão Mensal, os dois modos juntos nem envio do arquivo. Nada é gravado.
+
+A ação espera o ano com 12 meses, o fim do carregamento do ano e o fim do carregamento da regra. Ano futuro ou ano vazio, já exibidos, podem ser exportados. Nome: `finto-anual-{ano}-efetivados` ou `finto-anual-{ano}-planejados`.

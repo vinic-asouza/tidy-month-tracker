@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Visão do produto
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 ---
 
 # Visão do produto
@@ -78,7 +78,7 @@ O **saldo do mês** usa o efetivado por padrão. Dá para alternar para planejad
 - Cartões de crédito com fatura mensal
 - Carteiras com papéis (movimentação vs. investimentos), Saldo Livre, transferência e resgate
 - Aporte com origem e destino
-- Visão anual (total ou média mensal, gráfico mês a mês e seletor de ano)
+- Visão anual (média e total juntos, gráfico mês a mês, seletor de ano e exportação do recorte anual)
 - Personalização de tags, categorias, nome/cor de cartões e carteiras, tema claro/escuro
 
 ---
@@ -89,14 +89,19 @@ Deliberado, não “falta técnica”:
 
 - Open Finance / conexão bancária
 - Importação **automática** de extrato/fatura (sem revisão humana)
-- Exportação de planilhas/CSV/PDF (roadmap P4)
+- Exportação de planilhas, CSV ou PDF fora do recorte anual agregado (roadmap P4)
 - Assinaturas ou gateway de pagamento
 - Múltiplos usuários ou contas compartilhadas
 - Push, WhatsApp ou e-mail transacional além da confirmação de cadastro (Supabase Auth)
 - Integração com corretoras ou sync automático de faturas
 - Administração de usuários, analytics de produto
 
-**Exceção alinhada à visão:** importação **CSV assistida de gastos** (fase 0) — o arquivo propõe; a pessoa mapeia e confirma. Não é agregador passivo. Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
+**Exceções alinhadas à visão:**
+
+- Importação **CSV assistida de gastos** (fase 0) — o arquivo propõe; a pessoa mapeia e confirma. Não é agregador passivo.
+- Exportação **anual agregada** (DEV-150) — na visão Anual, PDF ou CSV do ano e do modo que estão na tela. É leitura do que já aparece, sem desejos, sem lançamento linha a linha e sem gravar nada. Não abre extrato, visão Mensal nem Open Finance.
+
+Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
 
 Carteiras mostram **saldo estimado**, não extrato bancário em tempo real.
 

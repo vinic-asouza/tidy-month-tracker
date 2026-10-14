@@ -2,7 +2,7 @@
 type: modulo
 nome: Regra financeira
 status: Ativo
-versao: "1.0"
+versao: "1.1"
 owner: Development
 ultima_atualizacao: 2026-10-14
 tags: [regra-financeira, 50-30-20, frontend, supabase]
@@ -163,7 +163,7 @@ Produção: PostgREST. Express espelha `/api/financial-rule`.
 
 ### UI / rotas
 
-Sem URL própria. Coluna da regra em `/` visão mensal (`MonthSummarySection`) e bloco no anual (`AnnualFinancialRuleSection`). Ambos chamam `useFinancialRule` (estado **não** compartilhado via cache).
+Sem URL própria. Coluna da regra em `/` visão mensal (`MonthSummarySection`) e bloco no anual (`AnnualFinancialRuleSection`). O hook usa cache React Query compartilhado. Na visão Anual, `Statistics` chama `useFinancialRule` uma vez e repassa regra, loading e mutações à seção, para a exportação esperar a mesma leitura. A exportação não grava nem edita a regra.
 
 | Superfície | Componente | Observação |
 | --- | --- | --- |
@@ -303,6 +303,7 @@ npm test --workspace=frontend
 | Data | Versão | Descrição | Issue ID | Autor |
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
+| 2026-10-14 | 1.1 | A visão Anual lê a regra no pai, para a exportação e a seção usarem a mesma query | DEV-150 | Technical Writer |
 
 ---
 

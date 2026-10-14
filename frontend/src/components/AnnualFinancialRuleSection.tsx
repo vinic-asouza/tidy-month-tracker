@@ -12,43 +12,25 @@ import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
 import { FinancialRuleSetup } from './FinancialRuleSetup';
 import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
-import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { formatCurrency } from '@/lib/utils';
 import { sliceYearMonths } from '@/utils/business/annualAverage';
 import {
   calculateAnnualFinancialRuleStatsByMode,
   resolveAnnualRuleMoney,
+  sumExpensesInCategories,
 } from '@/utils/financialRuleCalculations';
 import {
   getResgateInflowFromIncomes,
-  isExpenseEffectivelyPaid,
   type SummaryViewMode,
 } from '@/utils/business/monthTotals';
 import type {
   MonthData,
   FinanceSettings,
+  FinancialRule,
   CreateFinancialRuleInput,
+  UpdateFinancialRuleInput,
   CreditCard,
 } from '@/types/domain';
-
-function sumUnmappedExpenses(
-  months: MonthData[],
-  categories: string[],
-  isPlanned: boolean,
-  creditCards: CreditCard[]
-) {
-  return months.reduce((yearSum, monthData) => {
-    const monthTotal = monthData.expenses
-      .filter((expense) => categories.includes(expense.category))
-      .filter(
-        (expense) =>
-          isPlanned ||
-          isExpenseEffectivelyPaid(expense, creditCards, monthData.cardMonthlyStatuses)
-      )
-      .reduce((sum, expense) => sum + expense.value, 0);
-    return yearSum + monthTotal;
-  }, 0);
-}
 
 interface AnnualFinancialRuleSectionProps {
   currentYear: number;
@@ -60,6 +42,11 @@ interface AnnualFinancialRuleSectionProps {
   /** Meses da janela com entrada, gasto ou investimento no modo ativo. */
   activeMonthCount: number;
   averageWindowLabel: string;
+  rule: FinancialRule | null;
+  ruleLoading: boolean;
+  onCreateRule: (data: CreateFinancialRuleInput) => Promise<FinancialRule>;
+  onUpdateRule: (data: UpdateFinancialRuleInput) => Promise<FinancialRule>;
+  onDeleteRule: () => Promise<void>;
 }
 
 export const AnnualFinancialRuleSection = ({
@@ -71,8 +58,12 @@ export const AnnualFinancialRuleSection = ({
   averageMonthCount,
   activeMonthCount,
   averageWindowLabel,
+  rule,
+  ruleLoading,
+  onCreateRule,
+  onUpdateRule,
+  onDeleteRule,
 }: AnnualFinancialRuleSectionProps) => {
-  const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
   const isPlanned = viewMode === 'planned';
@@ -101,19 +92,21 @@ export const AnnualFinancialRuleSection = ({
 
   const hasUnmappedCategories = unmappedCategories.length > 0;
 
+  const unmappedMode = isPlanned ? 'planned' : 'effective';
   const unmappedYearTotal = useMemo(
     () =>
       hasUnmappedCategories
-        ? sumUnmappedExpenses(yearData, unmappedCategories, isPlanned, creditCards)
+        ? sumExpensesInCategories(yearData, unmappedCategories, unmappedMode, creditCards)
         : 0,
-    [yearData, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards]
+    [yearData, unmappedCategories, hasUnmappedCategories, unmappedMode, creditCards]
   );
   const unmappedAverage = useMemo(() => {
     if (!hasUnmappedCategories || activeMonthCount <= 0) return null;
     return (
-      sumUnmappedExpenses(windowMonths, unmappedCategories, isPlanned, creditCards) / activeMonthCount
+      sumExpensesInCategories(windowMonths, unmappedCategories, unmappedMode, creditCards) /
+      activeMonthCount
     );
-  }, [windowMonths, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards, activeMonthCount]);
+  }, [windowMonths, unmappedCategories, hasUnmappedCategories, unmappedMode, creditCards, activeMonthCount]);
 
   const resgateHint = useMemo(() => {
     if (viewMode !== 'effective') return null;
@@ -131,9 +124,9 @@ export const AnnualFinancialRuleSection = ({
   const handleComplete = async (data: CreateFinancialRuleInput) => {
     try {
       if (rule) {
-        await updateRule(data);
+        await onUpdateRule(data);
       } else {
-        await createRule(data);
+        await onCreateRule(data);
       }
       setIsSetupOpen(false);
     } catch {
@@ -145,7 +138,7 @@ export const AnnualFinancialRuleSection = ({
 
   const handleResetRule = async () => {
     try {
-      await deleteRule();
+      await onDeleteRule();
       setResetRuleOpen(false);
     } catch {
       // toast no hook
@@ -165,7 +158,7 @@ export const AnnualFinancialRuleSection = ({
       >
         <SummaryTotalsLegend mode={viewMode} className="mb-4" />
 
-        {loading ? (
+        {ruleLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>

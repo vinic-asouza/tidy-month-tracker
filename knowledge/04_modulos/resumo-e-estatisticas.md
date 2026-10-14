@@ -2,7 +2,7 @@
 type: modulo
 nome: Resumo e estatísticas
 status: Ativo
-versao: "1.0"
+versao: "1.1"
 owner: Development
 ultima_atualizacao: 2026-10-14
 tags: [resumo, estatisticas, caixa, frontend]
@@ -21,7 +21,7 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](.
 
 Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, toggle efetivado/planejado e gráfico anual. Não persiste lançamentos — só lê o `MonthData` já carregado e agrega no cliente.
 
-**Responsabilidade única:** calcular e exibir entradas, gastos, investimentos e saldo (mais pendências no mês efetivado).
+**Responsabilidade única:** calcular e exibir entradas, gastos, investimentos e saldo (mais pendências no mês efetivado) e, na visão Anual, baixar esse recorte agregado.
 
 **Propósito no produto:** a pessoa vê se o mês “fechou” no caixa efetivado, sem misturar isso com saldo de carteira nem com desejos (RN-G07, RN-R05).
 
@@ -36,6 +36,7 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
 - Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês (RN-R04)
 - Seções somente leitura abaixo da regra: categorias, tipo de gasto, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Desejos não entram no caixa (RN-R05)
+- Exportar PDF e CSV do ano e do modo ativos, sem desejos e sem gravar o arquivo (RN-R07)
 - Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
 - Hint de resgates nas entradas efetivadas (quando há valor)
@@ -47,7 +48,8 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Saldo estimado da carteira, Saldo Livre ou patrimônio (`AccountStrip` — [`carteiras.md`](./carteiras.md))
 - Configurar ou calcular a regra 50/30/20 ([`regra-financeira.md`](./regra-financeira.md)). A UI do resumo **hospeda** a regra na coluna direita; o anual hospeda `AnnualFinancialRuleSection` — contratos e persistência ficam naquele módulo
 - Soma de itens selecionados ([`selecao.md`](./selecao.md) — o toggle deste módulo **não** altera a fórmula da barra)
-- Incluir desejos nos totais (RN-R05)
+- Incluir desejos nos totais ou no arquivo anual (RN-R05, RN-R07)
+- Exportar a visão Mensal, cada lançamento, carteiras ou os dois modos no mesmo arquivo
 - Somar operação `withdrawal` no caixa: a fonte de resgate é a **entrada** (RN-G08)
 
 ---
@@ -58,9 +60,9 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 frontend/src/
   pages/Index.tsx                              # view dashboard | statistics; lazy de Statistics
   components/MonthSummarySection.tsx           # bloco mensal (métricas + hospeda a regra)
-  components/Statistics.tsx                    # total ou média + gráfico do ano
+  components/Statistics.tsx                    # média, total, gráfico e exportação do ano
+  components/AnnualExportActions.tsx           # Exportar CSV e Exportar PDF
   components/AnnualYearSections.tsx            # categorias, pagamento, investimentos, desejos
-  components/AnnualAmountModeToggle.tsx        # Total | Média (cards, gráfico e regra)
   components/YearNavigator.tsx                 # setas de ano no cabeçalho anual
   components/SummaryViewModeToggle.tsx         # Efetivados | Planejados
   components/layout/SummaryTotalsLegend.tsx    # texto do modo
@@ -69,6 +71,10 @@ frontend/src/
   utils/business/monthTotals.ts                # fórmulas
   utils/business/annualAverage.ts              # janela da média anual e meses com lançamento
   utils/business/annualBreakdown.ts            # categoria, tipo, pagamento e tag
+  utils/business/annualExportDocument.ts       # modelo do PDF/CSV anual
+  utils/business/annualExportCsv.ts
+  utils/business/annualExportPdf.ts            # jspdf só no clique
+  utils/business/__tests__/annualExportDocument.test.ts
   utils/business/__tests__/annualAverage.test.ts
   utils/business/__tests__/annualBreakdown.test.ts
   utils/business/__tests__/monthTotals.test.ts
@@ -82,7 +88,8 @@ frontend/src/
 | --- | --- |
 | `monthTotals.ts` | `calculateMonthTotals`, pendências, gasto efetivo no cartão, resgate nas entradas |
 | `MonthSummarySection.tsx` | Quatro tiles + pendências; coluna direita é regra financeira |
-| `Statistics.tsx` | Cards anuais (total ou média) + `BarChart` (recharts); abaixo, regra anual e `AnnualYearSections` |
+| `Statistics.tsx` | Cards anuais (média e total) + `BarChart` (recharts); exportação; abaixo, regra anual e `AnnualYearSections`. Lê a regra uma vez e repassa à seção |
+| `annualExportDocument.ts` | Mesmas seções da tela, sem desejos. CSV e PDF só formatam esse modelo |
 | `annualAverage.ts` | Janela: 12 meses no ano encerrado; meses completos no ano corrente; zero no ano futuro. O divisor conta só os meses da janela com fluxo no modo ativo |
 | `annualBreakdown.ts` | Total dos 12 meses e média da janela por categoria, tipo, forma de pagamento e tag |
 | `useSummaryViewMode.ts` | Chave `tidy-summary-view-mode` |
@@ -210,6 +217,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator` |
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
 | RN-R06 | Seções anuais de categoria, pagamento (com soma dos cartões), tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
+| RN-R07 | PDF/CSV do ano e do modo ativos; desejos de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
 | RN-G08 | Resgate no caixa = entrada, não operação | `getResgateInflowFromIncomes`; `accountOperations` ignorado |
 
@@ -237,7 +245,8 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | --- | --- |
 | `@tanstack/react-query` | `monthQuery` / `yearQuery` |
 | `recharts` | gráfico anual |
-| `sonner` | não neste módulo (toasts ficam nos CRUDs) |
+| `jspdf` + `jspdf-autotable` | PDF anual; import dinâmico no clique de Exportar PDF |
+| `sonner` | toast se a exportação falhar |
 
 ---
 
@@ -269,7 +278,7 @@ Nenhuma env exclusiva. Precisa do mesmo `VITE_SUPABASE_*` (e sessão) que o rest
 
 | Item | Valor |
 | --- | --- |
-| Arquivos de teste | `frontend/src/utils/business/__tests__/monthTotals.test.ts` |
+| Arquivos de teste | `monthTotals.test.ts`, `annualAverage.test.ts`, `annualBreakdown.test.ts`, `annualExportDocument.test.ts` |
 | UI (`MonthSummarySection` / `Statistics`) | Nenhum spec |
 | Cobertura | Só as funções puras listadas abaixo — não inventar % |
 | Coleções / manuais | Jornada 2 em [`../01_produto/jornadas-de-usuario.md`](../01_produto/jornadas-de-usuario.md) |
@@ -306,6 +315,7 @@ npm test
 | Data | Versão | Descrição | Issue ID | Autor |
 | --- | --- | --- | --- | --- |
 | 2026-08-22 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
+| 2026-10-14 | 1.1 | Exportação anual agregada em PDF e CSV (RN-R07) | DEV-150 | Technical Writer |
 
 ---
 
