@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 ---
 
 # Jornadas de usuário
@@ -127,8 +127,9 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 **Persona:** Rafael (média) / André (disciplina de aportes).
 
 1. Cabeçalho → **Anual**. O seletor passa a ser o ano e guarda o mês que estava aberto.
-2. `Statistics`: Total (padrão, soma dos 12 meses) ou Média (janela até o último mês completo; ano encerrado usa os 12). O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico e regra (`AnnualFinancialRuleSection`).
-3. Volta a **Mensal** no mesmo mês do ano escolhido. A Média não fica ligada: a visão Anual reabre em Total.
+2. `Statistics`: Total (padrão, soma dos 12 meses) ou Média (janela até o último mês completo; mês vazio sai do divisor). O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico, regra e seções de dinheiro. Total/Média vale só para resumo, gráfico e regra.
+3. Abaixo da regra, quatro leituras: gastos por categoria (e por tipo), forma de pagamento, aportes por tag e desejos do ano. Desejos não entram no caixa. Não há seção de carteiras.
+4. Volta a **Mensal** no mesmo mês do ano escolhido. A Média não fica ligada: a visão Anual reabre em Total.
 
 ---
 

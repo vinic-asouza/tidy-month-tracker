@@ -34,6 +34,56 @@ export function filterWishesForMonth(wishes: WishItem[], viewingMonth: string): 
   return wishes.filter((wish) => isWishVisibleInMonth(wish, viewingMonth));
 }
 
+export interface AnnualWishGroups {
+  conquered: WishItem[];
+  pending: WishItem[];
+  expired: WishItem[];
+}
+
+function wishOverlapsYear(wish: WishItem, year: number): boolean {
+  const startBound = `${year}-01`;
+  const endBound = `${year}-12`;
+  return compareYearMonth(wish.startMonth, endBound) <= 0 && compareYearMonth(wish.targetMonth, startBound) >= 0;
+}
+
+function inYear(yearMonth: string | undefined, year: number): boolean {
+  return !!yearMonth && yearMonth.slice(0, 4) === String(year);
+}
+
+/**
+ * Leitura do ano na visão Anual. Não expira nem grava status.
+ * Conquistado no ano, ativo que cruza o ano, expirado com prazo no ano.
+ */
+export function groupWishesForYear(wishes: readonly WishItem[], year: number): AnnualWishGroups {
+  const conquered: WishItem[] = [];
+  const pending: WishItem[] = [];
+  const expired: WishItem[] = [];
+
+  for (const wish of wishes) {
+    if (wish.status === 'conquered' && inYear(wish.conqueredMonth, year)) {
+      conquered.push(wish);
+      continue;
+    }
+    if (wish.status === 'active' && wishOverlapsYear(wish, year)) {
+      pending.push(wish);
+      continue;
+    }
+    if (wish.status === 'expired' && inYear(wish.targetMonth, year)) {
+      expired.push(wish);
+    }
+  }
+
+  conquered.sort((a, b) => {
+    const monthDiff = compareYearMonth(b.conqueredMonth ?? '', a.conqueredMonth ?? '');
+    if (monthDiff !== 0) return monthDiff;
+    return a.description.localeCompare(b.description, 'pt-BR');
+  });
+  pending.sort((a, b) => compareYearMonth(a.targetMonth, b.targetMonth) || a.description.localeCompare(b.description, 'pt-BR'));
+  expired.sort((a, b) => compareYearMonth(a.targetMonth, b.targetMonth) || a.description.localeCompare(b.description, 'pt-BR'));
+
+  return { conquered, pending, expired };
+}
+
 export type ConqueredWishScope = 'currentMonth' | 'yearToDate';
 
 export function isConqueredWishVisibleInMonth(

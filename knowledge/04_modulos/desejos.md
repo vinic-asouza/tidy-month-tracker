@@ -4,7 +4,7 @@ nome: Desejos
 status: Ativo
 versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-08-24
+ultima_atualizacao: 2026-10-14
 tags: [desejos, wishlist, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -19,7 +19,7 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/desejos.md`](../02_regras-de
 
 ## Overview
 
-Lista de **metas de consumo** com prazo e urgência. Não é movimento financeiro: planejar um desejo **não** mexe em caixa, regra, estatísticas nem carteiras. Só vira dinheiro se a pessoa conquistar **e** registrar um gasto.
+Lista de **metas de consumo** com prazo e urgência. Não é movimento financeiro: planejar um desejo **não** mexe em caixa, regra, gráfico nem carteiras. A visão Anual mostra o histórico do ano em três grupos, só leitura, sem somar no caixa (RN-R06). Só vira dinheiro se a pessoa conquistar **e** registrar um gasto.
 
 **Responsabilidade única:** persistir `wish_items` (CRUD, status, prazo) e calcular no cliente quem aparece no mês de navegação.
 

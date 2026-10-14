@@ -849,6 +849,8 @@ const Index = () => {
                   isLoading={loadingYearData}
                   amountMode={amountMode}
                   onAmountModeChange={setAmountMode}
+                  wishes={wishes}
+                  wishesLoading={wishesLoading}
                 />
               </Suspense>
             </div>

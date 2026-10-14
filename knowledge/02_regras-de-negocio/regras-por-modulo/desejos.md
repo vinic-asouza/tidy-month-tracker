@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: desejos
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-14
 ---
 
 # Lista de desejos
@@ -12,7 +12,7 @@ ultima_atualizacao: 2026-08-21
 
 ## RN-D01 — Fora do caixa
 
-Desejos não entram em resumo, regra, estatísticas, carteiras nem na barra de seleção.
+Desejos não entram em resumo, regra, gráfico, carteiras nem na barra de seleção. A visão Anual pode listá-los em três grupos, só leitura, sem alterar o caixa (RN-R06).
 
 ## RN-D02 — Campos
 

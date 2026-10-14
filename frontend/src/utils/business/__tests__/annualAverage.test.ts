@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageAmount,
+  countActiveAverageMonths,
   formatAverageWindowLabel,
   resolveAnnualAverageWindow,
   sliceYearMonths,
@@ -66,5 +67,23 @@ describe('formatAverageWindowLabel', () => {
     expect(formatAverageWindowLabel(2026, new Date(2026, 0, 2))).toBe(
       'Nenhum mês completo neste ano'
     );
+  });
+
+  it('descreve só os meses com lançamento dentro da janela', () => {
+    expect(formatAverageWindowLabel(2026, today, 8)).toBe(
+      'Média de 8 meses com lançamentos, até setembro'
+    );
+  });
+});
+
+describe('countActiveAverageMonths', () => {
+  it('ignora mês zerado dentro da janela e o mês ainda aberto', () => {
+    const months = [
+      { income: 0, expenses: 0, investments: 0 },
+      { income: 1000, expenses: 0, investments: 0 },
+      { income: 0, expenses: 300, investments: 0 },
+    ];
+    expect(countActiveAverageMonths(months, 9)).toBe(2);
+    expect(countActiveAverageMonths(months, 1)).toBe(0);
   });
 });

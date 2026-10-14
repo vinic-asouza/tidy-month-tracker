@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
+import { AnnualYearSections } from '@/components/AnnualYearSections';
 import { AnnualAmountModeToggle } from '@/components/AnnualAmountModeToggle';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
@@ -8,6 +9,7 @@ import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
 import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
 import {
   averageAmount,
+  countActiveAverageMonths,
   formatAverageWindowLabel,
   resolveAnnualAverageWindow,
   sliceYearMonths,
@@ -15,6 +17,7 @@ import {
 } from '@/utils/business/annualAverage';
 import { calculateMonthTotals } from '@/utils/business/monthTotals';
 import { MonthData, CreditCard, FinanceSettings } from '@/types/finance';
+import type { WishItem } from '@/types/domain';
 import { AnnualFinancialRuleSection } from '@/components/AnnualFinancialRuleSection';
 
 interface StatisticsProps {
@@ -25,6 +28,8 @@ interface StatisticsProps {
   isLoading?: boolean;
   amountMode: AnnualAmountMode;
   onAmountModeChange: (mode: AnnualAmountMode) => void;
+  wishes?: WishItem[];
+  wishesLoading?: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -54,6 +59,8 @@ export const Statistics = ({
   isLoading = false,
   amountMode,
   onAmountModeChange,
+  wishes = [],
+  wishesLoading = false,
 }: StatisticsProps) => {
   const { viewMode, setViewMode } = useSummaryViewMode();
   const isPlanned = viewMode === 'planned';
@@ -62,10 +69,6 @@ export const Statistics = ({
   const currentMonthIndex = currentYear === today.getFullYear() ? today.getMonth() : -1;
   const averageWindow = useMemo(
     () => resolveAnnualAverageWindow(currentYear, today),
-    [currentYear, today]
-  );
-  const averageWindowLabel = useMemo(
-    () => formatAverageWindowLabel(currentYear, today),
     [currentYear, today]
   );
 
@@ -98,6 +101,19 @@ export const Statistics = ({
     return { totals, monthlyData };
   }, [yearData, creditCards, viewMode]);
 
+  const activeMonthCount = useMemo(() => {
+    const signals = yearStats.monthlyData.map((month) => ({
+      income: month.Entradas,
+      expenses: month.Gastos,
+      investments: month.Investimentos,
+    }));
+    return countActiveAverageMonths(signals, averageWindow.monthCount);
+  }, [yearStats, averageWindow.monthCount]);
+  const averageWindowLabel = useMemo(
+    () => formatAverageWindowLabel(currentYear, today, activeMonthCount),
+    [currentYear, today, activeMonthCount]
+  );
+
   const displayedTotals = useMemo(() => {
     if (!isAverage) return yearStats.totals;
 
@@ -113,12 +129,12 @@ export const Statistics = ({
     );
 
     return {
-      income: averageAmount(sum.income, averageWindow.monthCount),
-      expenses: averageAmount(sum.expenses, averageWindow.monthCount),
-      investments: averageAmount(sum.investments, averageWindow.monthCount),
-      balance: averageAmount(sum.balance, averageWindow.monthCount),
+      income: averageAmount(sum.income, activeMonthCount),
+      expenses: averageAmount(sum.expenses, activeMonthCount),
+      investments: averageAmount(sum.investments, activeMonthCount),
+      balance: averageAmount(sum.balance, activeMonthCount),
     };
-  }, [isAverage, yearStats, averageWindow.monthCount]);
+  }, [isAverage, yearStats, averageWindow.monthCount, activeMonthCount]);
 
   const hasNoData =
     yearStats.totals.income === 0 &&
@@ -196,7 +212,10 @@ export const Statistics = ({
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <p className="text-sm text-muted-foreground">Vale para o resumo, o gráfico e a regra.</p>
+        <div className="text-sm text-muted-foreground space-y-1">
+          <p>O modo efetivado ou planejado vale para o resumo, o gráfico, a regra e as seções de dinheiro.</p>
+          <p>O seletor Total ou Média vale só para o resumo, o gráfico e a regra.</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           <AnnualAmountModeToggle amountMode={amountMode} onAmountModeChange={onAmountModeChange} />
@@ -296,7 +315,19 @@ export const Statistics = ({
             viewMode={viewMode}
             amountMode={amountMode}
             averageMonthCount={averageWindow.monthCount}
+            activeMonthCount={activeMonthCount}
             averageWindowLabel={averageWindowLabel}
+          />
+
+          <AnnualYearSections
+            yearData={yearData}
+            currentYear={currentYear}
+            creditCards={creditCards}
+            viewMode={viewMode}
+            monthCount={averageWindow.monthCount}
+            averageWindowLabel={averageWindowLabel}
+            wishes={wishes}
+            wishesLoading={wishesLoading}
           />
         </>
       )}

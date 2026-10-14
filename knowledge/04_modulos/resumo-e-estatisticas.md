@@ -4,7 +4,7 @@ nome: Resumo e estatísticas
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 tags: [resumo, estatisticas, caixa, frontend]
 dependencias: [autenticacao]
 ---
@@ -34,7 +34,8 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Quatro métricas do mês: entradas, gastos, investimentos, saldo (RN-R01)
 - Toggle **Efetivados** / **Planejados**, persistido e compartilhado (RN-R02)
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
-- Visão anual: Total (soma dos 12 meses) ou Média da janela, mais gráfico mês a mês (RN-R04)
+- Visão anual: Total (soma dos 12 meses) ou Média da janela, com mês vazio fora do divisor, mais gráfico mês a mês (RN-R04)
+- Seções somente leitura abaixo da regra: categorias, tipo de gasto, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Desejos não entram no caixa (RN-R05)
 - Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
 - Hint de resgates nas entradas efetivadas (quando há valor)
@@ -58,15 +59,18 @@ frontend/src/
   pages/Index.tsx                              # view dashboard | statistics; lazy de Statistics
   components/MonthSummarySection.tsx           # bloco mensal (métricas + hospeda a regra)
   components/Statistics.tsx                    # total ou média + gráfico do ano
-  components/AnnualAmountModeToggle.tsx        # Total | Média (só na visão Anual)
+  components/AnnualYearSections.tsx            # categorias, pagamento, investimentos, desejos
+  components/AnnualAmountModeToggle.tsx        # Total | Média (cards, gráfico e regra)
   components/YearNavigator.tsx                 # setas de ano no cabeçalho anual
   components/SummaryViewModeToggle.tsx         # Efetivados | Planejados
   components/layout/SummaryTotalsLegend.tsx    # texto do modo
   components/layout/MetricTile.tsx             # tile numérico (compartilhado)
   hooks/useSummaryViewMode.ts                  # estado + localStorage
   utils/business/monthTotals.ts                # fórmulas
-  utils/business/annualAverage.ts              # janela da média anual
+  utils/business/annualAverage.ts              # janela da média anual e meses com lançamento
+  utils/business/annualBreakdown.ts            # categoria, tipo, pagamento e tag
   utils/business/__tests__/annualAverage.test.ts
+  utils/business/__tests__/annualBreakdown.test.ts
   utils/business/__tests__/monthTotals.test.ts
   services/financeQueries.ts                   # fetchMonthBundle / fetchYearData
   hooks/useSupabaseFinance.ts                  # yearQuery só com statisticsEnabled
@@ -78,8 +82,9 @@ frontend/src/
 | --- | --- |
 | `monthTotals.ts` | `calculateMonthTotals`, pendências, gasto efetivo no cartão, resgate nas entradas |
 | `MonthSummarySection.tsx` | Quatro tiles + pendências; coluna direita é regra financeira |
-| `Statistics.tsx` | Cards anuais (total ou média) + `BarChart` (recharts); abaixo, regra anual |
-| `annualAverage.ts` | Janela: 12 meses no ano encerrado; meses completos no ano corrente; zero no ano futuro |
+| `Statistics.tsx` | Cards anuais (total ou média) + `BarChart` (recharts); abaixo, regra anual e `AnnualYearSections` |
+| `annualAverage.ts` | Janela: 12 meses no ano encerrado; meses completos no ano corrente; zero no ano futuro. O divisor conta só os meses da janela com fluxo no modo ativo |
+| `annualBreakdown.ts` | Total dos 12 meses e média da janela por categoria, tipo, forma de pagamento e tag |
 | `useSummaryViewMode.ts` | Chave `tidy-summary-view-mode` |
 | `financeQueries.ts` | 12 `fetchMonthBundle` em paralelo para o ano |
 | `Index.tsx` | Nav **Mensal** / **Anual** na mesma rota `/` |
@@ -185,7 +190,7 @@ Saldo ≥ 0 em verde (`text-income`); negativo em vermelho (`text-expense`), com
 
 Gráfico anual: barras Entradas, Gastos, Investimentos, Saldo (cor do saldo por sinal). Não entra na média. Estado vazio se os três totais do ano são 0. Overlay de loading se o ano já tem cache e está refetching. Ano ainda vazio mostra o spinner e mantém Total/Média, porque o modo vive em `Index`.
 
-Total/Média é estado de `Index` (`amountMode`). Permanece ao trocar o ano, inclusive quando o spinner da página aparece porque o mês daquele ano ainda não está em cache. Sai da visão Anual e o modo volta para Total. A janela é calculada uma vez em `Statistics` (`today` do mount) e passada à regra (`averageMonthCount`, `averageWindowLabel`).
+Total/Média é estado de `Index` (`amountMode`). Permanece ao trocar o ano, inclusive quando o spinner da página aparece porque o mês daquele ano ainda não está em cache. Sai da visão Anual e o modo volta para Total. A janela é calculada uma vez em `Statistics` (`today` do mount). A regra recebe o tamanho da janela (`averageMonthCount`) e o divisor de meses com lançamento (`activeMonthCount`), mais `averageWindowLabel`. As seções de dinheiro ignoram `amountMode` e usam o mesmo divisor. `Index` repassa a lista de desejos já carregada; `groupWishesForYear` só lê.
 
 ### Erros comuns
 
@@ -202,8 +207,9 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R01 | Quatro números; saldo colorido | `MonthSummarySection`, `Statistics` `StatCard` |
 | RN-R02 | Toggle compartilhado (resumo, regra, anual) | `useSummaryViewMode` |
 | RN-R03 | Pendências só no efetivado; “a receber” sem misturar resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
-| RN-R04 | Total dos 12 meses ou média da janela; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator`, `amountMode` em `Index` |
-| RN-R05 | Desejos fora | ausência em `monthTotals.ts` |
+| RN-R04 | Total dos 12 meses ou média da janela, sem mês vazio no divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator`, `amountMode` em `Index` |
+| RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
+| RN-R06 | Seções anuais de categoria, pagamento, tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
 | RN-G08 | Resgate no caixa = entrada, não operação | `getResgateInflowFromIncomes`; `accountOperations` ignorado |
 
