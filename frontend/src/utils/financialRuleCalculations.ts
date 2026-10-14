@@ -259,3 +259,33 @@ export function calculateAnnualFinancialRuleStatsByMode(
   }
   return calculateAnnualFinancialRuleStats(rule, yearData, creditCards);
 }
+
+function scaleBucketMoney<T extends { targetValue: number; currentValue: number; differenceValue: number }>(
+  bucket: T,
+  divisor: number
+): T {
+  return {
+    ...bucket,
+    targetValue: bucket.targetValue / divisor,
+    currentValue: bucket.currentValue / divisor,
+    differenceValue: bucket.differenceValue / divisor,
+  };
+}
+
+/** Divide só os valores em R$. Percentuais da mesma soma permanecem. */
+export function scaleFinancialRuleMoney(
+  stats: FinancialRuleStats,
+  divisor: number
+): FinancialRuleStats {
+  if (divisor <= 0) return stats;
+
+  return {
+    ...stats,
+    totalIncome: stats.totalIncome / divisor,
+    totalEffectiveExpenses: stats.totalEffectiveExpenses / divisor,
+    unclassifiedValue: stats.unclassifiedValue / divisor,
+    essentials: scaleBucketMoney(stats.essentials, divisor),
+    lifestyle: scaleBucketMoney(stats.lifestyle, divisor),
+    investments: scaleBucketMoney(stats.investments, divisor),
+  };
+}

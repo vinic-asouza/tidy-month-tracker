@@ -1,10 +1,18 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
+import { AnnualAmountModeToggle } from '@/components/AnnualAmountModeToggle';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
 import { SummaryViewModeToggle } from '@/components/SummaryViewModeToggle';
 import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
 import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
+import {
+  averageAmount,
+  formatAverageWindowLabel,
+  resolveAnnualAverageWindow,
+  sliceYearMonths,
+  type AnnualAmountMode,
+} from '@/utils/business/annualAverage';
 import { calculateMonthTotals } from '@/utils/business/monthTotals';
 import { MonthData, CreditCard, FinanceSettings } from '@/types/finance';
 import { AnnualFinancialRuleSection } from '@/components/AnnualFinancialRuleSection';
@@ -12,10 +20,11 @@ import { AnnualFinancialRuleSection } from '@/components/AnnualFinancialRuleSect
 interface StatisticsProps {
   yearData: MonthData[];
   currentYear: number;
-  currentMonth: string;
   creditCards: CreditCard[];
   settings: FinanceSettings;
   isLoading?: boolean;
+  amountMode: AnnualAmountMode;
+  onAmountModeChange: (mode: AnnualAmountMode) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -40,14 +49,25 @@ const MONTH_NAMES = [
 export const Statistics = ({
   yearData,
   currentYear,
-  currentMonth,
   creditCards,
   settings,
   isLoading = false,
+  amountMode,
+  onAmountModeChange,
 }: StatisticsProps) => {
   const { viewMode, setViewMode } = useSummaryViewMode();
   const isPlanned = viewMode === 'planned';
-  const currentMonthIndex = parseInt(currentMonth.split('-')[1], 10) - 1;
+  const isAverage = amountMode === 'average';
+  const today = useMemo(() => new Date(), []);
+  const currentMonthIndex = currentYear === today.getFullYear() ? today.getMonth() : -1;
+  const averageWindow = useMemo(
+    () => resolveAnnualAverageWindow(currentYear, today),
+    [currentYear, today]
+  );
+  const averageWindowLabel = useMemo(
+    () => formatAverageWindowLabel(currentYear, today),
+    [currentYear, today]
+  );
 
   const yearStats = useMemo(() => {
     const totals = { income: 0, expenses: 0, investments: 0, balance: 0 };
@@ -77,6 +97,28 @@ export const Statistics = ({
 
     return { totals, monthlyData };
   }, [yearData, creditCards, viewMode]);
+
+  const displayedTotals = useMemo(() => {
+    if (!isAverage) return yearStats.totals;
+
+    const windowMonths = sliceYearMonths(yearStats.monthlyData, averageWindow.monthCount);
+    const sum = windowMonths.reduce(
+      (acc, month) => ({
+        income: acc.income + month.Entradas,
+        expenses: acc.expenses + month.Gastos,
+        investments: acc.investments + month.Investimentos,
+        balance: acc.balance + month.Saldo,
+      }),
+      { income: 0, expenses: 0, investments: 0, balance: 0 }
+    );
+
+    return {
+      income: averageAmount(sum.income, averageWindow.monthCount),
+      expenses: averageAmount(sum.expenses, averageWindow.monthCount),
+      investments: averageAmount(sum.investments, averageWindow.monthCount),
+      balance: averageAmount(sum.balance, averageWindow.monthCount),
+    };
+  }, [isAverage, yearStats, averageWindow.monthCount]);
 
   const hasNoData =
     yearStats.totals.income === 0 &&
@@ -143,24 +185,36 @@ export const Statistics = ({
     );
   };
 
+  const summarySubtitle = isAverage
+    ? isPlanned
+      ? `${averageWindowLabel} do que você registrou — fluxo mensal, não patrimônio acumulado`
+      : `${averageWindowLabel} do fluxo efetivado — investimentos são aportes de caixa, não valorização de ativos`
+    : isPlanned
+      ? 'Soma de tudo que você registrou neste ano — fluxo mensal, não patrimônio acumulado'
+      : 'Soma do fluxo efetivado do ano — investimentos são aportes de caixa, não valorização de ativos';
+
   return (
     <div className="space-y-5">
-      <SectionSurface
-        title={`Resumo Anual — ${currentYear}`}
-        subtitle={
-          isPlanned
-            ? 'Baseado em tudo que você registrou neste ano — fluxo mensal, não patrimônio acumulado'
-            : 'Fluxo efetivado do ano — investimentos são aportes de caixa, não valorização de ativos'
-        }
-        icon={BarChart3}
-        actions={<SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />}
-      >
-        {yearData.length === 0 && isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="relative">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <p className="text-sm text-muted-foreground">Vale para o resumo, o gráfico e a regra.</p>
+        <div className="flex flex-wrap gap-2">
+          <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          <AnnualAmountModeToggle amountMode={amountMode} onAmountModeChange={onAmountModeChange} />
+        </div>
+      </div>
+
+      {yearData.length === 0 && isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
+          <SectionSurface
+            title={`Resumo Anual — ${currentYear}`}
+            subtitle={summarySubtitle}
+            icon={BarChart3}
+          >
+            <div className="relative">
             {isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/60 backdrop-blur-[1px]">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -180,10 +234,10 @@ export const Statistics = ({
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  <StatCard title="Entradas" value={yearStats.totals.income} variant="income" />
-                  <StatCard title="Gastos" value={yearStats.totals.expenses} variant="expense" />
-                  <StatCard title="Investimentos" value={yearStats.totals.investments} variant="investment" />
-                  <StatCard title="Saldo" value={yearStats.totals.balance} variant="balance" />
+                  <StatCard title="Entradas" value={displayedTotals.income} variant="income" />
+                  <StatCard title="Gastos" value={displayedTotals.expenses} variant="expense" />
+                  <StatCard title="Investimentos" value={displayedTotals.investments} variant="investment" />
+                  <StatCard title="Saldo" value={displayedTotals.balance} variant="balance" />
                 </div>
 
                 <div className="h-72 mt-4">
@@ -231,17 +285,21 @@ export const Statistics = ({
                 </div>
               </>
             )}
-          </div>
-        )}
-      </SectionSurface>
+            </div>
+          </SectionSurface>
 
-      <AnnualFinancialRuleSection
-        currentYear={currentYear}
-        yearData={yearData}
-        settings={settings}
-        creditCards={creditCards}
-        viewMode={viewMode}
-      />
+          <AnnualFinancialRuleSection
+            currentYear={currentYear}
+            yearData={yearData}
+            settings={settings}
+            creditCards={creditCards}
+            viewMode={viewMode}
+            amountMode={amountMode}
+            averageMonthCount={averageWindow.monthCount}
+            averageWindowLabel={averageWindowLabel}
+          />
+        </>
+      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Calendar
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator, getCurrentMonthKey, isCurrentMonthKey } from '@/components/MonthNavigator';
+import { YearNavigator } from '@/components/YearNavigator';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { AccountStrip } from '@/components/AccountStrip';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
@@ -17,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { WishItem } from '@/types/domain';
 import type { Expense } from '@/types/finance';
 import { toast } from 'sonner';
+import type { AnnualAmountMode } from '@/utils/business/annualAverage';
 import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
 import { getWishRealizedMetrics } from '@/utils/business/wishItems';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
@@ -36,6 +38,7 @@ type View = 'dashboard' | 'statistics';
 
 const Index = () => {
   const [view, setView] = useState<View>('dashboard');
+  const [amountMode, setAmountMode] = useState<AnnualAmountMode>('total');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Selection state for items
@@ -204,7 +207,18 @@ const Index = () => {
     }
   }, [currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps -- cleanup ao trocar mês com pendência ativa
 
-  const currentYear = parseInt(currentMonth.split('-')[0]);
+  const currentYear = parseInt(currentMonth.split('-')[0], 10);
+  const calendarYear = new Date().getFullYear();
+  const isAnnualView = view === 'statistics';
+
+  useEffect(() => {
+    if (!isAnnualView) setAmountMode('total');
+  }, [isAnnualView]);
+
+  const setViewedYear = (year: number) => {
+    const month = currentMonth.split('-')[1];
+    setCurrentMonth(`${year}-${month}`);
+  };
 
   useEffect(() => {
     if (!monthRefetching && currentMonth) {
@@ -450,31 +464,51 @@ const Index = () => {
               <BrandMark className="hidden sm:flex shrink-0" />
               <BrandMark size="sm" showText={false} className="sm:hidden shrink-0" />
               <div className="sm:hidden min-w-0 flex-1">
-                <MonthNavigator
-                  compact
-                  currentMonth={currentMonth}
-                  onMonthChange={setCurrentMonth}
-                />
+                {isAnnualView ? (
+                  <YearNavigator compact year={currentYear} onYearChange={setViewedYear} />
+                ) : (
+                  <MonthNavigator
+                    compact
+                    currentMonth={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                  />
+                )}
               </div>
             </div>
 
             {/* Centro: Seletor de Mês + atalho mês atual (desktop) */}
             <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-2">
-              <MonthNavigator
-                currentMonth={currentMonth}
-                onMonthChange={setCurrentMonth}
-              />
-              {!isCurrentMonthKey(currentMonth) && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setCurrentMonth(getCurrentMonthKey())}
-                  className="gap-2 rounded-md hover:bg-muted text-sm shrink-0"
-                  aria-label="Ir para mês atual"
-                >
-                  <Calendar className="h-4 w-4" />
-                  Ir para mês atual
-                </Button>
+              {isAnnualView ? (
+                <YearNavigator year={currentYear} onYearChange={setViewedYear} />
+              ) : (
+                <MonthNavigator
+                  currentMonth={currentMonth}
+                  onMonthChange={setCurrentMonth}
+                />
               )}
+              {isAnnualView
+                ? currentYear !== calendarYear && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setViewedYear(calendarYear)}
+                      className="gap-2 rounded-md hover:bg-muted text-sm shrink-0"
+                      aria-label="Ir para ano atual"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Ir para ano atual
+                    </Button>
+                  )
+                : !isCurrentMonthKey(currentMonth) && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCurrentMonth(getCurrentMonthKey())}
+                      className="gap-2 rounded-md hover:bg-muted text-sm shrink-0"
+                      aria-label="Ir para mês atual"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Ir para mês atual
+                    </Button>
+                  )}
             </div>
 
             {/* Direita: Navegação + Logout */}
@@ -539,18 +573,31 @@ const Index = () => {
             {/* Mobile: atalho Mensal/Anual + menu */}
             <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
               <div className="flex md:hidden items-center gap-1.5">
-                {!isCurrentMonthKey(currentMonth) && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentMonth(getCurrentMonthKey())}
-                    className="h-9 w-9 rounded-md border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground"
-                    aria-label="Ir para mês atual"
-                    title="Mês atual"
-                  >
-                    <Calendar className="h-4 w-4" />
-                  </Button>
-                )}
+                {isAnnualView
+                  ? currentYear !== calendarYear && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setViewedYear(calendarYear)}
+                        className="h-9 w-9 rounded-md border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground"
+                        aria-label="Ir para ano atual"
+                        title="Ano atual"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
+                    )
+                  : !isCurrentMonthKey(currentMonth) && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCurrentMonth(getCurrentMonthKey())}
+                        className="h-9 w-9 rounded-md border-primary/30 text-primary hover:bg-accent hover:text-accent-foreground"
+                        aria-label="Ir para mês atual"
+                        title="Mês atual"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
+                    )}
                 <div className="flex items-center gap-0.5 p-0.5 bg-muted/50 rounded-lg">
                   <Button
                     variant={view === 'dashboard' ? 'default' : 'ghost'}
@@ -787,28 +834,23 @@ const Index = () => {
             </div>
         ) : (
             <div className={cn(monthRefetching && 'opacity-60 transition-opacity')}>
-              {loadingYearData && yearData.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <Suspense
-                  fallback={
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  }
-                >
-                  <Statistics
-                    yearData={yearData}
-                    currentYear={currentYear}
-                    currentMonth={currentMonth}
-                    creditCards={creditCards}
-                    settings={settings}
-                    isLoading={loadingYearData && yearData.length > 0}
-                  />
-                </Suspense>
-              )}
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                }
+              >
+                <Statistics
+                  yearData={yearData}
+                  currentYear={currentYear}
+                  creditCards={creditCards}
+                  settings={settings}
+                  isLoading={loadingYearData}
+                  amountMode={amountMode}
+                  onAmountModeChange={setAmountMode}
+                />
+              </Suspense>
             </div>
         )}
       </main>
