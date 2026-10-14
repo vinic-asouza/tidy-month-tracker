@@ -34,7 +34,7 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Quatro métricas do mês: entradas, gastos, investimentos, saldo (RN-R01)
 - Toggle **Efetivados** / **Planejados**, persistido e compartilhado (RN-R02)
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
-- Visão anual: Total (soma dos 12 meses) ou Média da janela, com mês vazio fora do divisor, mais gráfico mês a mês (RN-R04)
+- Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês (RN-R04)
 - Seções somente leitura abaixo da regra: categorias, tipo de gasto, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Desejos não entram no caixa (RN-R05)
 - Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
@@ -188,9 +188,9 @@ Título mensal: `formatSummaryMonthTitle` → “Resumo de Mês de {mês}”.
 
 Saldo ≥ 0 em verde (`text-income`); negativo em vermelho (`text-expense`), com `+` só se positivo.
 
-Gráfico anual: barras Entradas, Gastos, Investimentos, Saldo (cor do saldo por sinal). Não entra na média. Estado vazio se os três totais do ano são 0. Overlay de loading se o ano já tem cache e está refetching. Ano ainda vazio mostra o spinner e mantém Total/Média, porque o modo vive em `Index`.
+Gráfico anual: barras Entradas, Gastos, Investimentos, Saldo (cor do saldo por sinal). Não entra na média. Estado vazio se os três totais do ano são 0; os cards continuam visíveis. Overlay de loading se o ano já tem cache e está refetching.
 
-Total/Média é estado de `Index` (`amountMode`). Permanece ao trocar o ano, inclusive quando o spinner da página aparece porque o mês daquele ano ainda não está em cache. Sai da visão Anual e o modo volta para Total. A janela é calculada uma vez em `Statistics` (`today` do mount). A regra recebe o tamanho da janela (`averageMonthCount`) e o divisor de meses com lançamento (`activeMonthCount`), mais `averageWindowLabel`. As seções de dinheiro ignoram `amountMode` e usam o mesmo divisor. `Index` repassa a lista de desejos já carregada; `groupWishesForYear` só lê.
+A janela é calculada uma vez em `Statistics` (`today` do mount). A média dos cards soma a fatia `averageWindow.monthCount` e divide por `activeMonthCount`. Divisor zero devolve ausência, não o zero de uma divisão. A regra recebe o tamanho da janela, o divisor e `averageWindowLabel`. As seções de dinheiro usam o mesmo divisor. `Index` não guarda modo Total/Média. `Index` repassa a lista de desejos já carregada; `groupWishesForYear` só lê. A soma dos cartões está em `sumCardPaymentRows`.
 
 ### Erros comuns
 
@@ -207,9 +207,9 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R01 | Quatro números; saldo colorido | `MonthSummarySection`, `Statistics` `StatCard` |
 | RN-R02 | Toggle compartilhado (resumo, regra, anual) | `useSummaryViewMode` |
 | RN-R03 | Pendências só no efetivado; “a receber” sem misturar resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
-| RN-R04 | Total dos 12 meses ou média da janela, sem mês vazio no divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator`, `amountMode` em `Index` |
+| RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator` |
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
-| RN-R06 | Seções anuais de categoria, pagamento, tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
+| RN-R06 | Seções anuais de categoria, pagamento (com soma dos cartões), tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
 | RN-G08 | Resgate no caixa = entrada, não operação | `getResgateInflowFromIncomes`; `accountOperations` ignorado |
 

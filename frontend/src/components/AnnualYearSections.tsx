@@ -7,6 +7,7 @@ import type { CreditCard as CreditCardType, MonthData, WishItem } from '@/types/
 import {
   buildAnnualExpenseBreakdown,
   buildAnnualInvestmentRows,
+  sumCardPaymentRows,
   type AnnualMoneyRow,
 } from '@/utils/business/annualBreakdown';
 import type { SummaryViewMode } from '@/utils/business/monthTotals';
@@ -170,6 +171,22 @@ function MoneyRows({ rows, tone }: { rows: AnnualMoneyRow[]; tone: MoneyTone }) 
   );
 }
 
+function CardPaymentsTotal({ rows }: { rows: AnnualMoneyRow[] }) {
+  const total = sumCardPaymentRows(rows);
+  if (!total) return null;
+
+  return (
+    <SubBlock title="Cartões" hint="Soma dos métodos marcados como cartão.">
+      <div className="rounded-md border border-border/50 bg-card px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-lg font-semibold tracking-tight">Total</p>
+          <MoneyFigures row={total} tone="credit" />
+        </div>
+      </div>
+    </SubBlock>
+  );
+}
+
 function TypeBreakdown({ rows }: { rows: AnnualMoneyRow[] }) {
   if (rows.length === 0) return null;
 
@@ -284,9 +301,10 @@ export function AnnualYearSections({
         {expenses.paymentMethods.length === 0 ? (
           <EmptyLine>{emptyExpenses}</EmptyLine>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
             <MoneyRows rows={expenses.paymentMethods} tone="credit" />
+            <CardPaymentsTotal rows={expenses.paymentMethods} />
           </div>
         )}
       </SectionSurface>

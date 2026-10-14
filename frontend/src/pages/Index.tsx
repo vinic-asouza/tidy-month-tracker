@@ -18,7 +18,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { WishItem } from '@/types/domain';
 import type { Expense } from '@/types/finance';
 import { toast } from 'sonner';
-import type { AnnualAmountMode } from '@/utils/business/annualAverage';
 import { isExpenseEffectivelyPaid } from '@/utils/business/monthTotals';
 import { getWishRealizedMetrics } from '@/utils/business/wishItems';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
@@ -38,7 +37,6 @@ type View = 'dashboard' | 'statistics';
 
 const Index = () => {
   const [view, setView] = useState<View>('dashboard');
-  const [amountMode, setAmountMode] = useState<AnnualAmountMode>('total');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Selection state for items
@@ -210,10 +208,6 @@ const Index = () => {
   const currentYear = parseInt(currentMonth.split('-')[0], 10);
   const calendarYear = new Date().getFullYear();
   const isAnnualView = view === 'statistics';
-
-  useEffect(() => {
-    if (!isAnnualView) setAmountMode('total');
-  }, [isAnnualView]);
 
   const setViewedYear = (year: number) => {
     const month = currentMonth.split('-')[1];
@@ -847,8 +841,6 @@ const Index = () => {
                   creditCards={creditCards}
                   settings={settings}
                   isLoading={loadingYearData}
-                  amountMode={amountMode}
-                  onAmountModeChange={setAmountMode}
                   wishes={wishes}
                   wishesLoading={wishesLoading}
                 />

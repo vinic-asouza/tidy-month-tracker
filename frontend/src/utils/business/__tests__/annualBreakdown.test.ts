@@ -4,6 +4,7 @@ import {
   UNCLASSIFIED_INVESTMENT_LABEL,
   buildAnnualExpenseBreakdown,
   buildAnnualInvestmentRows,
+  sumCardPaymentRows,
 } from '../annualBreakdown';
 
 const card: CreditCard = { id: 'c1', name: 'Nubank', color: '#111', paid: false };
@@ -171,6 +172,43 @@ describe('buildAnnualExpenseBreakdown', () => {
     ]);
     const { categories } = buildAnnualExpenseBreakdown(data, 'effective', [], 1);
     expect(categories.map((row) => row.label)).toEqual(['Água', 'Luz']);
+  });
+});
+
+describe('sumCardPaymentRows', () => {
+  const inter: CreditCard = { id: 'c2', name: 'Inter', color: '#222', paid: false };
+
+  it('soma só os cartões e deixa Pix de fora', () => {
+    const data = year([
+      {
+        expenses: [
+          expense({ id: 'nubank', value: 90, paymentMethod: 'Nubank' }),
+          expense({ id: 'inter', value: 30, paymentMethod: 'Inter' }),
+          expense({ id: 'pix', value: 40, paymentMethod: 'Pix' }),
+        ],
+      },
+    ]);
+    const { paymentMethods } = buildAnnualExpenseBreakdown(data, 'planned', [card, inter], 12);
+
+    expect(sumCardPaymentRows(paymentMethods)).toEqual({
+      key: 'cards-total',
+      label: 'Cartões',
+      total: 120,
+      average: 120,
+      isCard: true,
+    });
+  });
+
+  it('não cria total quando não há cartão', () => {
+    const data = year([{ expenses: [expense({ id: 'pix', value: 40, paymentMethod: 'Pix' })] }]);
+    const { paymentMethods } = buildAnnualExpenseBreakdown(data, 'planned', [card], 12);
+    expect(sumCardPaymentRows(paymentMethods)).toBeNull();
+  });
+
+  it('mantém a média ausente quando a janela está vazia', () => {
+    const data = year([{ expenses: [expense({ id: 'nubank', value: 90, paymentMethod: 'Nubank' })] }]);
+    const { paymentMethods } = buildAnnualExpenseBreakdown(data, 'planned', [card], 0);
+    expect(sumCardPaymentRows(paymentMethods)).toMatchObject({ total: 90, average: null });
   });
 });
 

@@ -192,3 +192,16 @@ export function buildAnnualInvestmentRows(
 
   return rowsFromBuckets(tags, divisor);
 }
+
+/** Soma os métodos marcados como cartão. A média usa o mesmo divisor das linhas. */
+export function sumCardPaymentRows(rows: readonly AnnualMoneyRow[]): AnnualMoneyRow | null {
+  const cards = rows.filter((row) => row.isCard);
+  if (cards.length === 0) return null;
+
+  const total = cards.reduce((sum, row) => sum + row.total, 0);
+  const average = cards.every((row) => row.average == null)
+    ? null
+    : cards.reduce((sum, row) => sum + (row.average ?? 0), 0);
+
+  return { key: 'cards-total', label: 'Cartões', total, average, isCard: true };
+}

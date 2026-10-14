@@ -4,7 +4,7 @@ nome: Regra financeira
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 tags: [regra-financeira, 50-30-20, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -39,7 +39,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 - Gastos na regra: só os do modo ativo; cartão no efetivado via `isExpenseEffectivelyPaid` (RN-F03, RN-F05)
 - **Não classificado:** gasto do modo ativo cuja categoria não está no mapping; alerta + CTA; rodapé classificados + não classificado (RN-F04)
 - Mesmo toggle do resumo (`viewMode` efetivado/planejado) (RN-F05)
-- Visão anual: soma os meses da janela e deriva os % (`calculateAnnualFinancialRuleStatsByMode`). No modo Média, `scaleFinancialRuleMoney` divide só o R$ (RN-F07)
+- Visão anual: duas agregações (`calculateAnnualFinancialRuleStatsByMode`). `resolveAnnualRuleMoney` escala só o R$ da janela (`scaleFinancialRuleMoney`) e guarda o total dos 12 meses. Sem janela ou sem mês com lançamento, a média fica nula (RN-F07). A UI anual mostra a média em destaque, o total do ano ao lado e as barras só da janela. A visão Mensal não recebe o total do ano.
 - Hint quando a base efetivada inclui resgate (`getResgateInflowFromIncomes`)
 
 ### O que este módulo NÃO FAZ
@@ -198,7 +198,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02
 | RN-F04 | Sem mapping → não classificado; alerta + reconciliação | Display + testes de soma |
 | RN-F05 | Mesmo modo do resumo | `viewMode` passado pelo pai |
 | RN-F06 | Dá para apagar a regra | `deleteRule` no mês e no anual |
-| RN-F07 | Média anual: mesma janela do resumo; só o R$ é dividido | `AnnualFinancialRuleSection` + `scaleFinancialRuleMoney` |
+| RN-F07 | Média anual e total dos 12 meses juntos; barras só da janela; média nula sem divisor | `AnnualFinancialRuleSection` + `resolveAnnualRuleMoney` |
 
 ### Fórmulas (modo efetivado)
 

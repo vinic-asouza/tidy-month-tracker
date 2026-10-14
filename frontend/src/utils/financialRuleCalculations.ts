@@ -272,6 +272,26 @@ function scaleBucketMoney<T extends { targetValue: number; currentValue: number;
   };
 }
 
+/**
+ * Média da regra na janela e total dos 12 meses.
+ * Sem janela ou sem mês com lançamento, a média fica ausente e o total do ano permanece.
+ */
+export function resolveAnnualRuleMoney(
+  yearStats: FinancialRuleStats,
+  windowStats: FinancialRuleStats,
+  windowMonthCount: number,
+  activeMonthCount: number
+): { average: FinancialRuleStats | null; year: FinancialRuleStats } {
+  if (windowMonthCount <= 0 || activeMonthCount <= 0) {
+    return { average: null, year: yearStats };
+  }
+
+  return {
+    average: scaleFinancialRuleMoney(windowStats, activeMonthCount),
+    year: yearStats,
+  };
+}
+
 /** Divide só os valores em R$. Percentuais da mesma soma permanecem. */
 export function scaleFinancialRuleMoney(
   stats: FinancialRuleStats,
