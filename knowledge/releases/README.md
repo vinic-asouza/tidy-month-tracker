@@ -16,7 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
-| v0.7.0 | 2026-10-14 | Draft | [v0.7.0-2026-10-14.md](./v0.7.0-2026-10-14.md) |
+| v0.7.0 | 2026-10-14 | Publicado | [v0.7.0-2026-10-14.md](./v0.7.0-2026-10-14.md) |
 | v0.6.0 | 2026-10-14 | Publicado | [v0.6.0-2026-10-14.md](./v0.6.0-2026-10-14.md) |
 | v0.5.0 | 2026-10-13 | Publicado | [v0.5.0-2026-10-13.md](./v0.5.0-2026-10-13.md) |
 | v0.4.1 | 2026-09-07 | Publicado | [v0.4.1-2026-09-07.md](./v0.4.1-2026-09-07.md) |
@@ -38,7 +38,7 @@ Gatilho: **PR com destino `main`** (produção / Vercel). A nota entra **no mesm
 - Template: [`../00_meta/templates/template-release-notes.md`](../00_meta/templates/template-release-notes.md)
 - Nome: `vX.Y.Z-YYYY-MM-DD.md` (ex.: `v0.1.1-2026-08-24.md`)
 - Frontmatter: `ambiente: production`; IDs Linear no campo `issues`
-- SemVer: última publicada é `v0.6.0`. A nota em Draft desta PR é **MINOR** `v0.7.0` (a visão Anual passa a mostrar média e total juntos e tira o seletor). Depois de publicar, a seguinte é **PATCH** `v0.7.1`, salvo novo MINOR/MAJOR.
+- SemVer: última publicada é `v0.7.0` (MINOR, média e total juntos na visão Anual). A próxima é **PATCH** `v0.7.1`, salvo MINOR/MAJOR justificados.
 - `v1.0.0` só no go-live público do [roadmap](../01_produto/roadmap.md).
 
 Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, migrations, landing).
