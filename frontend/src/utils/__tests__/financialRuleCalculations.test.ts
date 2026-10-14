@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  calculateAnnualFinancialRuleStats,
   calculateFinancialRuleStats,
   calculatePlannedFinancialRuleStats,
+  scaleFinancialRuleMoney,
 } from '../financialRuleCalculations';
 import type { FinancialRule, MonthData } from '@/types/domain';
 import { RESGATE_INCOME_TAG } from '@/types/finance';
@@ -210,5 +212,42 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
 
     expect(stats.totalIncome).toBe(5000);
     expect(stats.essentials.current).toBeCloseTo((1500 / 5000) * 100, 5);
+  });
+});
+
+describe('scaleFinancialRuleMoney', () => {
+  it('divide o R$ da janela e preserva o percentual ponderado', () => {
+    const january = baseMonthData;
+    const february: MonthData = {
+      ...baseMonthData,
+      incomes: [{ id: '2', description: 'Salário', value: 5000, tag: 'Salário', received: true }],
+      expenses: [
+        {
+          id: 'e3',
+          type: 'fixed',
+          category: 'Moradia',
+          description: 'Aluguel',
+          paymentMethod: 'Pix',
+          value: 1500,
+          paid: true,
+        },
+      ],
+    };
+
+    const summed = calculateAnnualFinancialRuleStats(baseRule, [january, february]);
+    const average = scaleFinancialRuleMoney(summed, 2);
+
+    expect(average.totalIncome).toBe(summed.totalIncome / 2);
+    expect(average.essentials.currentValue).toBe(summed.essentials.currentValue / 2);
+    expect(average.essentials.targetValue).toBe(summed.essentials.targetValue / 2);
+    expect(average.unclassifiedValue).toBe(summed.unclassifiedValue / 2);
+    expect(average.essentials.current).toBe(summed.essentials.current);
+    expect(average.essentials.target).toBe(summed.essentials.target);
+    expect(average.essentials.difference).toBe(summed.essentials.difference);
+  });
+
+  it('não divide quando o divisor é zero', () => {
+    const stats = calculateFinancialRuleStats(baseRule, baseMonthData);
+    expect(scaleFinancialRuleMoney(stats, 0)).toBe(stats);
   });
 });

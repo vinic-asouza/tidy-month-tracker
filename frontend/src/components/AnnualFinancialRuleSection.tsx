@@ -1,5 +1,6 @@
 /**
- * Bloco de regra financeira na visão anual — média consolidada do ano.
+ * Bloco de regra financeira na visão anual.
+ * Total soma os 12 meses. Média usa a janela já calculada pelo resumo.
  */
 
 import { useState, useMemo } from 'react';
@@ -13,7 +14,15 @@ import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { formatCurrency } from '@/lib/utils';
-import { calculateAnnualFinancialRuleStatsByMode } from '@/utils/financialRuleCalculations';
+import {
+  averageAmount,
+  sliceYearMonths,
+  type AnnualAmountMode,
+} from '@/utils/business/annualAverage';
+import {
+  calculateAnnualFinancialRuleStatsByMode,
+  scaleFinancialRuleMoney,
+} from '@/utils/financialRuleCalculations';
 import { isExpenseEffectivelyPaid, type SummaryViewMode } from '@/utils/business/monthTotals';
 import type {
   MonthData,
@@ -28,6 +37,9 @@ interface AnnualFinancialRuleSectionProps {
   settings: FinanceSettings;
   creditCards: CreditCard[];
   viewMode?: SummaryViewMode;
+  amountMode?: AnnualAmountMode;
+  averageMonthCount: number;
+  averageWindowLabel: string;
 }
 
 export const AnnualFinancialRuleSection = ({
@@ -36,16 +48,30 @@ export const AnnualFinancialRuleSection = ({
   settings,
   creditCards,
   viewMode = 'effective',
+  amountMode = 'total',
+  averageMonthCount,
+  averageWindowLabel,
 }: AnnualFinancialRuleSectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
   const isPlanned = viewMode === 'planned';
+  const isAverage = amountMode === 'average';
+  const monthsInView = useMemo(
+    () => (isAverage ? sliceYearMonths(yearData, averageMonthCount) : yearData),
+    [isAverage, yearData, averageMonthCount]
+  );
 
   const annualStats = useMemo(() => {
-    if (!rule || yearData.length === 0) return null;
-    return calculateAnnualFinancialRuleStatsByMode(viewMode, rule, yearData, creditCards);
-  }, [rule, yearData, creditCards, viewMode]);
+    if (!rule || monthsInView.length === 0) return null;
+    const summed = calculateAnnualFinancialRuleStatsByMode(
+      viewMode,
+      rule,
+      monthsInView,
+      creditCards
+    );
+    return isAverage ? scaleFinancialRuleMoney(summed, averageMonthCount) : summed;
+  }, [rule, monthsInView, creditCards, viewMode, isAverage, averageMonthCount]);
 
   const unmappedCategories = useMemo(() => {
     if (!rule || !settings.expenseCategories) return [];
@@ -57,7 +83,7 @@ export const AnnualFinancialRuleSection = ({
 
   const unmappedExpensesTotal = useMemo(() => {
     if (!hasUnmappedCategories) return 0;
-    return yearData.reduce((yearSum, monthData) => {
+    const summed = monthsInView.reduce((yearSum, monthData) => {
       const monthTotal = monthData.expenses
         .filter((e) => unmappedCategories.includes(e.category))
         .filter(
@@ -68,7 +94,16 @@ export const AnnualFinancialRuleSection = ({
         .reduce((sum, e) => sum + e.value, 0);
       return yearSum + monthTotal;
     }, 0);
-  }, [yearData, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards]);
+    return isAverage ? averageAmount(summed, averageMonthCount) : summed;
+  }, [
+    monthsInView,
+    unmappedCategories,
+    hasUnmappedCategories,
+    isPlanned,
+    creditCards,
+    isAverage,
+    averageMonthCount,
+  ]);
 
   const handleComplete = async (data: CreateFinancialRuleInput) => {
     try {
@@ -99,9 +134,13 @@ export const AnnualFinancialRuleSection = ({
       <SectionSurface
         title={`Regra Financeira — ${currentYear}`}
         subtitle={
-          isPlanned
-            ? 'Média anual com base em todos os lançamentos registrados'
-            : 'Média anual com base em entradas, gastos e investimentos efetivados'
+          isAverage
+            ? isPlanned
+              ? `${averageWindowLabel} com base em todos os lançamentos registrados`
+              : `${averageWindowLabel} com base em entradas, gastos e investimentos efetivados`
+            : isPlanned
+              ? 'Soma anual de todos os lançamentos registrados'
+              : 'Soma anual de entradas, gastos e investimentos efetivados'
         }
         icon={Scale}
       >
@@ -144,7 +183,8 @@ export const AnnualFinancialRuleSection = ({
                     <AlertCircle className="h-3 w-3 shrink-0" />
                     <span className="line-clamp-2 sm:line-clamp-none">
                       {unmappedCategories.length} categoria(s) sem mapeamento
-                      {unmappedExpensesTotal > 0 && ` — ${formatCurrency(unmappedExpensesTotal)} no ano`}
+                      {unmappedExpensesTotal > 0 &&
+                        ` — ${formatCurrency(unmappedExpensesTotal)} ${isAverage ? 'na média' : 'no ano'}`}
                     </span>
                   </Badge>
                 )}
@@ -175,9 +215,13 @@ export const AnnualFinancialRuleSection = ({
                 viewMode={viewMode}
                 onEditMapping={handleEdit}
                 emptyStateMessage={
-                  isPlanned
-                    ? 'Registre lançamentos ao longo do ano para ver a média anual planejada da regra.'
-                    : 'Marque lançamentos como recebidos, pagos ou investidos ao longo do ano para ver a média anual da regra.'
+                  isAverage
+                    ? isPlanned
+                      ? 'Registre lançamentos no período para ver a média mensal planejada da regra.'
+                      : 'Marque lançamentos como recebidos, pagos ou investidos no período para ver a média mensal da regra.'
+                    : isPlanned
+                      ? 'Registre lançamentos ao longo do ano para ver o total planejado da regra.'
+                      : 'Marque lançamentos como recebidos, pagos ou investidos ao longo do ano para ver o total da regra.'
                 }
               />
             )}

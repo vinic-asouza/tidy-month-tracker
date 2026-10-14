@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-09-03
+ultima_atualizacao: 2026-10-13
 ---
 
 # Jornadas de usuário
@@ -16,12 +16,12 @@ Fluxos que existem no frontend hoje. Telas reais: rotas `/auth` e `/` (`App.tsx`
 
 Rota `/` (`Index.tsx`), protegida por `ProtectedRoute` (sem sessão → `/auth`).
 
-Cabeçalho: marca, `MonthNavigator` (mês anterior/próximo; “Ir para mês atual”), toggle **Mensal** / **Anual**, tema claro/escuro, sair.
+Cabeçalho: marca, seletor do período, toggle **Mensal** / **Anual**, tema claro/escuro, sair. Em Mensal o seletor é o mês (`MonthNavigator`, com “Ir para mês atual”). Em Anual é o ano (`YearNavigator`, com “Ir para ano atual” fora do ano corrente).
 
 | Visão | Conteúdo principal |
 | --- | --- |
 | **Mensal** (`view = dashboard`) | `MonthSummarySection` → `AccountStrip` → `MonthRecordsSection` |
-| **Anual** (`view = statistics`) | `Statistics` — totais e gráfico do ano |
+| **Anual** (`view = statistics`) | `Statistics` — total ou média do ano, gráfico mês a mês e regra na mesma janela |
 
 Abas de registros (`RecordsTab`): **Entradas** · **Gastos** · **Investimentos** · **Desejos**. Cartões (`CreditCardStrip`) só na aba Gastos.
 
@@ -126,9 +126,9 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 
 **Persona:** Rafael (média) / André (disciplina de aportes).
 
-1. Cabeçalho → **Anual**.
-2. `Statistics`: totais do ano, gráfico mês a mês, mesma lógica efetivado/planejado e regra anual (`AnnualFinancialRuleSection`).
-3. Volta a **Mensal** para agir no mês corrente.
+1. Cabeçalho → **Anual**. O seletor passa a ser o ano e guarda o mês que estava aberto.
+2. `Statistics`: Total (padrão, soma dos 12 meses) ou Média (janela até o último mês completo; ano encerrado usa os 12). O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico e regra (`AnnualFinancialRuleSection`).
+3. Volta a **Mensal** no mesmo mês do ano escolhido. A Média não fica ligada: a visão Anual reabre em Total.
 
 ---
 

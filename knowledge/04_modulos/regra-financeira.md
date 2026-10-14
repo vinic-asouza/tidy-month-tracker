@@ -4,7 +4,7 @@ nome: Regra financeira
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-13
 tags: [regra-financeira, 50-30-20, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -39,7 +39,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 - Gastos na regra: só os do modo ativo; cartão no efetivado via `isExpenseEffectivelyPaid` (RN-F03, RN-F05)
 - **Não classificado:** gasto do modo ativo cuja categoria não está no mapping; alerta + CTA; rodapé classificados + não classificado (RN-F04)
 - Mesmo toggle do resumo (`viewMode` efetivado/planejado) (RN-F05)
-- Visão anual: soma os meses e deriva os % (`calculateAnnualFinancialRuleStatsByMode`)
+- Visão anual: soma os meses da janela e deriva os % (`calculateAnnualFinancialRuleStatsByMode`). No modo Média, `scaleFinancialRuleMoney` divide só o R$ (RN-F07)
 - Hint quando a base efetivada inclui resgate (`getResgateInflowFromIncomes`)
 
 ### O que este módulo NÃO FAZ
@@ -144,7 +144,8 @@ Produção: PostgREST. Express espelha `/api/financial-rule`.
 | Atualizar | `updateFinancialRule` | idem | parcial | Merge; revalida 100%; se vier mapping, exige todas as categorias |
 | Apagar | `deleteFinancialRule` | idem | — | DELETE; UI volta ao CTA “Configurar” |
 | Stats mês | `calculateFinancialRuleStatsByMode` | cliente | modo + `MonthData` | `FinancialRuleStats` |
-| Stats ano | `calculateAnnualFinancialRuleStatsByMode` | cliente | modo + `MonthData[]` | soma dos meses, % sobre renda anual |
+| Stats ano | `calculateAnnualFinancialRuleStatsByMode` | cliente | modo + `MonthData[]` da janela | soma da janela; % sobre essa renda |
+| Média anual | `scaleFinancialRuleMoney` | cliente | stats + tamanho da janela | divide só R$; % intacto. Divisor ≤ 0 devolve o mesmo objeto; a UI não chama com janela vazia |
 
 ### Wizard (`FinancialRuleSetup`)
 
@@ -197,6 +198,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02
 | RN-F04 | Sem mapping → não classificado; alerta + reconciliação | Display + testes de soma |
 | RN-F05 | Mesmo modo do resumo | `viewMode` passado pelo pai |
 | RN-F06 | Dá para apagar a regra | `deleteRule` no mês e no anual |
+| RN-F07 | Média anual: mesma janela do resumo; só o R$ é dividido | `AnnualFinancialRuleSection` + `scaleFinancialRuleMoney` |
 
 ### Fórmulas (modo efetivado)
 

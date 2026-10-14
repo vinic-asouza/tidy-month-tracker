@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: regra-financeira
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-13
 ---
 
 # Regra financeira
@@ -35,3 +35,7 @@ Mesmo modo do resumo (RN-R02).
 ## RN-F06 — Reset
 
 Dá para excluir/resetar a regra na UI do resumo e na visão anual (`deleteRule`).
+
+## RN-F07 — Média anual
+
+No modo Média, a regra usa a mesma janela do resumo (RN-R04). O cálculo roda só nesses meses; só os valores em R$ são divididos pelo tamanho da janela. Os percentuais são os ponderados pela renda dessa janela, não a média dos percentuais de cada mês. Janela vazia (ano futuro ou janeiro do ano corrente): as barras não aparecem e não há divisão por zero.

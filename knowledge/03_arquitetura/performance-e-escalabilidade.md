@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Performance e escalabilidade
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-13
 ---
 
 # Performance e escalabilidade
@@ -28,7 +28,7 @@ Cálculos de caixa, regra e carteiras são **no cliente** (funções puras). Vol
 ## Rede e banco
 
 - Cada troca de mês dispara o bundle do mês.
-- Visão anual puxa os 12 meses quando a aba Anual abre.
+- Visão anual puxa os 12 meses quando a aba Anual abre. Trocar o ano também busca o mês correspondente, porque o seletor altera `currentMonth`.
 - Carry-forward de carteira pode buscar um **intervalo** de meses — cresce com o histórico.
 - Índices existem (ex.: `payment_method`, `account_id` parciais). Não há cache server-side.
 
