@@ -16,7 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
-| v0.6.0 | 2026-10-14 | Draft | [v0.6.0-2026-10-14.md](./v0.6.0-2026-10-14.md) |
+| v0.6.0 | 2026-10-14 | Publicado | [v0.6.0-2026-10-14.md](./v0.6.0-2026-10-14.md) |
 | v0.5.0 | 2026-10-13 | Publicado | [v0.5.0-2026-10-13.md](./v0.5.0-2026-10-13.md) |
 | v0.4.1 | 2026-09-07 | Publicado | [v0.4.1-2026-09-07.md](./v0.4.1-2026-09-07.md) |
 | v0.4.0 | 2026-09-07 | Publicado | [v0.4.0-2026-09-07.md](./v0.4.0-2026-09-07.md) |
@@ -37,7 +37,7 @@ Gatilho: **PR com destino `main`** (produção / Vercel). A nota entra **no mesm
 - Template: [`../00_meta/templates/template-release-notes.md`](../00_meta/templates/template-release-notes.md)
 - Nome: `vX.Y.Z-YYYY-MM-DD.md` (ex.: `v0.1.1-2026-08-24.md`)
 - Frontmatter: `ambiente: production`; IDs Linear no campo `issues`
-- SemVer: última publicada é `v0.5.0`. A nota em Draft `v0.6.0` é MINOR (seções da visão Anual). Depois dela, a próxima publicada segue PATCH, salvo MINOR/MAJOR justificados.
+- SemVer: última publicada é `v0.6.0` (MINOR, seções da visão Anual). A próxima é **PATCH** `v0.6.1`, salvo MINOR/MAJOR justificados.
 - `v1.0.0` só no go-live público do [roadmap](../01_produto/roadmap.md).
 
 Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, migrations, landing).
@@ -67,4 +67,4 @@ Se P3 (`credit_card_id`) ou P4 (CHECK no banco) mudarem contrato, isso é **MAJO
 - Inventar Issue ID, data de deploy ou tag que não existem
 - Duplicar 01–04: a nota aponta para a KB; não reescreve módulos
 
-Nota em Draft: `v0.6.0` (DEV-138), para a PR com destino `main`. Depois de publicar, a seguinte é **PATCH** `v0.6.1`, salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.
+Próxima nota após publicar `v0.6.0`: **PATCH** `v0.6.1` na próxima PR para `main`, salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.
