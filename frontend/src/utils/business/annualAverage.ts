@@ -1,5 +1,3 @@
-export type AnnualAmountMode = 'total' | 'average';
-
 export interface AnnualAverageWindow {
   monthCount: number;
   closedYear: boolean;

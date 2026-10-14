@@ -21,9 +21,38 @@ interface FinancialRuleDisplayProps {
   monthData?: MonthData;
   creditCards?: CreditCard[];
   stats?: FinancialRuleStats;
+  /** Totais dos 12 meses. Só a visão Anual envia. */
+  yearStats?: FinancialRuleStats;
+  /** Resgates da visão Anual: média da janela e total do ano. */
+  resgateHint?: { average: number | null; total: number };
   viewMode?: SummaryViewMode;
   onEditMapping?: () => void;
   emptyStateMessage?: string;
+}
+
+function AnnualFigure({
+  caption,
+  average,
+  total,
+}: {
+  caption: string;
+  average: number | null;
+  total: number;
+}) {
+  return (
+    <div className="flex items-end justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{caption}</p>
+        <p className="text-lg font-semibold tabular-nums leading-tight text-foreground">
+          {average == null ? '—' : formatCurrency(average)}
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">No ano</p>
+        <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(total)}</p>
+      </div>
+    </div>
+  );
 }
 
 const DEFAULT_EMPTY_MESSAGES: Record<SummaryViewMode, string> = {
@@ -36,6 +65,8 @@ export const FinancialRuleDisplay = ({
   monthData,
   creditCards = [],
   stats: statsProp,
+  yearStats,
+  resgateHint,
   viewMode = 'effective',
   onEditMapping,
   emptyStateMessage,
@@ -45,9 +76,7 @@ export const FinancialRuleDisplay = ({
 
   const stats = useMemo(() => {
     if (statsProp) return statsProp;
-    if (!monthData) {
-      throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
-    }
+    if (!monthData) return null;
     return calculateFinancialRuleStatsByMode(
       viewMode,
       rule,
@@ -56,6 +85,10 @@ export const FinancialRuleDisplay = ({
       monthData.cardMonthlyStatuses
     );
   }, [statsProp, viewMode, rule, monthData, creditCards]);
+
+  if (!stats && !yearStats) {
+    throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
+  }
 
   const CategoryAlerts = ({
     differencePercent,
@@ -303,7 +336,15 @@ export const FinancialRuleDisplay = ({
     );
   };
 
-  if (stats.totalIncome === 0) {
+  const reading = stats ?? yearStats;
+  if (!reading) {
+    throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
+  }
+
+  const averageAbsent = stats == null;
+  const showBars = stats != null && stats.totalIncome > 0;
+
+  if (!showBars && !yearStats) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
         <Info className="h-8 w-8 text-muted-foreground/60" />
@@ -315,17 +356,128 @@ export const FinancialRuleDisplay = ({
   }
 
   const classifiedExpenses =
-    stats.essentials.currentValue + stats.lifestyle.currentValue;
+    reading.essentials.currentValue + reading.lifestyle.currentValue;
   const unclassifiedPercent =
-    stats.totalIncome > 0
+    stats && stats.totalIncome > 0
       ? (stats.unclassifiedValue / stats.totalIncome) * 100
       : 0;
-
+  const unclassifiedVisible =
+    (stats?.unclassifiedValue ?? 0) > 0 || (yearStats?.unclassifiedValue ?? 0) > 0;
   const resgateInRuleBase = monthData ? getResgateInflowFromIncomes(monthData.incomes) : 0;
+
+  if (yearStats) {
+    const averageOf = (value: number) => (averageAbsent ? null : value);
+    const buckets = [
+      {
+        key: 'essentials' as const,
+        label: 'Essenciais',
+        kind: 'expense' as const,
+        color: 'expense' as const,
+        caption: 'Gasto',
+        limitLabel: 'Limite',
+      },
+      {
+        key: 'lifestyle' as const,
+        label: 'Estilo de Vida',
+        kind: 'expense' as const,
+        color: 'expense' as const,
+        caption: 'Gasto',
+        limitLabel: 'Limite',
+      },
+      {
+        key: 'investments' as const,
+        label: 'Investimentos',
+        kind: 'investment' as const,
+        color: 'investment' as const,
+        caption: 'Aporte',
+        limitLabel: 'Meta',
+      },
+    ];
+
+    return (
+      <div className="divide-y divide-border/60">
+        {!showBars && (
+          <div className="flex flex-col items-center justify-center gap-2 pb-4 text-center">
+            <Info className="h-8 w-8 text-muted-foreground/60" />
+            <p className="max-w-xs text-sm text-muted-foreground">{resolvedEmptyMessage}</p>
+          </div>
+        )}
+        {viewMode === 'effective' && resgateHint && resgateHint.total > 0 && (
+          <p className="pb-4 text-xs leading-relaxed text-muted-foreground">
+            Resgates na renda: média {resgateHint.average == null ? '—' : formatCurrency(resgateHint.average)}, no ano{' '}
+            {formatCurrency(resgateHint.total)}. Isso dilui os percentuais.
+          </p>
+        )}
+        {buckets.map((bucket) => {
+          const averageBucket = reading[bucket.key];
+          const yearBucket = yearStats[bucket.key];
+          return (
+            <div key={bucket.key} className="space-y-3 py-4 first:pt-0 last:pb-0">
+              {showBars && stats ? (
+                <ProgressBar
+                  current={stats[bucket.key].current}
+                  target={stats[bucket.key].target}
+                  label={bucket.label}
+                  color={bucket.color}
+                  differencePercent={stats[bucket.key].difference}
+                  kind={bucket.kind}
+                />
+              ) : (
+                <p className="text-sm font-medium">{bucket.label}</p>
+              )}
+              <AnnualFigure
+                caption={bucket.caption}
+                average={averageOf(averageBucket.currentValue)}
+                total={yearBucket.currentValue}
+              />
+              <p className="text-sm text-muted-foreground">
+                {bucket.limitLabel}{' '}
+                {averageOf(averageBucket.targetValue) == null
+                  ? '—'
+                  : formatCurrency(averageBucket.targetValue)}{' '}
+                na média · {formatCurrency(yearBucket.targetValue)} no ano
+              </p>
+            </div>
+          );
+        })}
+        {unclassifiedVisible && (
+          <div className="space-y-3 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Não classificado</p>
+                {showBars && (
+                  <Badge
+                    variant="outline"
+                    className="h-6 rounded-full border-none bg-muted px-2 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]"
+                  >
+                    {unclassifiedPercent.toFixed(1)}%
+                  </Badge>
+                )}
+              </div>
+              {onEditMapping && (
+                <Button variant="outline" size="sm" className="h-8" onClick={onEditMapping}>
+                  Mapear
+                </Button>
+              )}
+            </div>
+            <AnnualFigure
+              caption="Gasto"
+              average={averageOf(reading.unclassifiedValue)}
+              total={yearStats.unclassifiedValue}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!stats) {
+    throw new Error('FinancialRuleDisplay requires monthData when stats is not provided');
+  }
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {resgateInRuleBase > 0 && viewMode === 'effective' && (
+      {viewMode === 'effective' && resgateInRuleBase > 0 && (
         <p className="text-xs text-muted-foreground">
           Inclui {formatCurrency(resgateInRuleBase)} em resgates na base da renda — dilui os
           percentuais em relação à renda ganha.
@@ -334,13 +486,13 @@ export const FinancialRuleDisplay = ({
       {stats.unclassifiedValue > 0 && (
         <Alert variant="destructive" className="py-2.5">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+          <AlertDescription className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span>
               {formatCurrency(stats.unclassifiedValue)} em categorias ainda não mapeadas — toque para
               classificar.
             </span>
             {onEditMapping && (
-              <Button variant="outline" size="sm" className="shrink-0 h-8" onClick={onEditMapping}>
+              <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={onEditMapping}>
                 Mapear categorias
               </Button>
             )}
@@ -380,19 +532,19 @@ export const FinancialRuleDisplay = ({
         />
       </div>
       {stats.unclassifiedValue > 0 && (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2.5 space-y-1">
+        <div className="space-y-1 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">Não classificado</span>
+            <span className="text-sm font-medium">Não classificado</span>
             <Badge
               variant="outline"
-              className="h-6 px-2 rounded-full border-none bg-muted text-muted-foreground text-[10px] sm:text-[11px] font-semibold tabular-nums"
+              className="h-6 rounded-full border-none bg-muted px-2 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-[11px]"
             >
               {unclassifiedPercent.toFixed(1)}%
             </Badge>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Valor gasto:{' '}
-            <span className="font-medium text-foreground tabular-nums">
+            <span className="font-medium tabular-nums text-foreground">
               {formatCurrency(stats.unclassifiedValue)}
             </span>
             <span className="hidden sm:inline"> — categorias ainda não mapeadas na regra</span>
@@ -416,21 +568,21 @@ export const FinancialRuleDisplay = ({
         />
       </div>
       {stats.totalEffectiveExpenses > 0 && (
-        <p className="text-[11px] sm:text-xs text-muted-foreground border-t border-border pt-3 leading-relaxed">
+        <p className="border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
           {viewMode === 'planned' ? 'Gastos planejados' : 'Gastos efetivados'}:{' '}
-          <span className="font-medium text-foreground tabular-nums">
+          <span className="font-medium tabular-nums text-foreground">
             {formatCurrency(stats.totalEffectiveExpenses)}
           </span>
           {' · '}
           Na regra:{' '}
-          <span className="font-medium text-foreground tabular-nums">
+          <span className="font-medium tabular-nums text-foreground">
             {formatCurrency(classifiedExpenses)}
           </span>
           {stats.unclassifiedValue > 0 && (
             <>
               {' · '}
               Não classificado:{' '}
-              <span className="font-medium text-foreground tabular-nums">
+              <span className="font-medium tabular-nums text-foreground">
                 {formatCurrency(stats.unclassifiedValue)}
               </span>
             </>

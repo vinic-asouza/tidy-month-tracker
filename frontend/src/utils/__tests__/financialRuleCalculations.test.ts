@@ -3,6 +3,7 @@ import {
   calculateAnnualFinancialRuleStats,
   calculateFinancialRuleStats,
   calculatePlannedFinancialRuleStats,
+  resolveAnnualRuleMoney,
   scaleFinancialRuleMoney,
 } from '../financialRuleCalculations';
 import type { FinancialRule, MonthData } from '@/types/domain';
@@ -249,5 +250,26 @@ describe('scaleFinancialRuleMoney', () => {
   it('não divide quando o divisor é zero', () => {
     const stats = calculateFinancialRuleStats(baseRule, baseMonthData);
     expect(scaleFinancialRuleMoney(stats, 0)).toBe(stats);
+  });
+});
+
+describe('resolveAnnualRuleMoney', () => {
+  it('destaca a média da janela e preserva o total do ano', () => {
+    const year = calculateFinancialRuleStats(baseRule, baseMonthData);
+    const windowStats = calculateFinancialRuleStats(baseRule, baseMonthData);
+    const resolved = resolveAnnualRuleMoney(year, windowStats, 9, 2);
+
+    expect(resolved.year.totalIncome).toBe(year.totalIncome);
+    expect(resolved.average?.totalIncome).toBe(year.totalIncome / 2);
+    expect(resolved.average?.essentials.current).toBe(year.essentials.current);
+  });
+
+  it('omite a média quando não há mês com lançamento e mantém o total', () => {
+    const year = calculateFinancialRuleStats(baseRule, baseMonthData);
+    const resolved = resolveAnnualRuleMoney(year, year, 9, 0);
+
+    expect(resolved.average).toBeNull();
+    expect(resolved.year).toBe(year);
+    expect(resolveAnnualRuleMoney(year, year, 0, 0).average).toBeNull();
   });
 });

@@ -14,16 +14,16 @@ import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { formatCurrency } from '@/lib/utils';
-import {
-  averageAmount,
-  sliceYearMonths,
-  type AnnualAmountMode,
-} from '@/utils/business/annualAverage';
+import { sliceYearMonths } from '@/utils/business/annualAverage';
 import {
   calculateAnnualFinancialRuleStatsByMode,
-  scaleFinancialRuleMoney,
+  resolveAnnualRuleMoney,
 } from '@/utils/financialRuleCalculations';
-import { isExpenseEffectivelyPaid, type SummaryViewMode } from '@/utils/business/monthTotals';
+import {
+  getResgateInflowFromIncomes,
+  isExpenseEffectivelyPaid,
+  type SummaryViewMode,
+} from '@/utils/business/monthTotals';
 import type {
   MonthData,
   FinanceSettings,
@@ -31,13 +31,31 @@ import type {
   CreditCard,
 } from '@/types/domain';
 
+function sumUnmappedExpenses(
+  months: MonthData[],
+  categories: string[],
+  isPlanned: boolean,
+  creditCards: CreditCard[]
+) {
+  return months.reduce((yearSum, monthData) => {
+    const monthTotal = monthData.expenses
+      .filter((expense) => categories.includes(expense.category))
+      .filter(
+        (expense) =>
+          isPlanned ||
+          isExpenseEffectivelyPaid(expense, creditCards, monthData.cardMonthlyStatuses)
+      )
+      .reduce((sum, expense) => sum + expense.value, 0);
+    return yearSum + monthTotal;
+  }, 0);
+}
+
 interface AnnualFinancialRuleSectionProps {
   currentYear: number;
   yearData: MonthData[];
   settings: FinanceSettings;
   creditCards: CreditCard[];
   viewMode?: SummaryViewMode;
-  amountMode?: AnnualAmountMode;
   averageMonthCount: number;
   /** Meses da janela com entrada, gasto ou investimento no modo ativo. */
   activeMonthCount: number;
@@ -50,7 +68,6 @@ export const AnnualFinancialRuleSection = ({
   settings,
   creditCards,
   viewMode = 'effective',
-  amountMode = 'total',
   averageMonthCount,
   activeMonthCount,
   averageWindowLabel,
@@ -59,22 +76,22 @@ export const AnnualFinancialRuleSection = ({
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
   const isPlanned = viewMode === 'planned';
-  const isAverage = amountMode === 'average';
-  const monthsInView = useMemo(
-    () => (isAverage ? sliceYearMonths(yearData, averageMonthCount) : yearData),
-    [isAverage, yearData, averageMonthCount]
+  const windowMonths = useMemo(
+    () => sliceYearMonths(yearData, averageMonthCount),
+    [yearData, averageMonthCount]
   );
 
-  const annualStats = useMemo(() => {
-    if (!rule || monthsInView.length === 0) return null;
-    const summed = calculateAnnualFinancialRuleStatsByMode(
+  const ruleFigures = useMemo(() => {
+    if (!rule || yearData.length === 0) return null;
+    const year = calculateAnnualFinancialRuleStatsByMode(viewMode, rule, yearData, creditCards);
+    const windowStats = calculateAnnualFinancialRuleStatsByMode(
       viewMode,
       rule,
-      monthsInView,
+      windowMonths,
       creditCards
     );
-    return isAverage ? scaleFinancialRuleMoney(summed, activeMonthCount) : summed;
-  }, [rule, monthsInView, creditCards, viewMode, isAverage, activeMonthCount]);
+    return resolveAnnualRuleMoney(year, windowStats, averageMonthCount, activeMonthCount);
+  }, [rule, yearData, windowMonths, creditCards, viewMode, averageMonthCount, activeMonthCount]);
 
   const unmappedCategories = useMemo(() => {
     if (!rule || !settings.expenseCategories) return [];
@@ -84,29 +101,32 @@ export const AnnualFinancialRuleSection = ({
 
   const hasUnmappedCategories = unmappedCategories.length > 0;
 
-  const unmappedExpensesTotal = useMemo(() => {
-    if (!hasUnmappedCategories) return 0;
-    const summed = monthsInView.reduce((yearSum, monthData) => {
-      const monthTotal = monthData.expenses
-        .filter((e) => unmappedCategories.includes(e.category))
-        .filter(
-          (e) =>
-            isPlanned ||
-            isExpenseEffectivelyPaid(e, creditCards, monthData.cardMonthlyStatuses)
-        )
-        .reduce((sum, e) => sum + e.value, 0);
-      return yearSum + monthTotal;
-    }, 0);
-    return isAverage ? averageAmount(summed, activeMonthCount) : summed;
-  }, [
-    monthsInView,
-    unmappedCategories,
-    hasUnmappedCategories,
-    isPlanned,
-    creditCards,
-    isAverage,
-    activeMonthCount,
-  ]);
+  const unmappedYearTotal = useMemo(
+    () =>
+      hasUnmappedCategories
+        ? sumUnmappedExpenses(yearData, unmappedCategories, isPlanned, creditCards)
+        : 0,
+    [yearData, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards]
+  );
+  const unmappedAverage = useMemo(() => {
+    if (!hasUnmappedCategories || activeMonthCount <= 0) return null;
+    return (
+      sumUnmappedExpenses(windowMonths, unmappedCategories, isPlanned, creditCards) / activeMonthCount
+    );
+  }, [windowMonths, unmappedCategories, hasUnmappedCategories, isPlanned, creditCards, activeMonthCount]);
+
+  const resgateHint = useMemo(() => {
+    if (viewMode !== 'effective') return null;
+    const total = yearData.reduce((sum, month) => sum + getResgateInflowFromIncomes(month.incomes), 0);
+    const windowSum = windowMonths.reduce(
+      (sum, month) => sum + getResgateInflowFromIncomes(month.incomes),
+      0
+    );
+    return {
+      total,
+      average: activeMonthCount > 0 ? windowSum / activeMonthCount : null,
+    };
+  }, [viewMode, yearData, windowMonths, activeMonthCount]);
 
   const handleComplete = async (data: CreateFinancialRuleInput) => {
     try {
@@ -137,13 +157,9 @@ export const AnnualFinancialRuleSection = ({
       <SectionSurface
         title={`Regra Financeira — ${currentYear}`}
         subtitle={
-          isAverage
-            ? isPlanned
-              ? `${averageWindowLabel} com base em todos os lançamentos registrados`
-              : `${averageWindowLabel} com base em entradas, gastos e investimentos efetivados`
-            : isPlanned
-              ? 'Soma anual de todos os lançamentos registrados'
-              : 'Soma anual de entradas, gastos e investimentos efetivados'
+          isPlanned
+            ? `${averageWindowLabel}. O número grande é a média. O da direita soma os 12 meses registrados.`
+            : `${averageWindowLabel}. O número grande é a média. O da direita soma os 12 meses efetivados.`
         }
         icon={Scale}
       >
@@ -186,8 +202,10 @@ export const AnnualFinancialRuleSection = ({
                     <AlertCircle className="h-3 w-3 shrink-0" />
                     <span className="line-clamp-2 sm:line-clamp-none">
                       {unmappedCategories.length} categoria(s) sem mapeamento
-                      {unmappedExpensesTotal > 0 &&
-                        ` — ${formatCurrency(unmappedExpensesTotal)} ${isAverage ? 'na média' : 'no ano'}`}
+                      {unmappedYearTotal > 0 &&
+                        ` — média ${
+                          unmappedAverage == null ? '—' : formatCurrency(unmappedAverage)
+                        } (total ${formatCurrency(unmappedYearTotal)})`}
                     </span>
                   </Badge>
                 )}
@@ -211,20 +229,20 @@ export const AnnualFinancialRuleSection = ({
               </div>
             </div>
 
-            {annualStats && (
+            {ruleFigures && (
               <FinancialRuleDisplay
                 rule={rule}
-                stats={annualStats}
+                stats={ruleFigures.average ?? undefined}
+                yearStats={ruleFigures.year}
+                resgateHint={resgateHint ?? undefined}
                 viewMode={viewMode}
                 onEditMapping={handleEdit}
                 emptyStateMessage={
-                  isAverage
+                  ruleFigures.average
                     ? isPlanned
-                      ? 'Registre lançamentos no período para ver a média mensal planejada da regra.'
-                      : 'Marque lançamentos como recebidos, pagos ou investidos no período para ver a média mensal da regra.'
-                    : isPlanned
-                      ? 'Registre lançamentos ao longo do ano para ver o total planejado da regra.'
-                      : 'Marque lançamentos como recebidos, pagos ou investidos ao longo do ano para ver o total da regra.'
+                      ? 'Registre lançamentos no período da média para ver as barras da regra. O total do ano continua abaixo.'
+                      : 'Marque lançamentos como recebidos, pagos ou investidos no período da média para ver as barras da regra. O total do ano continua abaixo.'
+                    : 'Nenhum mês com lançamentos neste período para calcular a média da regra. O total do ano continua abaixo.'
                 }
               />
             )}

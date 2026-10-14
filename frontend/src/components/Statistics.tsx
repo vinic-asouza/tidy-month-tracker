@@ -1,19 +1,16 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
 import { AnnualYearSections } from '@/components/AnnualYearSections';
-import { AnnualAmountModeToggle } from '@/components/AnnualAmountModeToggle';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
 import { SummaryViewModeToggle } from '@/components/SummaryViewModeToggle';
 import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
 import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
 import {
-  averageAmount,
   countActiveAverageMonths,
   formatAverageWindowLabel,
   resolveAnnualAverageWindow,
   sliceYearMonths,
-  type AnnualAmountMode,
 } from '@/utils/business/annualAverage';
 import { calculateMonthTotals } from '@/utils/business/monthTotals';
 import { MonthData, CreditCard, FinanceSettings } from '@/types/finance';
@@ -26,8 +23,6 @@ interface StatisticsProps {
   creditCards: CreditCard[];
   settings: FinanceSettings;
   isLoading?: boolean;
-  amountMode: AnnualAmountMode;
-  onAmountModeChange: (mode: AnnualAmountMode) => void;
   wishes?: WishItem[];
   wishesLoading?: boolean;
 }
@@ -57,14 +52,11 @@ export const Statistics = ({
   creditCards,
   settings,
   isLoading = false,
-  amountMode,
-  onAmountModeChange,
   wishes = [],
   wishesLoading = false,
 }: StatisticsProps) => {
   const { viewMode, setViewMode } = useSummaryViewMode();
   const isPlanned = viewMode === 'planned';
-  const isAverage = amountMode === 'average';
   const today = useMemo(() => new Date(), []);
   const currentMonthIndex = currentYear === today.getFullYear() ? today.getMonth() : -1;
   const averageWindow = useMemo(
@@ -114,8 +106,8 @@ export const Statistics = ({
     [currentYear, today, activeMonthCount]
   );
 
-  const displayedTotals = useMemo(() => {
-    if (!isAverage) return yearStats.totals;
+  const averageTotals = useMemo(() => {
+    if (activeMonthCount <= 0) return null;
 
     const windowMonths = sliceYearMonths(yearStats.monthlyData, averageWindow.monthCount);
     const sum = windowMonths.reduce(
@@ -129,12 +121,12 @@ export const Statistics = ({
     );
 
     return {
-      income: averageAmount(sum.income, activeMonthCount),
-      expenses: averageAmount(sum.expenses, activeMonthCount),
-      investments: averageAmount(sum.investments, activeMonthCount),
-      balance: averageAmount(sum.balance, activeMonthCount),
+      income: sum.income / activeMonthCount,
+      expenses: sum.expenses / activeMonthCount,
+      investments: sum.investments / activeMonthCount,
+      balance: sum.balance / activeMonthCount,
     };
-  }, [isAverage, yearStats, averageWindow.monthCount, activeMonthCount]);
+  }, [yearStats, averageWindow.monthCount, activeMonthCount]);
 
   const hasNoData =
     yearStats.totals.income === 0 &&
@@ -143,28 +135,35 @@ export const Statistics = ({
 
   const StatCard = ({
     title,
-    value,
+    average,
+    total,
     variant,
   }: {
     title: string;
-    value: number;
+    average: number | null;
+    total: number;
     variant: 'income' | 'expense' | 'investment' | 'balance';
   }) => {
     const isBalance = variant === 'balance';
-    const isPositive = value >= 0;
-    const colorClass = isBalance
-      ? isPositive
-        ? 'text-income'
-        : 'text-expense'
-      : variant === 'income'
-        ? 'text-income'
-        : variant === 'expense'
-          ? 'text-expense'
-          : 'text-investment';
+    const isPositive = (average ?? 0) >= 0;
+    const colorClass =
+      average == null
+        ? 'text-muted-foreground'
+        : isBalance
+          ? isPositive
+            ? 'text-income'
+            : 'text-expense'
+          : variant === 'income'
+            ? 'text-income'
+            : variant === 'expense'
+              ? 'text-expense'
+              : 'text-investment';
     const lightBg = isBalance
-      ? isPositive
-        ? 'bg-income-light'
-        : 'bg-expense-light'
+      ? average == null
+        ? 'bg-muted/40'
+        : isPositive
+          ? 'bg-income-light'
+          : 'bg-expense-light'
       : variant === 'income'
         ? 'bg-income-light'
         : variant === 'expense'
@@ -173,13 +172,27 @@ export const Statistics = ({
 
     return (
       <div className={`${lightBg} rounded-md p-4 text-center`}>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {title}
         </p>
-        <p className={`text-lg font-bold tabular-nums ${colorClass}`}>
-          {isBalance && isPositive ? '+' : ''}
-          {formatCurrency(value)}
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Média</p>
+        <p className={`text-xl font-bold tabular-nums leading-tight ${colorClass}`}>
+          {average == null ? (
+            '—'
+          ) : (
+            <>
+              {isBalance && isPositive ? '+' : ''}
+              {formatCurrency(average)}
+            </>
+          )}
         </p>
+        <div className="mx-auto mt-3 border-t border-foreground/10 pt-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total</p>
+          <p className="text-sm font-semibold tabular-nums text-foreground">
+            {isBalance && total > 0 ? '+' : ''}
+            {formatCurrency(total)}
+          </p>
+        </div>
       </div>
     );
   };
@@ -201,25 +214,17 @@ export const Statistics = ({
     );
   };
 
-  const summarySubtitle = isAverage
-    ? isPlanned
-      ? `${averageWindowLabel} do que você registrou — fluxo mensal, não patrimônio acumulado`
-      : `${averageWindowLabel} do fluxo efetivado — investimentos são aportes de caixa, não valorização de ativos`
-    : isPlanned
-      ? 'Soma de tudo que você registrou neste ano — fluxo mensal, não patrimônio acumulado'
-      : 'Soma do fluxo efetivado do ano — investimentos são aportes de caixa, não valorização de ativos';
+  const summarySubtitle = isPlanned
+    ? `${averageWindowLabel}. Abaixo de cada média, o total dos 12 meses — fluxo mensal, não patrimônio acumulado.`
+    : `${averageWindowLabel}. Abaixo de cada média, o total dos 12 meses. Investimentos são aportes de caixa, não valorização de ativos.`;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>O modo efetivado ou planejado vale para o resumo, o gráfico, a regra e as seções de dinheiro.</p>
-          <p>O seletor Total ou Média vale só para o resumo, o gráfico e a regra.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-          <AnnualAmountModeToggle amountMode={amountMode} onAmountModeChange={onAmountModeChange} />
-        </div>
+        <p className="text-sm text-muted-foreground">
+          O modo efetivado ou planejado vale para o resumo, o gráfico, a regra e as seções de dinheiro.
+        </p>
+        <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
       {yearData.length === 0 && isLoading ? (
@@ -241,6 +246,13 @@ export const Statistics = ({
             )}
             <SummaryTotalsLegend mode={viewMode} className="mb-6" />
 
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              <StatCard title="Entradas" average={averageTotals?.income ?? null} total={yearStats.totals.income} variant="income" />
+              <StatCard title="Gastos" average={averageTotals?.expenses ?? null} total={yearStats.totals.expenses} variant="expense" />
+              <StatCard title="Investimentos" average={averageTotals?.investments ?? null} total={yearStats.totals.investments} variant="investment" />
+              <StatCard title="Saldo" average={averageTotals?.balance ?? null} total={yearStats.totals.balance} variant="balance" />
+            </div>
+
             {hasNoData ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <BarChart2 className="h-10 w-10 text-muted-foreground/50" />
@@ -251,15 +263,7 @@ export const Statistics = ({
                 </p>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  <StatCard title="Entradas" value={displayedTotals.income} variant="income" />
-                  <StatCard title="Gastos" value={displayedTotals.expenses} variant="expense" />
-                  <StatCard title="Investimentos" value={displayedTotals.investments} variant="investment" />
-                  <StatCard title="Saldo" value={displayedTotals.balance} variant="balance" />
-                </div>
-
-                <div className="h-72 mt-4">
+              <div className="h-72 mt-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={yearStats.monthlyData} barCategoryGap="20%">
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -301,8 +305,7 @@ export const Statistics = ({
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
-              </>
+              </div>
             )}
             </div>
           </SectionSurface>
@@ -313,7 +316,6 @@ export const Statistics = ({
             settings={settings}
             creditCards={creditCards}
             viewMode={viewMode}
-            amountMode={amountMode}
             averageMonthCount={averageWindow.monthCount}
             activeMonthCount={activeMonthCount}
             averageWindowLabel={averageWindowLabel}
