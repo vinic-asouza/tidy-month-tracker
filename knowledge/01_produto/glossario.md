@@ -28,6 +28,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 | **Repetição mensal** | Cópia do lançamento nos demais meses do **mesmo ano civil**. |
 | **Parcela** | Parte de uma compra dividida em meses (pode atravessar o ano). |
 | **Importação CSV assistida** | Fluxo em Gastos em que um CSV **propõe** linhas; a pessoa mapeia colunas, revisa e só então grava. Não é Open Finance nem lançamento automático. |
+| **Exportação anual** | PDF ou CSV baixado na visão Anual, do ano selecionado e do modo ativo. Repete as leituras agregadas da tela, sem desejos e sem cada lançamento. Não grava nada. |
 
 ---
 

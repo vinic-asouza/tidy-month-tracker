@@ -5,7 +5,7 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 | Arquivo | Conteúdo |
 | --- | --- |
 | [regras-gerais.md](./regras-gerais.md) | Caixa, efetivado, repetição no ano civil, isolamento, patrimônio |
-| [politicas-e-restricoes.md](./politicas-e-restricoes.md) | O que o produto recusa ou limita (Open Finance, CSV assistida como exceção, validações, cartão por nome) |
+| [politicas-e-restricoes.md](./politicas-e-restricoes.md) | O que o produto recusa ou limita (Open Finance, CSV assistida e exportação anual como exceções, validações, cartão por nome) |
 | [regras-por-modulo/](./regras-por-modulo/) | Regras por área da UI |
 
 ## Por módulo

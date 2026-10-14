@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Roadmap
-ultima_atualizacao: 2026-09-03
+ultima_atualizacao: 2026-10-14
 ---
 
 # Roadmap
@@ -58,7 +58,7 @@ Não bloqueiam a primeira campanha.
 **P4 e lacunas de mercado** (contínuo)
 
 - Constraints no banco para valores e percentuais da regra (hoje validação forte no client)
-- Exportação CSV/PDF
+- Exportação CSV/PDF além do recorte anual agregado (DEV-150 / v0.8.0). Visão Mensal, lançamento linha a linha, e-mail e arquivo dos dois modos continuam fora
 - PWA (objeção “não tem app”)
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)
 - Métodos de pagamento customizáveis — fora do MVP (D8)

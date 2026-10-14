@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
+import { AnnualExportActions } from '@/components/AnnualExportActions';
 import { AnnualYearSections } from '@/components/AnnualYearSections';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { SummaryTotalsLegend } from '@/components/layout/SummaryTotalsLegend';
 import { SummaryViewModeToggle } from '@/components/SummaryViewModeToggle';
 import { BarChart3, Loader2, BarChart2 } from 'lucide-react';
+import { useFinancialRule } from '@/hooks/useFinancialRule';
 import { useSummaryViewMode } from '@/hooks/useSummaryViewMode';
 import {
   countActiveAverageMonths,
@@ -56,6 +58,7 @@ export const Statistics = ({
   wishesLoading = false,
 }: StatisticsProps) => {
   const { viewMode, setViewMode } = useSummaryViewMode();
+  const { rule, loading: ruleLoading, createRule, updateRule, deleteRule } = useFinancialRule();
   const isPlanned = viewMode === 'planned';
   const today = useMemo(() => new Date(), []);
   const currentMonthIndex = currentYear === today.getFullYear() ? today.getMonth() : -1;
@@ -224,7 +227,19 @@ export const Statistics = ({
         <p className="text-sm text-muted-foreground">
           O modo efetivado ou planejado vale para o resumo, o gráfico, a regra e as seções de dinheiro.
         </p>
-        <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <AnnualExportActions
+            year={currentYear}
+            mode={viewMode}
+            yearData={yearData}
+            creditCards={creditCards}
+            rule={rule}
+            expenseCategories={settings.expenseCategories}
+            today={today}
+            blocked={isLoading || yearData.length !== 12 || ruleLoading}
+          />
+          <SummaryViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+        </div>
       </div>
 
       {yearData.length === 0 && isLoading ? (
@@ -319,6 +334,11 @@ export const Statistics = ({
             averageMonthCount={averageWindow.monthCount}
             activeMonthCount={activeMonthCount}
             averageWindowLabel={averageWindowLabel}
+            rule={rule}
+            ruleLoading={ruleLoading}
+            onCreateRule={createRule}
+            onUpdateRule={updateRule}
+            onDeleteRule={deleteRule}
           />
 
           <AnnualYearSections

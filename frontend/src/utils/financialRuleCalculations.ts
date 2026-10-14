@@ -292,6 +292,26 @@ export function resolveAnnualRuleMoney(
   };
 }
 
+/** Soma gastos das categorias informadas, no modo ativo. Usado no aviso de não mapeadas. */
+export function sumExpensesInCategories(
+  months: readonly MonthData[],
+  categories: readonly string[],
+  mode: SummaryViewMode,
+  creditCards: CreditCard[]
+): number {
+  const planned = mode === 'planned';
+  return months.reduce((yearSum, monthData) => {
+    const monthTotal = monthData.expenses
+      .filter((expense) => categories.includes(expense.category))
+      .filter(
+        (expense) =>
+          planned || isExpenseEffectivelyPaid(expense, creditCards, monthData.cardMonthlyStatuses)
+      )
+      .reduce((sum, expense) => sum + expense.value, 0);
+    return yearSum + monthTotal;
+  }, 0);
+}
+
 /** Divide só os valores em R$. Percentuais da mesma soma permanecem. */
 export function scaleFinancialRuleMoney(
   stats: FinancialRuleStats,

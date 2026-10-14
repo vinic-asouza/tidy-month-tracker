@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Performance e escalabilidade
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 ---
 
 # Performance e escalabilidade
@@ -18,7 +18,7 @@ O desenho atual é para **beta pequeno** (1–3 usuários). Não está dimension
   - histórico de carteiras: range derivado de declarações + `earliestMovementMonth`
 - `QueryClient` global em `App.tsx`: `staleTime` 60s, `retry: 1`, `refetchOnWindowFocus: false`
 - `fetchMonthBundle`: `Promise.all` (incomes, expenses, investments, status de fatura, operações)
-- `Statistics` em `lazy()` + `Suspense`
+- `Statistics` em `lazy()` + `Suspense`. `jspdf` entra só no clique de Exportar PDF, fora do bundle da visão Mensal
 - Tema: `next-themes`; toggle com transição curta
 
 Cálculos de caixa, regra e carteiras são **no cliente** (funções puras). Volume grande de lançamentos aumenta CPU do browser e payload PostgREST, não uma API nossa.
