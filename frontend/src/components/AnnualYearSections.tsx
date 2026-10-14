@@ -113,6 +113,26 @@ function MoneyFigures({ row, tone }: { row: AnnualMoneyRow; tone: MoneyTone }) {
   );
 }
 
+function sumSectionRows(rows: readonly AnnualMoneyRow[]): AnnualMoneyRow {
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
+  const average =
+    rows.length === 0 || rows.every((row) => row.average == null)
+      ? null
+      : rows.reduce((sum, row) => sum + (row.average ?? 0), 0);
+
+  return { key: 'section-total', label: 'Seção', total, average };
+}
+
+function SectionCornerFigures({ rows, tone }: { rows: AnnualMoneyRow[]; tone: MoneyTone }) {
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="text-right">
+      <MoneyFigures row={sumSectionRows(rows)} tone={tone} />
+    </div>
+  );
+}
+
 function VerticalColumns({ items }: { items: ReactNode[] }) {
   const splitAt = Math.ceil(items.length / 2);
   const left = items.slice(0, splitAt);
@@ -195,19 +215,19 @@ function TypeBreakdown({ rows }: { rows: AnnualMoneyRow[] }) {
       title="Por tipo"
       hint="Os mesmos gastos, separados em fixo, parcelado e variável."
     >
-      <VerticalColumns
-        items={rows.map((row, index) => (
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {rows.map((row, index) => (
           <li key={row.key} className="rounded-md border border-border/50 bg-card px-3 py-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <RankMark rank={index + 1} />
-              <p className="min-w-0 flex-1 text-lg font-semibold tracking-tight">{row.label}</p>
-              <div className="shrink-0 text-right">
-                <MoneyFigures row={row} tone="expense" />
-              </div>
+              <p className="min-w-0 flex-1 text-base font-semibold tracking-tight">{row.label}</p>
+            </div>
+            <div className="mt-2">
+              <MoneyFigures row={row} tone="expense" />
             </div>
           </li>
         ))}
-      />
+      </ul>
     </SubBlock>
   );
 }
@@ -281,6 +301,7 @@ export function AnnualYearSections({
         subtitle={averageWindowLabel}
         icon={Tags}
         iconVariant="expense"
+        actions={<SectionCornerFigures rows={expenses.categories} tone="expense" />}
       >
         {expenses.categories.length === 0 ? (
           <EmptyLine>{emptyExpenses}</EmptyLine>
@@ -297,6 +318,7 @@ export function AnnualYearSections({
         subtitle="Cartão leva o selo quando o nome coincide com um cartão cadastrado."
         icon={CreditCard}
         iconVariant="credit"
+        actions={<SectionCornerFigures rows={expenses.paymentMethods} tone="credit" />}
       >
         {expenses.paymentMethods.length === 0 ? (
           <EmptyLine>{emptyExpenses}</EmptyLine>
@@ -314,6 +336,7 @@ export function AnnualYearSections({
         subtitle="Classificação do aporte, não a carteira de destino."
         icon={PiggyBank}
         iconVariant="investment"
+        actions={<SectionCornerFigures rows={investments} tone="investment" />}
       >
         {investments.length === 0 ? (
           <EmptyLine>{emptyInvestments}</EmptyLine>
