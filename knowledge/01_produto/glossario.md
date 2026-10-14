@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Glossário
-ultima_atualizacao: 2026-10-13
+ultima_atualizacao: 2026-10-14
 ---
 
 # Glossário
@@ -23,7 +23,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 | **Efetivado** | Valores que de fato entraram, saíram ou foram investidos. Gasto no cartão só conta quando a **fatura** está paga. |
 | **Saldo do mês** | Entradas efetivadas (incluindo resgates automáticos) − gastos efetivados − investimentos efetivados. Fluxo líquido **deste** mês — não é saldo de conta bancária. |
 | **Total do ano** | Soma dos 12 meses do ano civil, no modo efetivado ou planejado. Padrão da visão Anual. |
-| **Média mensal do ano** | Soma da janela ÷ quantidade de meses dela. Ano já encerrado: 12 meses. Ano corrente: janeiro até o último mês completo. Ano futuro: nenhum mês completo. Não é média só dos meses com movimento. |
+| **Média mensal do ano** | Soma da janela ÷ meses dessa janela com entrada, gasto ou investimento no modo ativo. Ano já encerrado: janela de 12 meses. Ano corrente: janeiro até o último mês completo. Ano futuro: nenhum mês completo. Mês vazio sai do divisor. O total do ano continua a soma dos 12 meses. |
 | **Saldo planejado** | Mesma fórmula sobre lançamentos planejados. Não inclui resgates (operações de carteira). Toggle **Planejados** no resumo. |
 | **Repetição mensal** | Cópia do lançamento nos demais meses do **mesmo ano civil**. |
 | **Parcela** | Parte de uma compra dividida em meses (pode atravessar o ano). |

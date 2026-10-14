@@ -54,11 +54,39 @@ export function averageAmount(sum: number, monthCount: number): number {
   return sum / monthCount;
 }
 
-export function formatAverageWindowLabel(viewedYear: number, today: Date = new Date()): string {
+/** Mês entra na média só se o modo ativo somou entrada, gasto ou investimento. */
+export function monthHasAverageFlow(income: number, expenses: number, investments: number): boolean {
+  return income !== 0 || expenses !== 0 || investments !== 0;
+}
+
+export function countActiveAverageMonths(
+  months: readonly { income: number; expenses: number; investments: number }[],
+  windowMonthCount: number
+): number {
+  return sliceYearMonths(months, windowMonthCount).filter((month) =>
+    monthHasAverageFlow(month.income, month.expenses, month.investments)
+  ).length;
+}
+
+export function formatAverageWindowLabel(
+  viewedYear: number,
+  today: Date = new Date(),
+  activeMonthCount?: number
+): string {
   const { monthCount } = resolveAnnualAverageWindow(viewedYear, today);
   if (monthCount <= 0) return 'Nenhum mês completo neste ano';
-  if (monthCount >= 12) return 'Média mensal dos 12 meses';
-  if (monthCount === 1) return 'Média mensal de janeiro (1 mês)';
+
+  const active = activeMonthCount ?? monthCount;
+  if (active <= 0) return 'Nenhum mês com lançamentos neste período';
+
   const endName = MONTH_NAMES[monthCount - 1] ?? 'dezembro';
-  return `Média mensal de janeiro a ${endName} (${monthCount} meses)`;
+  if (active === monthCount) {
+    if (monthCount >= 12) return 'Média mensal dos 12 meses';
+    if (monthCount === 1) return 'Média mensal de janeiro (1 mês)';
+    return `Média mensal de janeiro a ${endName} (${monthCount} meses)`;
+  }
+
+  const noun = active === 1 ? 'mês com lançamentos' : 'meses com lançamentos';
+  if (monthCount >= 12) return `Média de ${active} ${noun}`;
+  return `Média de ${active} ${noun}, até ${endName}`;
 }

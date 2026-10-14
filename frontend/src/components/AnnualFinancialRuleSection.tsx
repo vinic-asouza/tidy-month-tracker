@@ -39,6 +39,8 @@ interface AnnualFinancialRuleSectionProps {
   viewMode?: SummaryViewMode;
   amountMode?: AnnualAmountMode;
   averageMonthCount: number;
+  /** Meses da janela com entrada, gasto ou investimento no modo ativo. */
+  activeMonthCount: number;
   averageWindowLabel: string;
 }
 
@@ -50,6 +52,7 @@ export const AnnualFinancialRuleSection = ({
   viewMode = 'effective',
   amountMode = 'total',
   averageMonthCount,
+  activeMonthCount,
   averageWindowLabel,
 }: AnnualFinancialRuleSectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
@@ -70,8 +73,8 @@ export const AnnualFinancialRuleSection = ({
       monthsInView,
       creditCards
     );
-    return isAverage ? scaleFinancialRuleMoney(summed, averageMonthCount) : summed;
-  }, [rule, monthsInView, creditCards, viewMode, isAverage, averageMonthCount]);
+    return isAverage ? scaleFinancialRuleMoney(summed, activeMonthCount) : summed;
+  }, [rule, monthsInView, creditCards, viewMode, isAverage, activeMonthCount]);
 
   const unmappedCategories = useMemo(() => {
     if (!rule || !settings.expenseCategories) return [];
@@ -94,7 +97,7 @@ export const AnnualFinancialRuleSection = ({
         .reduce((sum, e) => sum + e.value, 0);
       return yearSum + monthTotal;
     }, 0);
-    return isAverage ? averageAmount(summed, averageMonthCount) : summed;
+    return isAverage ? averageAmount(summed, activeMonthCount) : summed;
   }, [
     monthsInView,
     unmappedCategories,
@@ -102,7 +105,7 @@ export const AnnualFinancialRuleSection = ({
     isPlanned,
     creditCards,
     isAverage,
-    averageMonthCount,
+    activeMonthCount,
   ]);
 
   const handleComplete = async (data: CreateFinancialRuleInput) => {

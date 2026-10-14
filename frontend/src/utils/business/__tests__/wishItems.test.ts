@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   filterWishesForMonth,
   filterWishesForMonthDisplay,
+  groupWishesForYear,
   isConqueredWishVisibleInMonth,
   isWishVisibleInMonth,
   shouldAutoExpireWish,
@@ -141,5 +142,50 @@ describe('conquered wish visibility', () => {
     const sorted = sortWishesForDisplay([done, active], 'alphabetic');
     expect(sorted[0].id).toBe('a');
     expect(sorted[1].id).toBe('c');
+  });
+});
+
+describe('groupWishesForYear', () => {
+  it('separa conquistados, pendentes que cruzam o ano e expirados com prazo no ano', () => {
+    const groups = groupWishesForYear(
+      [
+        baseWish({
+          id: 'done',
+          status: 'conquered',
+          conqueredMonth: '2026-04',
+          description: 'Viagem',
+        }),
+        baseWish({
+          id: 'pending',
+          startMonth: '2025-11',
+          targetMonth: '2026-02',
+          description: 'Curso',
+        }),
+        baseWish({
+          id: 'expired',
+          status: 'expired',
+          targetMonth: '2026-08',
+          description: 'Bike',
+        }),
+        baseWish({
+          id: 'other-year',
+          startMonth: '2027-01',
+          targetMonth: '2027-06',
+          description: 'Fora',
+        }),
+        baseWish({
+          id: 'conquered-elsewhere',
+          status: 'conquered',
+          conqueredMonth: '2025-12',
+          startMonth: '2025-01',
+          targetMonth: '2026-03',
+        }),
+      ],
+      2026
+    );
+
+    expect(groups.conquered.map((wish) => wish.id)).toEqual(['done']);
+    expect(groups.pending.map((wish) => wish.id)).toEqual(['pending']);
+    expect(groups.expired.map((wish) => wish.id)).toEqual(['expired']);
   });
 });

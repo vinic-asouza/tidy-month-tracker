@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: investimentos
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-14
 ---
 
 # Investimentos (aportes do mês)
@@ -35,4 +35,4 @@ Investimento antigo só com destino, origem nula: liquidez da origem pode estar 
 
 ## RN-I05 — Repetição e tags
 
-Ano civil (RN-G05). Tags: mesmas regras de exclusão/renomeação que entradas.
+Ano civil (RN-G05). Tags: mesmas regras de exclusão/renomeação que entradas. Na visão Anual, os aportes do ano agrupam pela tag, não pela carteira de destino (RN-R06).
