@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
+import { ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { AnnualExportActions } from '@/components/AnnualExportActions';
 import { AnnualYearSections } from '@/components/AnnualYearSections';
 import { SectionSurface } from '@/components/layout/SectionSurface';
@@ -47,6 +47,36 @@ const MONTH_NAMES = [
   'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ];
+
+const SERIES_COLORS = {
+  Entradas: 'hsl(160, 84%, 39%)',
+  Gastos: 'hsl(350, 89%, 60%)',
+  Investimentos: 'hsl(220, 92%, 60%)',
+  Saldo: 'hsl(45, 93%, 47%)',
+} as const;
+
+const SALDO_POSITIVE = 'hsl(160, 84%, 39%)';
+const SALDO_NEGATIVE = 'hsl(350, 89%, 60%)';
+
+type MonthlyChartPoint = {
+  name: string;
+  monthIndex: number;
+  Entradas: number;
+  Gastos: number;
+  Investimentos: number;
+  Saldo: number;
+};
+
+const renderSaldoDot = (props: {
+  cx?: number;
+  cy?: number;
+  payload?: MonthlyChartPoint;
+}) => {
+  const { cx, cy, payload } = props;
+  if (cx == null || cy == null || !payload) return null;
+  const fill = payload.Saldo >= 0 ? SALDO_POSITIVE : SALDO_NEGATIVE;
+  return <circle cx={cx} cy={cy} r={4} fill={fill} stroke={SERIES_COLORS.Saldo} strokeWidth={1} />;
+};
 
 export const Statistics = ({
   yearData,
@@ -280,7 +310,7 @@ export const Statistics = ({
             ) : (
               <div className="h-72 mt-4">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={yearStats.monthlyData} barCategoryGap="20%">
+                    <LineChart data={yearStats.monthlyData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                       <XAxis
                         dataKey="name"
@@ -307,18 +337,39 @@ export const Statistics = ({
                         iconType="circle"
                         formatter={(value) => <span className="text-sm">{value}</span>}
                       />
-                      <Bar dataKey="Entradas" fill="hsl(160, 84%, 39%)" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Gastos" fill="hsl(350, 89%, 60%)" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Investimentos" fill="hsl(220, 92%, 60%)" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Saldo" radius={[6, 6, 0, 0]}>
-                        {yearStats.monthlyData.map((entry, index) => (
-                          <Cell
-                            key={`saldo-${index}`}
-                            fill={entry.Saldo >= 0 ? 'hsl(160, 84%, 39%)' : 'hsl(350, 89%, 60%)'}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
+                      <Line
+                        type="monotone"
+                        dataKey="Entradas"
+                        stroke={SERIES_COLORS.Entradas}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: SERIES_COLORS.Entradas }}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="Gastos"
+                        stroke={SERIES_COLORS.Gastos}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: SERIES_COLORS.Gastos }}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="Investimentos"
+                        stroke={SERIES_COLORS.Investimentos}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: SERIES_COLORS.Investimentos }}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="Saldo"
+                        stroke={SERIES_COLORS.Saldo}
+                        strokeWidth={2}
+                        dot={renderSaldoDot}
+                        activeDot={{ r: 5, fill: SERIES_COLORS.Saldo }}
+                      />
+                    </LineChart>
                   </ResponsiveContainer>
               </div>
             )}
