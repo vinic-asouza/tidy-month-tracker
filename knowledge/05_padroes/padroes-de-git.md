@@ -1,14 +1,14 @@
 ---
 type: padrao
 titulo: Padrões de Git
-ultima_atualizacao: 2026-08-24
+ultima_atualizacao: 2026-10-16
 ---
 
 # Padrões de Git
 
 Remote conhecido: GitHub `vinic-asouza/tidy-month-tracker`. Deploy: push em **`main`** → Vercel (SPA). [`../03_arquitetura/infraestrutura.md`](../03_arquitetura/infraestrutura.md). Host: [`../06_integracoes/vercel.md`](../06_integracoes/vercel.md).
 
-Não há Husky, commitlint, template de PR nem Actions. O histórico mistura `feat:` e mensagens livres (`wallets`, `update docs`). Código novo deve ser **mais disciplinado** que a média antiga, sem reescrever o passado.
+Não há Husky, commitlint, template de PR nem Actions. O histórico mistura `feat:` e mensagens livres (`update docs`). Código novo deve ser **mais disciplinado** que a média antiga, sem reescrever o passado.
 
 ---
 
@@ -17,7 +17,7 @@ Não há Husky, commitlint, template de PR nem Actions. O histórico mistura `fe
 | Branch | Uso |
 | --- | --- |
 | `main` | Produção. Não commitar WIP quebrado de propósito. |
-| Feature | Nome curto do tema (`wallets`, `mobile`, `supabase-adapt`) — já é o hábito do repo |
+| Feature | Nome curto do tema (`mobile`, `supabase-adapt`, `export-anual`) — já é o hábito do repo |
 
 Não force-push em `main`. Não `--no-verify` (não há hook para pular, e não invente).
 

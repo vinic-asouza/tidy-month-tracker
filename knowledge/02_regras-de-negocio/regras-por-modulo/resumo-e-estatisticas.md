@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: resumo-e-estatisticas
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Resumo do mês e estatísticas anuais
@@ -20,7 +20,7 @@ Efetivados (padrão) | Planejados. O mesmo modo alimenta resumo, gráfico, regra
 
 ## RN-R03 — Pendências (modo efetivado)
 
-Linhas secundárias: a receber, a pagar, a investir — planejado do tipo **menos** efetivado daquele tipo. Pendência de entradas usa renda **recebida**, sem misturar resgate na conta de “a receber”.
+Linhas secundárias: a receber, a pagar, a investir — planejado do tipo **menos** efetivado daquele tipo. Pendência de entradas usa renda **recebida**, sem misturar entradas com tag *Resgate de investimentos* (histórico) na conta de “a receber”.
 
 ## RN-R04 — Visão anual
 
@@ -46,13 +46,13 @@ Desejos não entram nos quatro números, no gráfico nem na regra. A visão Anua
 
 ## RN-R06 — Seções da visão Anual
 
-Abaixo dos cards, do gráfico e da regra, somente leitura, nesta ordem: Categorias, Método de pagamento, Investimentos, Desejos. Não há seção de carteiras.
+Abaixo dos cards, do gráfico e da regra, somente leitura, nesta ordem: Categorias, Método de pagamento, Investimentos, Desejos.
 
 Nas três seções de dinheiro, cada linha mostra total e média ao mesmo tempo. Total soma os 12 meses. Média usa a janela e o divisor da RN-R04. Linha com total zero no modo ativo some. Ordenação: maior total, empate por nome em pt-BR.
 
 - Categorias: gastos por categoria. No mesmo bloco, os mesmos gastos em fixo, parcelado e variável. Um gasto entra na categoria e no tipo, sem somar duas vezes dentro do mesmo recorte.
 - Método de pagamento: uma linha por forma usada. Cartão é a forma cujo nome coincide com um cartão cadastrado. Abaixo das linhas, o sub-bloco Cartões soma só essas formas, com a mesma média e o mesmo total do ano. Sem cartão no modo ativo, o sub-bloco não aparece. Pix e as demais formas ficam de fora da soma.
-- Investimentos: aportes agrupados pela tag (RN-I05), não pela carteira de destino. Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `invested`. Planejado inclui todos os aportes do ano.
+- Investimentos: aportes agrupados pela tag (RN-I05). Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `invested`. Planejado inclui todos os aportes do ano.
 - Desejos, três grupos, fora do caixa: conquistado com mês de conquista no ano; ativo cujo intervalo do mês de criação até o prazo cruza o ano; expirado com prazo no ano. A lista não expira nem grava status.
 
 ## RN-R07 — Exportação anual
@@ -61,6 +61,6 @@ Na visão Anual, **Exportar CSV** e **Exportar PDF** baixam o ano selecionado e 
 
 O arquivo repete as leituras já exibidas: resumo (média da janela e total dos 12 meses), série dos 12 meses, regra financeira, categorias, tipo, método de pagamento, soma dos cartões e aportes por tag. Média ausente continua `—`, não R$ 0,00. Linha com total zero no modo ativo continua de fora. Seção vazia permanece vazia. Sem regra configurada, o arquivo diz isso, sem faixas inventadas.
 
-Desejos ficam só na tela (RN-R05). Não entram lançamentos linha a linha, carteiras, visão Mensal, os dois modos juntos nem envio do arquivo. Nada é gravado.
+Desejos ficam só na tela (RN-R05). Não entram lançamentos linha a linha, visão Mensal, os dois modos juntos nem envio do arquivo. Nada é gravado.
 
 A ação espera o ano com 12 meses, o fim do carregamento do ano e o fim do carregamento da regra. Ano futuro ou ano vazio, já exibidos, podem ser exportados. Nome: `finto-anual-{ano}-efetivados` ou `finto-anual-{ano}-planejados`.

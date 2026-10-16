@@ -1,14 +1,14 @@
 ---
 type: index
 secao: 04_modulos
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 ---
 
 # Módulos
 
 Um documento por bounded context. Template: [`../00_meta/templates/template-modulo.md`](../00_meta/templates/template-modulo.md).
 
-Ordem de preenchimento (jornada): autenticação → resumo/estatísticas → entradas → gastos → cartões → investimentos → carteiras → desejos → regra financeira → seleção.
+Ordem de preenchimento (jornada): autenticação → resumo/estatísticas → entradas → gastos → cartões → investimentos → desejos → regra financeira → seleção.
 
 | Módulo | Status | Arquivo |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ Ordem de preenchimento (jornada): autenticação → resumo/estatísticas → en
 | Gastos | Preenchido | [gastos.md](./gastos.md) |
 | Cartões | Preenchido | [cartoes.md](./cartoes.md) |
 | Investimentos | Preenchido | [investimentos.md](./investimentos.md) |
-| Carteiras | Preenchido | [carteiras.md](./carteiras.md) |
+| Carteiras | **Removido** (DEV-151) | [carteiras.md](./carteiras.md) |
 | Desejos | Preenchido | [desejos.md](./desejos.md) |
 | Regra financeira | Preenchido | [regra-financeira.md](./regra-financeira.md) |
 | Seleção | Preenchido | [selecao.md](./selecao.md) |

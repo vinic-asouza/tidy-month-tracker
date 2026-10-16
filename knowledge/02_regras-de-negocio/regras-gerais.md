@@ -1,7 +1,7 @@
 ---
 type: regras-negocio
 titulo: Regras gerais
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-16
 ---
 
 # Regras gerais
@@ -14,7 +14,7 @@ IDs `RN-G*` são estáveis para Issues e testes. Implementação de referência:
 
 ## RN-G01 — Uma pessoa, só os próprios dados
 
-Cada conta vê apenas lançamentos, carteiras, cartões, desejos e regra daquele `user_id`. Sem família, convite ou papéis. Isolamento no banco por RLS.
+Cada conta vê apenas lançamentos, cartões, desejos e regra daquele `user_id`. Sem família, convite ou papéis. Isolamento no banco por RLS.
 
 ## RN-G02 — Planejado vs. efetivado
 
@@ -27,7 +27,7 @@ Todo lançamento financeiro nasce **não efetivado**.
 | Gasto no cartão | fatura do cartão paga naquele mês (`cardMonthlyStatuses`) |
 | Investimento | `invested` |
 
-Carteira (quando aplicável) é escolhida **na efetivação**, não na criação. Preferência do toggle do resumo: `localStorage` `tidy-summary-view-mode`.
+Efetivar é **só marcar a flag** (toggle). Não há carteira, conta de origem/destino nem data de operação separada. Preferência do toggle do resumo: `localStorage` `tidy-summary-view-mode`.
 
 ## RN-G03 — Fórmulas do mês
 
@@ -35,9 +35,9 @@ Modo **efetivado** (`monthTotals.ts`):
 
 `saldo = entradas recebidas − gastos efetivamente pagos − investimentos marcados investido`
 
-Entradas recebidas **incluem** resgates (entrada automática já recebida).
+Entradas recebidas incluem as com tag *Resgate de investimentos* (entradas históricas, tratadas como entradas normais).
 
-Modo **planejado**: mesma fórmula sobre **todos** os lançamentos do mês, sem flags. Resgates via operação de carteira **não** entram no saldo planejado (não são lançamentos planejados).
+Modo **planejado**: mesma fórmula sobre **todos** os lançamentos do mês, sem flags. Entradas com tag *Resgate de investimentos* **não** entram na renda do saldo planejado (`isResgateIncome`): só contam no efetivado.
 
 Desejos **não** entram em nenhuma das fórmulas.
 
@@ -49,22 +49,15 @@ Entradas, gastos, investimentos e desejos exigem valor **> 0**. Descrição (e t
 
 “Repetir nos meses do ano” copia o lançamento para os **outros 11 meses do mesmo ano** (`calculateRemainingMonths`) — inclusive meses **já passados** daquele ano. **Não** cria o ano seguinte. Parcelas são a exceção: podem atravessar o ano (RN no módulo Gastos).
 
-Editar/excluir com “todos os meses seguintes / toda a série” não propaga a carteira do mês: vínculo de carteira é **por efetivação**.
 
 ## RN-G06 — Rótulos em uso
 
 Não se exclui tag de entrada, categoria de gasto ou cartão que ainda tenha lançamento vinculado (qualquer mês). Renomear **propaga** para todos os lançamentos daquela pessoa.
 
-## RN-G07 — Três leituras de patrimônio
+## RN-G07 — Uma leitura de saldo: saldo do mês
 
-Na mesma tela coexistem, de propósito:
+O Finto mostra **uma** leitura de saldo: o **saldo do mês** — fluxo do período (RN-G03). Não existe saldo por carteira, Saldo Livre nem patrimônio estimado (removidos na DEV-151; ver [ADR-007](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md)).
 
-1. **Saldo do mês** — fluxo do período (RN-G03)
-2. **Saldo estimado da carteira** — posição naquela conta
-3. **Saldo Livre** — efetivados sem carteira nomeada (+ destino de resgate)
+## RN-G08 — Tag *Resgate de investimentos* (histórico)
 
-Não são bugs de reconciliação. Ver glossário.
-
-## RN-G08 — Fonte única de resgate no caixa
-
-Resgate cria entrada em Entradas (`received = true`, tag *Resgate de investimentos*), ligada à operação. Resumo, regra 50/30/20 e estatísticas usam essa entrada — não somam a operação `withdrawal` de novo no caixa do mês.
+A tag continua nas tags padrão de entrada (`RESGATE_INCOME_TAG`). Entradas antigas com essa tag, criadas quando havia resgate de carteira, permanecem como **entradas normais** (sem vínculo com operação). Resumo, regra 50/30/20 e estatísticas as tratam como qualquer entrada recebida no efetivado; no planejado ficam fora da base de renda (RN-G03). Não existe mais resgate automático.

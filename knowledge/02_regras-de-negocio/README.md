@@ -4,7 +4,7 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 
 | Arquivo | Conteúdo |
 | --- | --- |
-| [regras-gerais.md](./regras-gerais.md) | Caixa, efetivado, repetição no ano civil, isolamento, patrimônio |
+| [regras-gerais.md](./regras-gerais.md) | Caixa, efetivado, repetição no ano civil, isolamento, saldo do mês |
 | [politicas-e-restricoes.md](./politicas-e-restricoes.md) | O que o produto recusa ou limita (Open Finance, CSV assistida e exportação anual como exceções, validações, cartão por nome) |
 | [regras-por-modulo/](./regras-por-modulo/) | Regras por área da UI |
 
@@ -13,11 +13,11 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 | Arquivo | Módulo |
 | --- | --- |
 | [resumo-e-estatisticas.md](./regras-por-modulo/resumo-e-estatisticas.md) | Resumo mensal e visão anual |
-| [entradas.md](./regras-por-modulo/entradas.md) | Receitas e resgate automático |
+| [entradas.md](./regras-por-modulo/entradas.md) | Receitas e tag histórica Resgate |
 | [gastos.md](./regras-por-modulo/gastos.md) | Fixo, variável, parcelado; CSV-01…CSV-06 |
 | [cartoes.md](./regras-por-modulo/cartoes.md) | Fatura e pagamento |
-| [investimentos.md](./regras-por-modulo/investimentos.md) | Aportes origem → destino |
-| [carteiras.md](./regras-por-modulo/carteiras.md) | Papéis, transferência, resgate, Saldo Livre |
+| [investimentos.md](./regras-por-modulo/investimentos.md) | Aportes (sem carteira) |
+| [carteiras.md](./regras-por-modulo/carteiras.md) | **Removido** (DEV-151): RN-W01…W09 não valem mais |
 | [desejos.md](./regras-por-modulo/desejos.md) | Planejamento isolado do caixa |
 | [regra-financeira.md](./regras-por-modulo/regra-financeira.md) | 50/30/20 e não classificado |
 | [selecao.md](./regras-por-modulo/selecao.md) | Soma na barra inferior |

@@ -1,7 +1,7 @@
 ---
 type: padrao
 titulo: Padrões de banco de dados
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 ---
 
 # Padrões de banco de dados
@@ -25,7 +25,7 @@ supabase gen types typescript --project-id yoinjsmlntehikilqoxx > frontend/src/i
 
 5. Atualizar `adapters/mappers.ts` e o código de domínio.
 
-Nomes atuais das migrations **não** têm timestamp (`create_accounts.sql`, `add_income_source_operation_id.sql`). Código novo pode continuar descritivo **ou** usar prefixo `YYYYMMDDHHMMSS_` se a CLI exigir — o importante é um arquivo por mudança, aplicado no remoto, sem editar `types.ts` à mão.
+Nomes atuais das migrations **não** têm timestamp (`create_wish_items.sql`, `remove_wallets_dev_151.sql`). Código novo pode continuar descritivo **ou** usar prefixo `YYYYMMDDHHMMSS_` se a CLI exigir — o importante é um arquivo por mudança, aplicado no remoto, sem editar `types.ts` à mão.
 
 Não trate `setup-completo.sql` e `migrations/` como a mesma história: há risco de drift. Fonte do que produção tem = o que está no projeto Supabase + migrations aplicadas.
 
@@ -73,9 +73,7 @@ Exceções já existentes: `profiles` / `finance_settings` no setup inicial pode
 
 ## Integridade que o código espera
 
-- Movimentos → `accounts(id)`: **`ON DELETE SET NULL`** (apagar carteira não apaga lançamento).
-- Resgate: `incomes.source_operation_id` → `account_operations`; CASCADE no resgate conforme migration.
-- `account_balances`: unique `(account_id, year_month)`.
+- Lançamentos mensais não têm FK para carteira/operação (removidas na DEV-151). Ao dropar tabela referenciada por FK com `ON DELETE CASCADE`, desvincule antes as linhas que devem sobreviver (padrão da `remove_wallets_dev_151.sql`).
 - `financial_rule`: unique por `user_id`; CHECK da soma dos percentuais **= 100,00** (exato).
 - Índice útil: `user_id`, e composto com `year_month` / `display_order` quando a lista do mês filtra assim.
 

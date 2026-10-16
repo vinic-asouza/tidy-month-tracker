@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Roadmap
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Roadmap
@@ -15,7 +15,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 ## Onde estamos (setembro/2026)
 
 - **Produção:** frontend na Vercel (`https://tidy-month-tracker.vercel.app`), Supabase direto (Auth + Postgres + RLS). Backend Express no repositório, **não** deployado nesta fase.
-- **Produto no ar:** entradas, gastos, investimentos, carteiras (papéis movimentação/investimento), cartões, desejos, regra 50/30/20, visão anual, resgate, transferência, Saldo Livre, toggle efetivado/planejado.
+- **Produto no ar:** entradas, gastos, investimentos, cartões, desejos, regra 50/30/20, visão anual, toggle efetivado/planejado. **Carteiras** (papéis, Saldo Livre, transferência, resgate) foram **removidas** na DEV-151 / v0.9.0 ([ADR-007](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md)).
 - **Recente em produção:** importação **CSV assistida de gastos** (DEV-103 / v0.2.0) — fase 0 antes de Open Finance.
 - **Veredito de produto (docs internas, jul/2026):** **aprovado para beta fechado**. Gate pré-lançamento (Fases 1, 2 e 2.5) implementado e revalidado; sem achados críticos/altos pendentes nesses gates.
 - **Linear:** projeto **Finto**; fluxo Ledger Flow no time **Development**.
@@ -25,7 +25,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
 ## O que já fechou (gate)
 
-Não é backlog; é o que o plano pré-lançamento marca como feito:
+Não é backlog; é o que o plano pré-lançamento marcou como feito **na época**. Itens de carteiras abaixo são histórico: o módulo foi removido na DEV-151.
 
 - Decisões de produto D1–D9 (caixa efetivado, não classificado, repetição no ano civil, carteiras em duas camadas, conquista com gasto, saldo estimado, Saldo Livre, métodos custom fora do MVP, resgate + transferência)
 - Fases 1, 2 e 2.5: confiança nos números, copy, Saldo Livre, resgate e transferência
@@ -38,8 +38,8 @@ Não é backlog; é o que o plano pré-lançamento marca como feito:
 Não bloqueiam o **beta fechado**; bloqueiam divulgação ampla, segundo o plano pré-lançamento:
 
 1. **Regressão manual no browser** — o QA dos gates foi estático + testes unitários.
-2. **Migrations no Supabase de produção** — em especial `account_operations` com RLS (checklist técnico ainda em aberto no plano).
-3. **Checklist de marketing / landing** — hero e FAQ alinhados à visão (manual, efetivado, fatura, saldo estimado, Saldo Livre, resgate, transferência, repetição no ano civil). Não usar “organizador financeiro” como headline principal.
+2. **Migrations no Supabase de produção** — incluindo `remove_wallets_dev_151.sql` (DEV-151), que apaga as tabelas de carteiras (checklist técnico ainda em aberto no plano).
+3. **Checklist de marketing / landing** — hero e FAQ alinhados à visão (manual, efetivado, fatura, repetição no ano civil; sem carteiras, Saldo Livre, resgate ou transferência). Não usar “organizador financeiro” como headline principal.
 
 Esforço estimado no plano: da ordem de **1–3 dias** depois desses três itens.
 
@@ -53,7 +53,6 @@ Não bloqueiam a primeira campanha.
 
 - Vínculo de gasto ao cartão por ID (`credit_card_id`), não só por nome
 - Confirmação se o valor do gasto na conquista divergir muito do desejo
-- Carry-forward de carteira em todos os caminhos (incl. virada de ano)
 
 **P4 e lacunas de mercado** (contínuo)
 
@@ -70,7 +69,7 @@ Não bloqueiam a primeira campanha.
 
 Alinhado à visão e ao gate:
 
-- Espelhar saldo bancário 1:1
+- Espelhar saldo bancário 1:1 ou rastrear contas/carteiras
 - Open Finance, sync de fatura ou corretora (ainda)
 - Importação **sem** revisão humana
 - “A regra explica 100% dos gastos” sem mapear categorias

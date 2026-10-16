@@ -1,7 +1,7 @@
 ---
 type: integracao
 servico: Supabase
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 status: Ativo (produção)
 ---
 
@@ -104,7 +104,7 @@ supabase gen types typescript --project-id yoinjsmlntehikilqoxx > frontend/src/i
 | Redirect URL ausente | Link de e-mail não volta ao app |
 | RLS incompleta / `user_id` errado no insert | Vazamento ou 403 — a anon key é pública |
 | Vários INSERTs de série/parcelas | Sem transação única no adapter Supabase; falha no meio deixa série incompleta |
-| Express `VITE_DATA_PROVIDER=api` | Auth continua Supabase; CRUD incompleto (sem carteiras/desejos/operações no servidor) |
+| Express `VITE_DATA_PROVIDER=api` | Auth continua Supabase; CRUD incompleto (sem desejos no servidor) |
 | Plano / cota Auth e-mail | Fora do nosso código; fila de e-mail é do Supabase |
 
 Não há retry/circuit breaker nosso em volta do SDK. Erro PostgREST: `throwIfError` → toast na UI.
@@ -119,4 +119,4 @@ Nenhum endpoint nosso recebe webhook do Supabase. Trigger `on_auth_user_created`
 
 ## Relação com módulos
 
-Todos os módulos de dados persistidos (entradas, gastos, cartões, investimentos, carteiras, desejos, regra) passam por esta integração no modo produção. Seleção não fala com o Supabase. Resumo só lê o que os facades já trouxeram.
+Todos os módulos de dados persistidos (entradas, gastos, cartões, investimentos, desejos, regra) passam por esta integração no modo produção. Seleção não fala com o Supabase. Resumo só lê o que os facades já trouxeram.

@@ -4,7 +4,7 @@ nome: Seleção
 status: Ativo
 versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-09-04
+ultima_atualizacao: 2026-10-16
 tags: [selecao, frontend, ui]
 dependencias: [autenticacao, entradas, gastos, investimentos, cartoes]
 ---
@@ -19,7 +19,7 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/selecao.md`](../02_regras-de
 
 ## Overview
 
-Soma **no cliente** os lançamentos que a pessoa tocou nas listas de entradas, gastos e investimentos, e mostra o resultado numa barra fixa no rodapé. A barra também permite **excluir os selecionados em massa** (RN-S04), reusando os deletes das seções. Não persiste seleção no banco. Não altera caixa, carteira nem regra por conta própria (a exclusão dispara os facades já existentes).
+Soma **no cliente** os lançamentos que a pessoa tocou nas listas de entradas, gastos e investimentos, e mostra o resultado numa barra fixa no rodapé. A barra também permite **excluir os selecionados em massa** (RN-S04), reusando os deletes das seções. Não persiste seleção no banco. Não altera caixa nem regra por conta própria (a exclusão dispara os facades já existentes).
 
 **Responsabilidade:** manter três `Set<string>` no `Index`, exibir totais efetivados (e, se divergir, o planejado) em `SelectionBottomBar`, e orquestrar exclusão em lote via `BulkDeleteConfirmDialog` + `utils/business/bulkDelete.ts`.
 
@@ -50,7 +50,7 @@ Soma **no cliente** os lançamentos que a pessoa tocou nas listas de entradas, g
 - Totais do resumo / gráfico anual ([`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) — o toggle `tidy-summary-view-mode` **não** muda a fórmula da barra)
 - Pagar fatura ([`cartoes.md`](./cartoes.md) — este módulo só **lê** `cardMonthlyStatus` no critério do gasto)
 - Incluir desejos ([`desejos.md`](./desejos.md) — `WishSection` não recebe `selectedIds`) (RN-S01)
-- Chips de carteira, regra 50/30/20, autenticação
+- Regra 50/30/20, autenticação
 - Persistência da seleção (refresh, outro dispositivo ou logout zera; só o hint fica no `localStorage`)
 - Endpoint bulk / tabela / Express dedicados à seleção
 

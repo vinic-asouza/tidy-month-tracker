@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: API e contratos de dados
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-16
 ---
 
 # API e contratos de dados
@@ -12,7 +12,7 @@ Em produção **não há API REST própria**. O browser usa `supabase-js` (Postg
 
 ## Contrato da UI (produção)
 
-Facades (`incomes.ts`, `expenses.ts`, `investments.ts`, `creditCards.ts`, `settings.ts`, `financialRule.ts`, `wishItems.ts`, `accounts.ts`, `accountBalances.ts`, `accountOperations.ts`):
+Facades (`incomes.ts`, `expenses.ts`, `investments.ts`, `creditCards.ts`, `settings.ts`, `financialRule.ts`, `wishItems.ts`):
 
 - Assinatura em TypeScript (`domain.ts` / `params.ts`)
 - Delegam a `adapters/select.ts` conforme `VITE_DATA_PROVIDER`
@@ -40,7 +40,7 @@ Rotas montadas em `backend/src/index.ts`:
 | `/api/settings` | Settings |
 | `/api/financial-rule` | Regra financeira |
 
-**Não existem** rotas Express para `accounts`, `account_balances`, `account_operations` nem `wish_items`. Há adaptadores `adapters/api/*` no frontend para parte disso, mas o servidor atual não fecha o produto. **Não ligar `VITE_DATA_PROVIDER=api` em produção** até o Express cobrir o domínio.
+**Não existem** rotas Express para `wish_items`. Há adaptadores `adapters/api/*` no frontend para parte do domínio, mas o servidor atual não fecha o produto. **Não ligar `VITE_DATA_PROVIDER=api` em produção** até o Express cobrir o domínio.
 
 Reativar no futuro: hospedar o backend, `VITE_API_URL`, `CORS_ORIGIN` = URL da Vercel. Mesmo Postgres. Ver [`infraestrutura.md`](./infraestrutura.md).
 

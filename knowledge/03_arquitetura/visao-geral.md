@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Visão geral do sistema
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Visão geral
@@ -54,7 +54,7 @@ Componentes **não** importam o cliente Supabase nem o `apiClient` para CRUD fin
 | 1 sessão = 1 usuário; RLS | Mesmo banco; sem migração destrutiva prevista |
 | Beta ~1–3 pessoas | Escalar implica revisar RLS + atomicidade (ver performance) |
 
-O Express **não** cobre ainda carteiras, desejos nem `account_operations` (rotas só de lançamentos clássicos). Reativar `api` hoje quebraria o produto completo. Detalhe: [`api-design.md`](./api-design.md). ADRs: [`../07_decisoes-tecnicas/`](../07_decisoes-tecnicas/index.md) (ADR-001, ADR-002).
+O Express **não** cobre ainda desejos (rotas só de lançamentos clássicos). Carteiras e `account_operations` foram removidas do produto (DEV-151). Reativar `api` hoje quebraria o produto completo. Detalhe: [`api-design.md`](./api-design.md). ADRs: [`../07_decisoes-tecnicas/`](../07_decisoes-tecnicas/index.md) (ADR-001, ADR-002).
 
 ---
 

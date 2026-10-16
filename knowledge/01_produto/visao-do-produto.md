@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Visão do produto
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Visão do produto
@@ -9,7 +9,7 @@ ultima_atualizacao: 2026-10-14
 **Marca:** Finto  
 **Repositório:** `tidy-month-tracker`
 
-O **Finto** é um aplicativo de **educação financeira prática**. Ajuda a construir hábitos com o dinheiro: acompanha **mês a mês** entradas, gastos e investimentos, organiza o patrimônio por **carteiras**, controla **cartões de crédito**, planeja **desejos** de consumo e verifica uma **regra financeira** (50/30/20 ou percentuais personalizados).
+O **Finto** é um aplicativo de **educação financeira prática**. Ajuda a construir hábitos com o dinheiro: acompanha **mês a mês** entradas, gastos e investimentos, controla **cartões de crédito**, planeja **desejos** de consumo e verifica uma **regra financeira** (50/30/20 ou percentuais personalizados).
 
 Interface em português, tema claro ou escuro, visão **mensal** ou **anual**.
 
@@ -74,12 +74,11 @@ O **saldo do mês** usa o efetivado por padrão. Dá para alternar para planejad
 ## O que o produto cobre hoje
 
 - Conta individual (e-mail e senha; sessão persistente; cada pessoa vê só os próprios dados)
-- Painel do mês: resumo, regra financeira, carteiras, registros (entradas, gastos, investimentos, desejos)
+- Painel do mês: resumo, regra financeira, registros (entradas, gastos, investimentos, desejos)
 - Cartões de crédito com fatura mensal
-- Carteiras com papéis (movimentação vs. investimentos), Saldo Livre, transferência e resgate
-- Aporte com origem e destino
+- Aportes como registro do hábito de investir (sem carteira de origem ou destino)
 - Visão anual (média e total juntos, gráfico mês a mês, seletor de ano e exportação do recorte anual)
-- Personalização de tags, categorias, nome/cor de cartões e carteiras, tema claro/escuro
+- Personalização de tags, categorias, nome/cor de cartões, tema claro/escuro
 
 ---
 
@@ -103,7 +102,7 @@ Deliberado, não “falta técnica”:
 
 Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
 
-Carteiras mostram **saldo estimado**, não extrato bancário em tempo real.
+Carteiras, Saldo Livre e patrimônio estimado foram **removidos** (DEV-151): o Finto lê o **fluxo do mês**, não posição por conta. Decisão: [`ADR-007`](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md).
 
 ---
 

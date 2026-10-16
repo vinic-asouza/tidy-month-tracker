@@ -37,12 +37,14 @@ Integrações: [`../06_integracoes/vercel.md`](../06_integracoes/vercel.md), [`.
 ### Opção 1: SPA + Supabase _(escolhida)_
 
 **Prós:** um host estático; Auth e RLS no provedor; custo baixo no beta.  
-**Contras:** lógica composta (série, parcelas, resgate) sem transação única no adapter; anon key no bundle (mitigado na ADR-003).
+**Contras:** lógica composta (série, parcelas) sem transação única no adapter; anon key no bundle (mitigado na ADR-003).
 
 ### Opção 2: SPA + Express na frente do Postgres _(descartada nesta fase)_
 
 **Prós:** transação SQL; esconder PostgREST.  
-**Contras:** outro runtime; o Express **atual** não cobre carteiras, desejos nem `account_operations`.
+**Contras:** outro runtime; o Express **atual** não cobre desejos.
+
+> **Nota histórica (DEV-151, 2026-10-16):** o texto original citava também carteiras, `account_operations` e resgate; o módulo foi removido ([ADR-007](./ADR-007-remover-carteiras.md)).
 
 ### Opção 3: BaaS só Auth + API própria _(descartada)_
 

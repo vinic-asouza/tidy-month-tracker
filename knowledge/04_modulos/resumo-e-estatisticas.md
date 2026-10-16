@@ -4,7 +4,7 @@ nome: Resumo e estatísticas
 status: Ativo
 versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 tags: [resumo, estatisticas, caixa, frontend]
 dependencias: [autenticacao]
 ---
@@ -23,7 +23,7 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 
 **Responsabilidade única:** calcular e exibir entradas, gastos, investimentos e saldo (mais pendências no mês efetivado) e, na visão Anual, baixar esse recorte agregado.
 
-**Propósito no produto:** a pessoa vê se o mês “fechou” no caixa efetivado, sem misturar isso com saldo de carteira nem com desejos (RN-G07, RN-R05).
+**Propósito no produto:** a pessoa vê se o mês “fechou” no caixa efetivado, sem misturar isso com desejos (RN-G07, RN-R05). O saldo do mês é a única leitura de saldo do produto.
 
 ---
 
@@ -39,18 +39,17 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Exportar PDF e CSV do ano e do modo ativos, sem desejos e sem gravar o arquivo (RN-R07)
 - Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
-- Hint de resgates nas entradas efetivadas (quando há valor)
+- Hint de entradas efetivadas com a tag histórica *Resgate de investimentos* (quando há valor)
 - Destacar o mês de hoje no eixo X quando o ano visto é o ano-calendário
 
 ### O que este módulo NÃO FAZ
 
-- CRUD de entradas ([`entradas.md`](./entradas.md)), gastos ([`gastos.md`](./gastos.md)), cartões ([`cartoes.md`](./cartoes.md)), investimentos ([`investimentos.md`](./investimentos.md)), carteiras ([`carteiras.md`](./carteiras.md)) ou desejos ([`desejos.md`](./desejos.md))
-- Saldo estimado da carteira, Saldo Livre ou patrimônio (`AccountStrip` — [`carteiras.md`](./carteiras.md))
+- CRUD de entradas ([`entradas.md`](./entradas.md)), gastos ([`gastos.md`](./gastos.md)), cartões ([`cartoes.md`](./cartoes.md)), investimentos ([`investimentos.md`](./investimentos.md)) ou desejos ([`desejos.md`](./desejos.md))
+- Saldo por carteira, Saldo Livre ou patrimônio: **removidos** na DEV-151 ([`carteiras.md`](./carteiras.md), tombstone)
 - Configurar ou calcular a regra 50/30/20 ([`regra-financeira.md`](./regra-financeira.md)). A UI do resumo **hospeda** a regra na coluna direita; o anual hospeda `AnnualFinancialRuleSection` — contratos e persistência ficam naquele módulo
 - Soma de itens selecionados ([`selecao.md`](./selecao.md) — o toggle deste módulo **não** altera a fórmula da barra)
 - Incluir desejos nos totais ou no arquivo anual (RN-R05, RN-R07)
-- Exportar a visão Mensal, cada lançamento, carteiras ou os dois modos no mesmo arquivo
-- Somar operação `withdrawal` no caixa: a fonte de resgate é a **entrada** (RN-G08)
+- Exportar a visão Mensal, cada lançamento ou os dois modos no mesmo arquivo
 
 ---
 
@@ -86,7 +85,7 @@ frontend/src/
 
 | Arquivo | Descrição |
 | --- | --- |
-| `monthTotals.ts` | `calculateMonthTotals`, pendências, gasto efetivo no cartão, resgate nas entradas |
+| `monthTotals.ts` | `calculateMonthTotals`, pendências, gasto efetivo no cartão, tag de resgate (histórico) nas entradas |
 | `MonthSummarySection.tsx` | Quatro tiles + pendências; coluna direita é regra financeira |
 | `Statistics.tsx` | Cards anuais (média e total) + `BarChart` (recharts); exportação; abaixo, regra anual e `AnnualYearSections`. Lê a regra uma vez e repassa à seção |
 | `annualExportDocument.ts` | Mesmas seções da tela, sem desejos. CSV e PDF só formatam esse modelo |
@@ -106,11 +105,10 @@ Este módulo **não tem tabela própria**. Consome o agregado em memória `Month
 
 | Campo | Tipo | Obrigatório | Descrição |
 | --- | --- | --- | --- |
-| `incomes` | `Income[]` | Sim | Inclui entradas de resgate (`tag` / `sourceOperationId`) |
+| `incomes` | `Income[]` | Sim | Inclui entradas antigas com tag de resgate (`tag`) |
 | `expenses` | `Expense[]` | Sim | Cartão identificado por `paymentMethod` = **nome** do cartão |
 | `investments` | `Investment[]` | Sim | Aportes do mês |
 | `cardMonthlyStatuses` | `Record<cardId, boolean>` | Não | Fatura paga naquele mês |
-| `accountOperations` | `AccountOperation[]` | Não | **Não** entra nas fórmulas deste módulo |
 
 ### Contratos TypeScript
 
@@ -137,12 +135,12 @@ interface PendingMonthTotals {
 
 Modo **efetivado** (`calculateEffectiveMonthTotals`):
 
-- Entradas: `received === true` (inclui resgate recebido)
+- Entradas: `received === true` (inclui entrada recebida com tag de resgate)
 - Gastos: `isExpenseEffectivelyPaid` — se `paymentMethod` casa com `creditCards[].name` e há `cardMonthlyStatuses`, vale o status da **fatura**; senão vale `expense.paid`
 - Investimentos: `invested === true`
 - Saldo: entradas − gastos − investimentos
 
-Modo **planejado** (`calculatePlannedMonthTotals`): soma lançamentos do array **exceto** resgates (`isResgateIncome`). Não soma `accountOperations`. Alinhado a RN-G03.
+Modo **planejado** (`calculatePlannedMonthTotals`): soma lançamentos do array **exceto** entradas com tag de resgate (`isResgateIncome`). Alinhado a RN-G03.
 
 Pendências (`calculatePendingMonthTotals`, só na UI efetivada):
 
@@ -152,9 +150,9 @@ pendingExpenses     = max(0, soma(expenses) − gastos efetivos)
 pendingInvestments  = max(0, soma(investments) − investimentos efetivos)
 ```
 
-Usar a renda **recebida** (incluindo resgate) no subtraendo evita inflar “a receber” com o resgate (RN-R03; coberto por teste).
+Usar a renda **recebida** (incluindo entradas com tag de resgate) no subtraendo evita inflar “a receber” com elas (RN-R03; coberto por teste).
 
-Hint de resgate no tile: `getResgateInflowFromIncomes` — só tag `Resgate de investimentos` **e** `received`. Só no modo efetivado.
+Hint no tile: `getResgateInflowFromIncomes` — só tag `Resgate de investimentos` **e** `received`. Só no modo efetivado.
 
 ### Enums
 
@@ -187,9 +185,9 @@ Mesma rota autenticada `/`. O estado `view` **não** vai para a URL.
 
 | Rota / vista | Componente | Observação |
 | --- | --- | --- |
-| `/` · `view = dashboard` (rótulo **Mensal**) | `MonthSummarySection` | Primeiro bloco; abaixo vêm carteiras e registros |
+| `/` · `view = dashboard` (rótulo **Mensal**) | `MonthSummarySection` | Primeiro bloco; abaixo vêm os registros |
 | `/` · `view = statistics` (rótulo **Anual**) | `Statistics` | Ano = parte `YYYY` de `currentMonth` |
-| Nav desktop/mobile | `Index.tsx` | `Wallet` / `BarChart3` |
+| Nav desktop/mobile | `Index.tsx` | Ícones `Wallet` / `BarChart3` (lucide; `Wallet` é só ícone da visão Mensal) |
 
 Título mensal: `formatSummaryMonthTitle` → “Resumo de Mês de {mês}”.
 
@@ -207,19 +205,19 @@ Não há API própria. Falha ao montar um mês em `fetchYearData` vira `getEmpty
 
 ## Regras de negócio
 
-Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md). Gerais: [`../02_regras-de-negocio/regras-gerais.md`](../02_regras-de-negocio/regras-gerais.md) (RN-G02, RN-G03, RN-G07, RN-G08). Cartão no caixa efetivado: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
+Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md). Gerais: [`../02_regras-de-negocio/regras-gerais.md`](../02_regras-de-negocio/regras-gerais.md) (RN-G02, RN-G03, RN-G07 saldo do mês, RN-G08 tag histórica). Cartão no caixa efetivado: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
 
 | ID | Regra | Onde está no código |
 | --- | --- | --- |
 | RN-R01 | Quatro números; saldo colorido | `MonthSummarySection`, `Statistics` `StatCard` |
 | RN-R02 | Toggle compartilhado (resumo, regra, anual) | `useSummaryViewMode` |
-| RN-R03 | Pendências só no efetivado; “a receber” sem misturar resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
+| RN-R03 | Pendências só no efetivado; “a receber” sem misturar tag de resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
 | RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator` |
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
 | RN-R06 | Seções anuais de categoria, pagamento (com soma dos cartões), tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
 | RN-R07 | PDF/CSV do ano e do modo ativos; desejos de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
-| RN-G08 | Resgate no caixa = entrada, não operação | `getResgateInflowFromIncomes`; `accountOperations` ignorado |
+| RN-G08 | Tag de resgate = entrada normal (efetivado conta; planejado fora) | `getResgateInflowFromIncomes`; `isResgateIncome` |
 
 ---
 
@@ -229,7 +227,6 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 
 - [`autenticacao.md`](./autenticacao.md) — `ProtectedRoute` / sessão; sem user o hook não busca
 - [`entradas.md`](./entradas.md), [`gastos.md`](./gastos.md), [`investimentos.md`](./investimentos.md), [`cartoes.md`](./cartoes.md) — este módulo só lê o que eles persistem (`MonthData`, faturas)
-- [`carteiras.md`](./carteiras.md) — **não** é dependência de escrita; transferência não entra no caixa; resgate entra pela entrada
 
 ### Módulos que este hospeda na UI (não são deste bounded context)
 
@@ -237,7 +234,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 
 ### Serviços / integrações externas
 
-- Supabase Postgres via facades (`incomes`, `expenses`, `investments`, `creditCards`, `accountOperations`): [`../06_integracoes/supabase.md`](../06_integracoes/supabase.md)
+- Supabase Postgres via facades (`incomes`, `expenses`, `investments`, `creditCards`): [`../06_integracoes/supabase.md`](../06_integracoes/supabase.md)
 
 ### Utils / libs
 
@@ -285,10 +282,10 @@ Nenhuma env exclusiva. Precisa do mesmo `VITE_SUPABASE_*` (e sessão) que o rest
 
 **Casos cobertos hoje:**
 
-- [x] Entrada de resgate recebida entra em `totalIncome` efetivado
-- [x] Resgate não recebido e operação sem entrada vinculada não entram no efetivado
+- [x] Entrada com tag de resgate recebida entra em `totalIncome` efetivado
+- [x] Entrada com tag de resgate não recebida não entra no efetivado
 - [x] `getResgateInflowFromIncomes` soma só tag de resgate recebida
-- [x] Pendência de entradas não infla com resgate já recebido
+- [x] Pendência de entradas não infla com entrada de resgate já recebida
 - [x] Planejado soma o array; efetivado só `received`
 - [x] `calculateMonthTotals` despacha pelo modo
 
@@ -316,6 +313,7 @@ npm test
 | --- | --- | --- | --- | --- |
 | 2026-08-22 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-10-14 | 1.1 | Exportação anual agregada em PDF e CSV (RN-R07) | DEV-150 | Technical Writer |
+| 2026-10-16 | 1.2 | Remove carteiras: sem `accountOperations` no `MonthData`; saldo do mês como única leitura | DEV-151 | Technical Writer |
 
 ---
 
@@ -324,5 +322,5 @@ npm test
 - Destino deste doc: `knowledge/04_modulos/resumo-e-estatisticas.md`
 - Índice: [`index.md`](./index.md)
 - Autenticação: [`autenticacao.md`](./autenticacao.md)
-- Três leituras de patrimônio: RN-G07 + glossário
+- Saldo do mês (única leitura de saldo): RN-G07 + glossário
 - Workflow: `knowledge/00_meta/linear-cursor-workflow.md`

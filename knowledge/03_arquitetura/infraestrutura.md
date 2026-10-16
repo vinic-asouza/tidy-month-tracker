@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Infraestrutura
-ultima_atualizacao: 2026-08-24
+ultima_atualizacao: 2026-10-16
 ---
 
 # Infraestrutura
@@ -63,6 +63,6 @@ GitHub: `vinic-asouza/tidy-month-tracker`.
 1. Hospedar o backend (Railway, Fly, Render, etc.)
 2. `VITE_DATA_PROVIDER=api` e `VITE_API_URL`
 3. `CORS_ORIGIN` no backend = URL da Vercel
-4. Completar rotas que faltam (carteiras, desejos, operações) **antes** de cortar o modo Supabase
+4. Completar rotas que faltam (desejos) **antes** de cortar o modo Supabase
 
 Integrações nomeadas: [`../06_integracoes/`](../06_integracoes/README.md) ([Supabase](../06_integracoes/supabase.md), [Vercel](../06_integracoes/vercel.md)).

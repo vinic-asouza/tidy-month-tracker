@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Personas e usuários
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-16
 ---
 
 # Personas e usuários
@@ -70,9 +70,9 @@ Origem: análise estratégica de produto (julho/2026). Usar em copy, aceite e pr
 ### André — o investidor que quer disciplina
 
 - **Contexto:** ~40 anos, aporta em corretora / Tesouro.
-- **Quer:** não pular aporte em mês apertado; não misturar contas.
+- **Quer:** não pular aporte em mês apertado.
 - **Dói:** a corretora mostra posição, não o hábito de aportar.
-- **No Finto:** seção de aportes + carteiras (movimentação vs. investimentos), origem→destino, visão anual.
+- **No Finto:** seção de aportes como hábito (sem carteira de origem ou destino) e visão anual.
 - **Objeção:** “não substitui a corretora” → correto; o Finto constrói o **hábito**; a corretora guarda o ativo.
 
 ---

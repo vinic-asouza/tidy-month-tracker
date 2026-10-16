@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: regra-financeira
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Regra financeira
@@ -16,8 +16,8 @@ Essenciais, estilo de vida, investimentos. Percentuais somam **100%**. Padrão 5
 
 ## RN-F02 — Base (renda)
 
-Modo efetivado: soma das entradas **recebidas** (inclui resgates — RN-G08).  
-Modo planejado: todas as entradas do mês.  
+Modo efetivado: soma das entradas **recebidas** (inclui entradas com tag histórica *Resgate de investimentos* — RN-G08).  
+Modo planejado: entradas do mês **exceto** as com essa tag.  
 Renda = 0 → percentuais atuais = 0 (sem divisão por zero).
 
 ## RN-F03 — Gastos na regra

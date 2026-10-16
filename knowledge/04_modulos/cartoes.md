@@ -4,14 +4,14 @@ nome: Cartões
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 tags: [cartoes, fatura, frontend, supabase]
 dependencias: [autenticacao, gastos]
 ---
 
 # Módulo — Cartões
 
-Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento `invoice_payment` ou o match por **nome** mudarem.
+Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento da fatura (`credit_card_monthly_status`) ou o match por **nome** mudarem.
 
 Regras: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de-negocio/regras-por-modulo/cartoes.md). Match gasto↔cartão: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md). Gastos: [`gastos.md`](./gastos.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). ADR do match por nome: [`../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md`](../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md).
 
@@ -19,9 +19,9 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de
 
 ## Overview
 
-Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fatura do mês**: soma dos gastos daquele nome, marcar paga (um débito único) e desmarcar. Sem este módulo o caixa efetivado não sabe quando o cartão “fechou”.
+Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fatura do mês**: soma dos gastos daquele nome, marcar paga e desmarcar. Sem este módulo o caixa efetivado não sabe quando o cartão “fechou”.
 
-**Responsabilidade única:** persistir `credit_cards` + `credit_card_monthly_status` e a operação `invoice_payment` do total da fatura.
+**Responsabilidade única:** persistir `credit_cards` + `credit_card_monthly_status` (status pago/não pago da fatura do mês).
 
 **Propósito no produto:** o chip mostra o comprometido do mês; o resumo só conta esses gastos quando a fatura está paga (RN-C02 vs RN-G02).
 
@@ -36,18 +36,17 @@ Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fat
 - Excluir só se **nenhum** gasto (qualquer mês) tiver `payment_method` = nome do cartão (RN-C01)
 - Renomear propaga `expenses.payment_method` old → new
 - Chip / fatura = soma de **todos** os gastos com aquele nome no mês (RN-C02)
-- Pagar fatura: carteira de **movimentação** ou Saldo Livre; um `invoice_payment` pelo total; `credit_card_monthly_status.paid = true` (RN-C03)
-- Desmarcar: apaga o `invoice_payment` e volta `paid = false` (RN-C04)
+- Pagar fatura: `PayInvoiceDialog` confirma o total; grava `credit_card_monthly_status.paid = true` (sem carteira, Saldo Livre nem data) (RN-C03)
+- Desmarcar: `UnpayInvoiceConfirmDialog` e volta `paid = false` (RN-C04)
 - Alerta de vencimento só no **mês corrente**, fatura pendente, janela `CREDIT_CARD_DUE_ALERT_DAYS = 3` (RN-C05)
 - % de uso do limite (fatura / limite); **não** bloqueia lançamento (`canAddExpenseToCreditCard` sempre `true`)
 - Dialog da fatura: lista de gastos + resumo por categoria (leitura; gastos continuam no módulo gastos)
-- Reconciliar valor do `invoice_payment` se a fatura **já paga** e os gastos mudarem (`syncInvoicePaymentsForMonth`)
 
 ### O que este módulo NÃO FAZ
 
 - CRUD de linhas de gasto ([`gastos.md`](./gastos.md) — o match é só pelo nome)
 - Totais do mês no resumo ([`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) usa `isExpenseEffectivelyPaid` + este status)
-- CRUD de carteiras ([`carteiras.md`](./carteiras.md) — só consome a lista no dialog de pagamento)
+- Carteiras ou débito de conta: **removidos** na DEV-151 ([`carteiras.md`](./carteiras.md), tombstone)
 - Métodos de pagamento além dos nomes de cartão (D8)
 - Fatura que atravessa mês / ciclo de fechamento bancário: a fatura é o **mês de navegação** (`YYYY-MM`)
 - Usar `credit_cards.paid` como status do mês (coluna legado; a UI lê `cardMonthlyStatuses`)
@@ -61,12 +60,12 @@ Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fat
 frontend/src/
   components/CreditCardStrip.tsx               # chips, form, sort, paga/desmarca
   components/CreditCardInvoiceDialog.tsx       # detalhe da fatura
-  components/PayInvoiceDialog.tsx              # carteira + data
+  components/PayInvoiceDialog.tsx              # confirma total da fatura
   components/UnpayInvoiceConfirmDialog.tsx
   components/InvoiceExpensesTable.tsx          # leitura (também usada em gastos)
   components/InvoiceCategorySummaryTable.tsx
   components/MonthRecordsSection.tsx           # strip na aba Gastos
-  hooks/useSupabaseFinance.ts                  # CRUD + pay/unpay + sync
+  hooks/useSupabaseFinance.ts                  # CRUD + pay/unpay
   services/creditCards.ts                      # facade
   services/adapters/supabase/creditCards.ts
   services/adapters/api/creditCards.ts         # Express (não é produção)
@@ -74,14 +73,13 @@ frontend/src/
   types/finance.ts                             # CARD_COLORS
   utils/business/creditCards.ts                # fatura, alerta, %
   utils/business/__tests__/creditCards.test.ts
-  utils/__tests__/payInvoiceDefaults.test.ts
 ```
 
 | Arquivo | Descrição |
 | --- | --- |
 | `CreditCardStrip.tsx` | Cadastro, chips, alerta, abre fatura / pagar / desmarcar |
 | `creditCards.ts` (supabase) | INSERT/UPDATE/DELETE; rename propaga gastos; `canDeleteCreditCard` conta `expenses` por nome |
-| `useSupabaseFinance.ts` | `payCardInvoice` / `unpayCardInvoice`; `syncInvoicePaymentsForMonth` |
+| `useSupabaseFinance.ts` | `payCardInvoice(cardId)` / `unpayCardInvoice` / `setCardPaidStatus` (só `setCardMonthlyStatus`) |
 | `creditCards.ts` (utils) | Soma da fatura, alerta, % limite, `isCreditCardExpense` |
 
 Backend `backend/src/routes/creditCards.ts` + Zod existe; **produção não usa**. O schema Express **não** inclui `dueDay`/`creditLimit`.
@@ -117,19 +115,7 @@ Backend `backend/src/routes/creditCards.ts` + Zod existe; **produção não usa*
 
 Sem linha = fatura **não paga**.
 
-### Operação: `account_operations` tipo `invoice_payment`
-
-| Campo relevante | Descrição |
-| --- | --- |
-| `type` | `'invoice_payment'` |
-| `credit_card_id` | Cartão; `ON DELETE CASCADE` |
-| `source_account_id` | Carteira de movimentação ou `null` (Saldo Livre) |
-| `amount` | Total da fatura na hora do pagamento (depois sincronizado) |
-| `year_month` / `operation_date` | Mês da navegação / data escolhida no dialog |
-| `description` | `Fatura {nome}` |
-| UNIQUE parcial | `(user_id, credit_card_id, year_month)` WHERE `type = invoice_payment` |
-
-Só é criada se `summary.total > 0`. Pagar fatura zerada só marca o status.
+> Até a DEV-151 o pagamento também criava uma linha `invoice_payment` em `account_operations`. A tabela foi **removida**; hoje só `credit_card_monthly_status` registra a fatura paga.
 
 ### Contrato TypeScript
 
@@ -156,7 +142,6 @@ interface CreditCardMonthlyStatus {
 | --- | --- |
 | `CREDIT_CARD_DUE_ALERT_DAYS` | `3` |
 | `CARD_COLORS` | violet, orange, emerald, blue, pink, yellow, slate, cyan, red |
-| `localStorage` | `invoicePaymentAccount:{cardId}` — última carteira (ou Saldo Livre) |
 
 Alerta (`getCreditCardDueAlertContext`): `null` se sem `dueDay`, fatura paga, ou mês ≠ mês civil de `today`. Senão: `overdue` / `due_today` / `approaching` (diff ≤ 3).
 
@@ -174,11 +159,11 @@ Não há REST de produção.
 | Excluir | `deleteCreditCard` | idem | id | DELETE (status mensal CASCADE). UI só chama se `canDeleteCreditCard` |
 | Pode excluir? | `canDeleteCreditCard(name)` | idem | nome | `count(expenses where payment_method = name) === 0` **em todos os meses** |
 | Status do mês | `getAllCardMonthlyStatuses` | idem | yearMonth + cards | `Record<cardId, boolean>` (default false) |
-| Pagar | `payCardInvoice(cardId, accountId, date?)` | idem | carteira ou `null` | Upsert status true; create/update `invoice_payment` se total > 0 |
-| Desmarcar | `unpayCardInvoice(cardId)` | idem | — | Delete `invoice_payment` do cartão/mês; status false |
+| Pagar | `payCardInvoice(cardId)` | idem | — | Upsert `credit_card_monthly_status` `paid = true` (optimistic, rollback em erro) |
+| Desmarcar | `unpayCardInvoice(cardId)` | idem | — | Upsert status `paid = false` |
 | Total do chip | `getCreditCardTotal(name)` no hook | — | nome | Soma `expenses` do **mês aberto** |
 
-`setCardPaidStatus(true)` = `payCardInvoice(id, null)` (Saldo Livre, sem dialog) — usado se não há carteiras.
+`setCardPaidStatus(paid)` delega a `payCardInvoice` / `unpayCardInvoice`.
 
 ### UI / rotas
 
@@ -189,8 +174,8 @@ Mesma `/`. Aba **Gastos** (`activeTab = 'expense'`). Sem URL própria.
 | Faixa de chips | `CreditCardStrip` | Sort por vencimento no mês atual (`getDaysUntilDueForSort`) |
 | Form cadastro | mesmo strip | Nome obrigatório; duplicata case-insensitive |
 | Detalhe fatura | `CreditCardInvoiceDialog` | Gastos + categorias; checkbox pago dispara pagar/desmarcar |
-| Pagar | `PayInvoiceDialog` | Movimentação ou Saldo Livre; data; persiste carteira |
-| Desmarcar | `UnpayInvoiceConfirmDialog` | Confirma remoção do débito |
+| Pagar | `PayInvoiceDialog` | Mostra o total da fatura e confirma; sem carteira nem data |
+| Desmarcar | `UnpayInvoiceConfirmDialog` | Confirma reverter o pagamento |
 
 Toggle no item de gasto **não** paga a fatura ([`gastos.md`](./gastos.md)); o clique no cartão abre este detalhe.
 
@@ -211,7 +196,6 @@ Toggle no item de gasto **não** paga a fatura ([`gastos.md`](./gastos.md)); o c
 | Delete com gastos (UI) | Não é possível excluir o cartão "…" pois existem gastos vinculados… |
 | Pagar | Erro ao registrar pagamento da fatura |
 | Desmarcar | Erro ao desmarcar fatura |
-| Sync pós-CRUD de gasto | Erro ao sincronizar pagamentos de fatura |
 
 ---
 
@@ -223,14 +207,14 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-d
 | --- | --- | --- |
 | RN-C01 | Nome+cor; limite/vencimento opcionais; excluir só sem gastos em **qualquer** mês | Form + `canDeleteCreditCard` (query global em `expenses`) |
 | RN-C02 | Chip = todos os gastos daquele nome no mês ≠ resumo efetivado | `getCreditCardInvoiceSummary` / `getCreditCardTotal` |
-| RN-C03 | Um débito `invoice_payment` pelo total; efetiva gastos no caixa | `payCardInvoice` + `isExpenseEffectivelyPaid` |
-| RN-C04 | Desmarcar reverte status e apaga a operação | `unpayCardInvoice` |
+| RN-C03 | Pagar = status mensal pago; efetiva gastos no caixa | `payCardInvoice` + `isExpenseEffectivelyPaid` |
+| RN-C04 | Desmarcar reverte o status | `unpayCardInvoice` |
 | RN-C05 | Alerta 3 dias; limite só % | `getCreditCardDueAlertContext`; `getCreditCardUsagePercent`; `canAddExpenseToCreditCard` → true |
 | Política nome | Gasto casa por **nome**, não por id | `isCreditCardExpense`; dois cartões iguais colidem |
 
 **Código vs intenção:** não há UNIQUE de nome no Postgres. A UI impede duplicata ignore-case; o adapter no rename compara **string exata**. `credit_cards.paid` não governa o mês.
 
-**Sync:** se a fatura já está paga e o total dos gastos muda, o hook ajusta `amount` ou apaga a operação se total ≤ 0 — **não** desmarca `paid` sozinho.
+Se a fatura já está paga e os gastos mudam, o status **não** é desmarcado sozinho.
 
 ---
 
@@ -240,12 +224,11 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-d
 
 - [`autenticacao.md`](./autenticacao.md) — `user.id`; RLS
 - [`gastos.md`](./gastos.md) — linhas `expenses` (nome) e rascunho na fatura
-- [`carteiras.md`](./carteiras.md) — `filterMovementAccounts`; `account_operations`
 - [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) — **não** é dependência de escrita; lê `cardMonthlyStatuses`
 
 ### Serviços / integrações externas
 
-- Supabase PostgREST (`credit_cards`, `credit_card_monthly_status`, `account_operations`, `expenses`): [`../06_integracoes/supabase.md`](../06_integracoes/supabase.md)
+- Supabase PostgREST (`credit_cards`, `credit_card_monthly_status`, `expenses`): [`../06_integracoes/supabase.md`](../06_integracoes/supabase.md)
 
 ### Utils / libs
 
@@ -253,7 +236,6 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-d
 | --- | --- |
 | `@tanstack/react-query` | Bundle do mês + status |
 | `sonner` | Toasts |
-| `localStorage` `invoicePaymentAccount:{id}` | Última carteira do dialog |
 
 ---
 
@@ -263,10 +245,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-d
 | --- | --- | --- | --- |
 | Mutação `credit_cards` | CRUD | Lista global | Select de pagamento em gastos |
 | Rename | `updateCreditCard` | `payment_method` nos gastos | Fatura, caixa |
-| `cardMonthlyStatuses[id]=true` | Pagar | Gastos daquele nome entram no efetivado | Resumo, regra, estatísticas, chips de carteira |
-| INSERT/UPDATE `invoice_payment` | Pagar (total > 0) | Débito único | Carteiras / Saldo Livre |
-| DELETE `invoice_payment` | Desmarcar ou sync total 0 | Remove débito | Carteiras |
-| `syncInvoicePaymentsForMonth` | CRUD de gasto com fatura já paga | Ajusta `amount` | Carteiras |
+| `cardMonthlyStatuses[id]=true` | Pagar | Gastos daquele nome entram no efetivado | Resumo, regra, estatísticas |
 | N/A | — | Sem webhooks/jobs | — |
 
 ---
@@ -277,7 +256,6 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 
 | Chave | Tipo | Obrigatória | Descrição |
 | --- | --- | --- | --- |
-| `invoicePaymentAccount:{cardId}` | `localStorage` | Não | UUID da carteira ou sentinel de Saldo Livre |
 | `VITE_DATA_PROVIDER` | string | Não | Só muda o adapter |
 
 ---
@@ -286,7 +264,7 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 
 | Item | Valor |
 | --- | --- |
-| Arquivos | `creditCards.test.ts`; `payInvoiceDefaults.test.ts` |
+| Arquivos | `creditCards.test.ts` (`payInvoiceDefaults.test.ts` e `invoicePayment.test.ts` removidos na DEV-151) |
 | UI / adapter / payCardInvoice | Nenhum spec |
 | Cobertura | Não inventar % |
 
@@ -299,15 +277,13 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 - [x] Alerta: pago / outro mês / approaching / due_today / overdue / fora da janela
 - [x] `CREDIT_CARD_DUE_ALERT_DAYS === 3`
 - [x] `canAddExpenseToCreditCard` sempre true
-- [x] Default de carteira no dialog (primeira movimentação / localStorage / Saldo Livre)
 
 **Casos críticos (adapter / residual QA — DEV-65):**
 
 - [x] Create recusa nome vazio / duplicado ignore-case (`creditCards.test.ts`)
 - [x] Rename propaga `payment_method` e recusa nome já usado ignore-case (`creditCards.test.ts`)
 - [x] Delete bloqueado com gasto (`canDeleteCreditCard` — `creditCards.test.ts`)
-- [x] Camada de dados: create/update/delete `invoice_payment` (`invoicePayment.test.ts`)
-- [ ] Orquestração hook `payCardInvoice` / unpay / sync amount — **residual QA**
+- [ ] Orquestração hook `payCardInvoice` / unpay — **residual QA**
 - [x] UNIQUE ignore-case no adapter (`.ilike`); índice DB aplicado (DEV-57) — residual race/constraint
 
 **Como rodar:**
@@ -323,6 +299,7 @@ npm test --workspace=frontend
 | Data | Versão | Descrição | Issue ID | Autor |
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
+| 2026-10-16 | 1.1 | Remove carteiras: pagar fatura só via `credit_card_monthly_status`; sem `invoice_payment` nem sync | DEV-151 | Technical Writer |
 
 ---
 

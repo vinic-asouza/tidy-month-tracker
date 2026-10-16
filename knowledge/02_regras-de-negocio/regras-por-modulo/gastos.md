@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: gastos
-ultima_atualizacao: 2026-09-04
+ultima_atualizacao: 2026-10-16
 ---
 
 # Gastos
@@ -20,22 +20,22 @@ ultima_atualizacao: 2026-09-04
 
 ## RN-X02 — Nascimento
 
-`paid = false`, sem carteira (não-cartão). Categoria, forma de pagamento, descrição e valor > 0 obrigatórios.
+`paid = false`. Categoria, forma de pagamento, descrição e valor > 0 obrigatórios.
 
 ## RN-X03 — Efetivação não-cartão
 
-Checkbox pago → `EffectuateWalletDialog` (movimentação ou Saldo Livre).
+Marcar pago é só o **toggle** de `paid` (`StatusToggleBadge`), sem diálogo nem carteira.
 
 ## RN-X04 — Gasto no cartão
 
-Sem checkbox pago no item. Status vem da **fatura** daquele mês. Não vincula carteira por lançamento; o débito é o `invoice_payment` ao pagar a fatura.
+Sem checkbox pago no item. Status vem da **fatura** daquele mês. Não há débito por lançamento; a fatura paga (`credit_card_monthly_status`, RN-C03) efetiva todos os gastos do cartão no mês.
 
 ## RN-X05 — Parcelas
 
 - Excluir “este mês”: só o registro corrente; a série pode ficar com buraco.
 - Excluir “todas”: série pelo `base_expense_id`.
-- Editar em lote **parcelado**: atualiza a **série inteira** (parcelas passadas, atual e futuras), sem copiar carteira/pago.
-- Editar em lote **fixo**: só `year_month >=` o mês aberto (resto do ano civil), sem copiar carteira/pago.
+- Editar em lote **parcelado**: atualiza a **série inteira** (parcelas passadas, atual e futuras), sem copiar pago.
+- Editar em lote **fixo**: só `year_month >=` o mês aberto (resto do ano civil), sem copiar pago.
 - A diferença parcelado vs fixo é intencional (produto): parcelado pode cruzar o ano; fixo vive no ano civil.
 
 ## RN-X06 — Categorias
@@ -44,7 +44,7 @@ CRUD na seção. Em uso: não exclui. Renomear: propaga. Mapeamento na regra fin
 
 ## RN-X07 — Troca de tipo na edição (DEV-104)
 
-No formulário de criar/editar, trocar Fixo / Variável / Parcelado **preserva** campos comuns (categoria, descrição, valor, pagamento, data, carteira se visível).
+No formulário de criar/editar, trocar Fixo / Variável / Parcelado **preserva** campos comuns (categoria, descrição, valor, pagamento, data).
 
 Ao **salvar** com `type` diferente do persistido:
 
@@ -64,7 +64,7 @@ Exceção à política de “sem importação automática”. Só **gastos**. Pr
 | **CSV-01** | Upload e mapeamento **não** criam nem atualizam `expenses`. Gravação só após **Importar selecionados**. |
 | **CSV-02** | Match com fixo/parcela existente é **sugestão**. Nunca auto-vincular só por score. Ambiguidade → estado **Revisar** (fora do lote até decidir). |
 | **CSV-03** | **Associar existente** atualiza a linha escolhida; **não** cria segundo gasto no mês. |
-| **CSV-04** | Origem **conta**: métodos `DEFAULT_PAYMENT_METHODS`; efetivar opcional (default off) + carteira/Saldo Livre. Origem **cartão X**: `paymentMethod` = nome do cartão; sem efetivar / sem `account_id` (RN-X04). |
+| **CSV-04** | Origem **conta**: métodos `DEFAULT_PAYMENT_METHODS`; efetivar opcional (default off; só marca `paid`). Origem **cartão X**: `paymentMethod` = nome do cartão; sem efetivar (RN-X04). |
 | **CSV-05** | Data da linha ≠ mês aberto na UI → exige escolha explícita (data/mês do CSV **ou** mês da UI) antes de importar. |
 | **CSV-06** | Detecção de parcela no CSV é **heurística + evidência na revisão**, não gravação automática. Coluna **Parcela** (se mapeada) tem prioridade sobre a descrição; `Única` / `À vista` / `1x` / `1/1` → **sem** série. Se detectar N/total (ou `Nx` → atual=1), sugerir **Novo parcelado**, exibir badge `N/total` e pré-preencher parcela/total. Override da ação pelo usuário prevalece; se houver detecção e a ação não for criar parcelado, avisar. |
 

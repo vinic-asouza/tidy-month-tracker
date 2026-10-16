@@ -1,7 +1,7 @@
 ---
 type: padrao
 titulo: Padrões de API
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 ---
 
 # Padrões de API
@@ -22,7 +22,7 @@ Hook / página
             → adapters/api/*         # api/client.ts (não produção)
 ```
 
-Facades atuais: `incomes`, `expenses`, `investments`, `creditCards`, `settings`, `financialRule`, `wishItems`, `accounts`, `accountBalances`, `accountOperations`.
+Facades atuais: `incomes`, `expenses`, `investments`, `creditCards`, `settings`, `financialRule`, `wishItems`.
 
 Leitura em lote: `financeQueries.ts` (`fetchMonthBundle`, `fetchYearData`, `fetchMonthsRange`) — `Promise.all` por mês.
 
@@ -33,7 +33,7 @@ Auth **não** passa por essa árvore: `AuthContext` → `supabase.auth`.
 ## Regra para código novo (produção)
 
 1. Expor operação no facade (`services/foo.ts`) com tipos em `domain.ts` / `params.ts`.
-2. Implementar **os dois** adaptadores se o domínio já tem par `supabase` + `api`. Se o Express **não** tiver rota (carteiras, desejos, operações), o adaptador `api` pode existir no frontend e ainda assim **não** fechar o produto — não ligue `VITE_DATA_PROVIDER=api` em produção.
+2. Implementar **os dois** adaptadores se o domínio já tem par `supabase` + `api`. Se o Express **não** tiver rota (ex.: desejos), o adaptador `api` pode existir no frontend e ainda assim **não** fechar o produto — não ligue `VITE_DATA_PROVIDER=api` em produção.
 3. Mapear linha Postgres → domínio em `adapters/mappers.ts` (`snake_case` → camelCase, `Number()` em valores).
 4. User id: sessão (`getAuthUserId` em `adapters/supabase/helpers.ts` ou equivalente). Não confiar só no id que a UI mandou.
 5. Erro PostgREST: `throwIfError` (helpers). Não engolir `error` e retornar lista vazia como se fosse sucesso.
@@ -64,7 +64,7 @@ Rotas montadas hoje (`backend/src/index.ts`):
 | `/api/settings` | Settings |
 | `/api/financial-rule` | Regra financeira |
 
-**Não existem** rotas Express para `accounts`, `account_balances`, `account_operations`, `wish_items`.
+**Não existem** rotas Express para `wish_items`.
 
 ### Forma das rotas existentes
 
