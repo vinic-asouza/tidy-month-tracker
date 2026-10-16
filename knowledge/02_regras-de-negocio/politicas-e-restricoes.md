@@ -1,7 +1,7 @@
 ---
 type: regras-negocio
 titulo: Políticas e restrições
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Políticas e restrições
@@ -35,7 +35,7 @@ Não há, e não deve ser prometido sem decisão de produto:
 
 **Exceção consciente (DEV-103 / DEV-105):** importação **CSV assistida de gastos** — o arquivo só propõe linhas; a pessoa mapeia, revisa e confirma. Nada grava em `expenses` até **Importar selecionados**. Parse no browser; o CSV não sobe ao Supabase. Heurística de parcela (CSV-06) só sugere e evidencia na revisão. Regras: [`regras-por-modulo/gastos.md`](./regras-por-modulo/gastos.md) (CSV-01…CSV-06). Módulo: [`../04_modulos/gastos.md`](../04_modulos/gastos.md).
 
-**Exceção consciente (DEV-150):** exportação anual agregada — na visão Anual, PDF ou CSV do ano selecionado e do modo ativo. Lê o que a tela já calculou. Não cria lançamento, não inclui desejos, não lista cada gasto e não sobe o arquivo. Visão Mensal, carteiras, e-mail e os dois modos no mesmo arquivo continuam fora. Regra: [`regras-por-modulo/resumo-e-estatisticas.md`](./regras-por-modulo/resumo-e-estatisticas.md) (RN-R07). Módulo: [`../04_modulos/resumo-e-estatisticas.md`](../04_modulos/resumo-e-estatisticas.md).
+**Exceção consciente (DEV-150):** exportação anual agregada — na visão Anual, PDF ou CSV do ano selecionado e do modo ativo. Lê o que a tela já calculou. Não cria lançamento, não inclui desejos, não lista cada gasto e não sobe o arquivo. Visão Mensal, e-mail e os dois modos no mesmo arquivo continuam fora. Regra: [`regras-por-modulo/resumo-e-estatisticas.md`](./regras-por-modulo/resumo-e-estatisticas.md) (RN-R07). Módulo: [`../04_modulos/resumo-e-estatisticas.md`](../04_modulos/resumo-e-estatisticas.md).
 
 Registro com participação ativa continua sendo política (visão do produto): a assistida acelera volume **com** revisão, não substitui o ritual por extrato automático.
 
@@ -64,10 +64,6 @@ Lista padrão no app (`DEFAULT_PAYMENT_METHODS`). **Não** há CRUD de métodos 
 | Ação | Restrição |
 | --- | --- |
 | Excluir tag/categoria/cartão em uso | Bloqueado |
-| Excluir carteira | Permitido; movimentos ficam, `account_id` vira nulo (`ON DELETE SET NULL`) |
-| Trocar papel da carteira | Bloqueado se já houver movimentos vinculados |
-| Aporte origem = destino | Bloqueado |
-| Transferência origem = destino | Bloqueado |
 | Valor ≤ 0 | Bloqueado nos formulários |
 | Percentuais da regra ≠ 100% | Bloqueado ao salvar a regra |
 
@@ -75,7 +71,7 @@ Lista padrão no app (`DEFAULT_PAYMENT_METHODS`). **Não** há CRUD de métodos 
 
 ## Limites de interpretação
 
-- Saldo de carteira é **estimado**, não extrato.
+- O produto não rastreia contas bancárias nem patrimônio: só o fluxo do mês e o que a pessoa registra (carteiras removidas na DEV-151, [ADR-007](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md)).
 - Limite de crédito do cartão é **informativo**; não impede lançar gasto.
 - Vencimento do cartão é **informativo**; alerta visual (~3 dias), não altera a fatura.
 - Chip do cartão soma **todos** os gastos daquele cartão no mês; o resumo efetivado só inclui se a **fatura** estiver paga.

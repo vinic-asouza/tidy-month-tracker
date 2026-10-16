@@ -19,12 +19,10 @@ import {
   DEFAULT_INVESTMENT_TAGS,
   DEFAULT_PAYMENT_METHODS,
 } from '@/types/finance';
-import type { Account, AccountBalance, UpsertAccountBalanceInput } from '@/types/domain';
 import { financeKeys, financialRuleKeys } from '@/lib/financeQueryKeys';
 import {
   fetchMonthBundle,
   fetchYearData,
-  fetchMonthsRange,
   type MonthBundle,
 } from '@/services/financeQueries';
 import {
@@ -32,25 +30,15 @@ import {
   patchYearDataMonth,
   toMonthSnapshot,
 } from '@/utils/business/yearDataSync';
-import { getAccountHistoryFetchRange } from '@/utils/business/accounts';
 import { calculateRemainingMonths, getYearRefreshMonths } from '@/utils/business/repeatMonths';
 import { calculateRemainingInstallments } from '@/utils/business/installments';
-import {
-  getCreditCardInvoiceSummary,
-  getInvoicePaymentOperation,
-  isCreditCardExpense,
-} from '@/utils/business/creditCards';
-import { formatDateToYYYYMMDD } from '@/lib/utils';
 import { startSaveTiming } from '@/utils/perf/saveTiming';
-import * as accountsService from '@/services/accounts';
-import * as accountBalancesService from '@/services/accountBalances';
 import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
 import * as investmentsService from '@/services/investments';
 import * as creditCardsService from '@/services/creditCards';
 import * as financialRuleService from '@/services/financialRule';
 import * as settingsService from '@/services/settings';
-import * as accountOperationsService from '@/services/accountOperations';
 
 type UseSupabaseFinanceOptions = {
   statisticsEnabled?: boolean;
@@ -67,9 +55,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountBalances, setAccountBalances] = useState<AccountBalance[]>([]);
-  const [earliestMovementMonth, setEarliestMovementMonth] = useState<string | null>(null);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [settings, setSettings] = useState<FinanceSettings>({
     incomeTags: DEFAULT_INCOME_TAGS,
@@ -91,50 +76,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     }
   }, [user]);
 
-  const fetchAccounts = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await accountsService.getAccounts(user.id);
-      setAccounts(data);
-    } catch {
-      toast.error('Erro ao carregar carteiras');
-    }
-  }, [user]);
-
-  const fetchAccountBalances = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await accountBalancesService.getAccountBalances(user.id);
-      setAccountBalances(data);
-    } catch {
-      toast.error('Erro ao carregar saldos de carteiras');
-    }
-  }, [user]);
-
-  const fetchEarliestMovementMonth = useCallback(async () => {
-    if (!user) return;
-    try {
-      const month = await accountsService.getEarliestAccountMovementMonth(user.id);
-      setEarliestMovementMonth(month);
-    } catch {
-      setEarliestMovementMonth(null);
-    }
-  }, [user]);
-
-  const refreshEarliestMovementMonthIfAccountLinked = useCallback(
-    (accountId?: string | null) => {
-      if (accountId) void fetchEarliestMovementMonth();
-    },
-    [fetchEarliestMovementMonth]
-  );
-
-  const refreshEarliestMovementMonthIfAccountChanged = useCallback(
-    (updates: { accountId?: string | null }) => {
-      if (updates.accountId !== undefined) void fetchEarliestMovementMonth();
-    },
-    [fetchEarliestMovementMonth]
-  );
-
   const fetchCreditCards = useCallback(async () => {
     if (!user) return;
     try {
@@ -152,15 +93,12 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       await Promise.all([
         fetchSettings(),
         fetchCreditCards(),
-        fetchAccounts(),
-        fetchAccountBalances(),
-        fetchEarliestMovementMonth(),
       ]);
       setInitialLoadDone(true);
     };
 
     loadInitialData();
-  }, [user, initialLoadDone, fetchSettings, fetchCreditCards, fetchAccounts, fetchAccountBalances, fetchEarliestMovementMonth]);
+  }, [user, initialLoadDone, fetchSettings, fetchCreditCards]);
 
   const monthQuery = useQuery({
     queryKey: financeKeys.month(userId, currentMonth),
@@ -176,46 +114,9 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     staleTime: 5 * 60_000,
   });
 
-  const accountHistoryRange = useMemo(
-    () =>
-      getAccountHistoryFetchRange(
-        accounts.map((a) => a.id),
-        accountBalances,
-        currentMonth,
-        earliestMovementMonth
-      ),
-    [accounts, accountBalances, currentMonth, earliestMovementMonth]
-  );
-
-  const accountHistoryQuery = useQuery({
-    queryKey: [
-      ...financeKeys.accountHistory(
-        userId,
-        accountHistoryRange?.from ?? '',
-        accountHistoryRange?.to ?? ''
-      ),
-      creditCards.length,
-      currentMonth,
-    ] as const,
-    queryFn: () =>
-      fetchMonthsRange(
-        userId,
-        accountHistoryRange!.from,
-        accountHistoryRange!.to,
-        creditCards
-      ),
-    enabled:
-      !!user &&
-      initialLoadDone &&
-      accounts.length > 0 &&
-      accountHistoryRange !== null,
-    staleTime: 30_000,
-  });
-
   const incomes = monthQuery.data?.incomes ?? [];
   const expenses = monthQuery.data?.expenses ?? [];
   const investments = monthQuery.data?.investments ?? [];
-  const accountOperations = monthQuery.data?.accountOperations ?? [];
   const cardMonthlyStatus = monthQuery.data?.cardMonthlyStatuses ?? {};
   const yearData = yearQuery.data ?? [];
 
@@ -231,7 +132,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           expenses: [],
           investments: [],
           cardMonthlyStatuses: {},
-          accountOperations: [],
         };
         return updater(base);
       });
@@ -239,70 +139,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     [user, queryClient, monthKey]
   );
 
-  const syncInvoicePaymentsForMonth = useCallback(async () => {
-    if (!user) return;
-
-    const bundle = queryClient.getQueryData<MonthBundle>(monthKey);
-    if (!bundle) return;
-
-    const ops = bundle.accountOperations ?? [];
-    const paidCardIds = Object.entries(bundle.cardMonthlyStatuses ?? {})
-      .filter(([, paid]) => paid)
-      .map(([id]) => id);
-
-    for (const cardId of paidCardIds) {
-      const card = creditCards.find((c) => c.id === cardId);
-      if (!card) continue;
-
-      const total = getCreditCardInvoiceSummary(card.name, {
-        incomes: bundle.incomes,
-        expenses: bundle.expenses,
-        investments: bundle.investments,
-        accountOperations: ops,
-      }).total;
-
-      const existing = getInvoicePaymentOperation(ops, cardId);
-      if (!existing) continue;
-
-      try {
-        if (total <= 0) {
-          await accountOperationsService.deleteInvoicePaymentByCard(
-            user.id,
-            cardId,
-            currentMonth
-          );
-          setMonthBundle((prev) => ({
-            ...prev,
-            accountOperations: (prev.accountOperations ?? []).filter(
-              (op) => op.id !== existing.id
-            ),
-          }));
-        } else if (existing.amount !== total) {
-          const updated = await accountOperationsService.updateInvoicePayment(
-            existing.id,
-            user.id,
-            { amount: total }
-          );
-          setMonthBundle((prev) => ({
-            ...prev,
-            accountOperations: (prev.accountOperations ?? []).map((op) =>
-              op.id === existing.id ? updated : op
-            ),
-          }));
-        }
-      } catch {
-        // falha silenciosa; próximo refetch corrige
-      }
-    }
-  }, [user, queryClient, monthKey, creditCards, currentMonth, setMonthBundle]);
-
   const patchYearFromCurrentMonth = useCallback(() => {
     if (!user || !statisticsEnabled) return;
     const existing = queryClient.getQueryData<MonthData[]>(yearKey);
     if (!existing || existing.length !== 12) return;
 
     const snapshot = toMonthSnapshot(
-      { incomes, expenses, investments, accountOperations },
+      { incomes, expenses, investments },
       cardMonthlyStatus
     );
     const monthIndex = getMonthIndex(currentMonth);
@@ -318,7 +161,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     incomes,
     expenses,
     investments,
-    accountOperations,
     cardMonthlyStatus,
     currentMonth,
   ]);
@@ -396,12 +238,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     [currentMonth, refreshYearMonths]
   );
 
-  const scheduleSyncInvoicePayments = useCallback(() => {
-    void syncInvoicePaymentsForMonth().catch(() => {
-      toast.error('Erro ao sincronizar pagamentos de fatura');
-    });
-  }, [syncInvoicePaymentsForMonth]);
-
   const scheduleRefreshYearMonths = useCallback(
     (yearMonths: string[]) => {
       const otherMonths = yearMonths.filter((month) => month !== currentMonth);
@@ -470,7 +306,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           scheduleRefreshYearMonths([currentMonth, ...months]);
         }
 
-        refreshEarliestMovementMonthIfAccountLinked(income.accountId);
         timing.mark('syncDone');
         timing.end();
         return true;
@@ -484,7 +319,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, currentMonth, incomes.length, setMonthBundle, scheduleRefreshYearMonths, refreshEarliestMovementMonthIfAccountLinked]
+    [user, currentMonth, incomes.length, setMonthBundle, scheduleRefreshYearMonths]
   );
 
   const updateIncome = useCallback(
@@ -513,7 +348,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         if (applyToAllMonths) {
           scheduleRefreshAffectedYearMonths(true);
         }
-        refreshEarliestMovementMonthIfAccountChanged(updates);
         return true;
       } catch {
         toast.error('Erro ao atualizar entrada');
@@ -521,18 +355,14 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, monthQuery.data?.incomes, setMonthBundle, scheduleRefreshAffectedYearMonths, refreshEarliestMovementMonthIfAccountChanged]
+    [user, monthQuery.data?.incomes, setMonthBundle, scheduleRefreshAffectedYearMonths]
   );
 
   const deleteIncome = useCallback(
     async (id: string, applyToAllMonths = false): Promise<boolean> => {
       if (!user) return false;
 
-      const income = monthQuery.data?.incomes.find((i) => i.id === id);
-      const sourceOpId = income?.sourceOperationId;
-
       const previousIncomes = monthQuery.data?.incomes ?? [];
-      const previousOps = monthQuery.data?.accountOperations ?? [];
 
       setMonthBundle((prev) => ({
         ...prev,
@@ -540,25 +370,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       }));
 
       try {
-        if (sourceOpId) {
-          const target = previousOps.find((op) => op.id === sourceOpId);
-          const idsToRemove = target?.transferGroupId
-            ? previousOps
-                .filter((op) => op.transferGroupId === target.transferGroupId)
-                .map((op) => op.id)
-            : [sourceOpId];
-
-          setMonthBundle((prev) => ({
-            ...prev,
-            accountOperations: (prev.accountOperations ?? []).filter(
-              (op) => !idsToRemove.includes(op.id)
-            ),
-          }));
-
-          await accountOperationsService.deleteAccountOperation(sourceOpId, user.id);
-          return true;
-        }
-
         await incomesService.deleteIncome(id, user.id, applyToAllMonths);
         if (applyToAllMonths) {
           scheduleRefreshAffectedYearMonths(true);
@@ -569,18 +380,11 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         setMonthBundle((prev) => ({
           ...prev,
           incomes: previousIncomes,
-          accountOperations: previousOps,
         }));
         return false;
       }
     },
-    [
-      user,
-      monthQuery.data?.incomes,
-      monthQuery.data?.accountOperations,
-      setMonthBundle,
-      scheduleRefreshAffectedYearMonths,
-    ]
+    [user, monthQuery.data?.incomes, setMonthBundle, scheduleRefreshAffectedYearMonths]
   );
 
   const reorderIncomes = useCallback(
@@ -605,12 +409,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
 
       const targetMonth = yearMonthOverride || currentMonth;
       const timing = startSaveTiming('addExpense');
-      const sanitized: Omit<Expense, 'id'> = isCreditCardExpense(
-        { ...expense, id: '' },
-        creditCards
-      )
-        ? { ...expense, accountId: undefined }
-        : expense;
+      const sanitized: Omit<Expense, 'id'> = expense;
 
       const tempId = `temp-${Date.now()}`;
       const optimistic: Expense = { id: tempId, ...sanitized };
@@ -669,8 +468,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           scheduleRefreshAffectedYearMonths(false, affectedMonths);
         }
 
-        refreshEarliestMovementMonthIfAccountLinked(sanitized.accountId);
-        scheduleSyncInvoicePayments();
         timing.mark('syncDone');
         timing.end();
         return created;
@@ -690,11 +487,8 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       user,
       currentMonth,
       expenses.length,
-      creditCards,
       setMonthBundle,
       scheduleRefreshAffectedYearMonths,
-      refreshEarliestMovementMonthIfAccountLinked,
-      scheduleSyncInvoicePayments,
     ]
   );
 
@@ -709,23 +503,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       const timing = startSaveTiming('updateExpense');
       const previous = monthQuery.data?.expenses ?? [];
       const current = previous.find((e) => e.id === id);
-      const sanitized: Partial<Expense> = isCreditCardExpense(
-        {
-          ...(current ?? {
-            id,
-            type: 'variable',
-            category: '',
-            description: '',
-            paymentMethod: '',
-            value: 0,
-            paid: false,
-          }),
-          ...updates,
-        },
-        creditCards
-      )
-        ? { ...updates, accountId: undefined }
-        : updates;
+      const sanitized: Partial<Expense> = updates;
 
       const typeChanged =
         sanitized.type !== undefined && current != null && sanitized.type !== current.type;
@@ -786,8 +564,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           }
         }
 
-        refreshEarliestMovementMonthIfAccountChanged(sanitized);
-        scheduleSyncInvoicePayments();
         timing.mark('syncDone');
         timing.end();
         return true;
@@ -801,12 +577,9 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     [
       user,
       monthQuery.data?.expenses,
-      creditCards,
       currentMonth,
       setMonthBundle,
       scheduleRefreshAffectedYearMonths,
-      refreshEarliestMovementMonthIfAccountChanged,
-      scheduleSyncInvoicePayments,
     ]
   );
 
@@ -825,7 +598,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         if (applyToAllMonths) {
           scheduleRefreshAffectedYearMonths(true);
         }
-        scheduleSyncInvoicePayments();
         return true;
       } catch {
         toast.error('Erro ao excluir gasto');
@@ -833,7 +605,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, monthQuery.data?.expenses, setMonthBundle, scheduleRefreshAffectedYearMonths, scheduleSyncInvoicePayments]
+    [user, monthQuery.data?.expenses, setMonthBundle, scheduleRefreshAffectedYearMonths]
   );
 
   const deleteInstallmentExpense = useCallback(
@@ -851,7 +623,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         void invalidateCurrentMonth().catch(() => {
           toast.error('Erro ao atualizar dados do mês');
         });
-        scheduleSyncInvoicePayments();
         return true;
       } catch {
         toast.error('Erro ao excluir parcelas');
@@ -859,7 +630,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, monthQuery.data?.expenses, setMonthBundle, invalidateCurrentMonth, scheduleSyncInvoicePayments]
+    [user, monthQuery.data?.expenses, setMonthBundle, invalidateCurrentMonth]
   );
 
   const reorderExpenses = useCallback(
@@ -988,175 +759,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     [cardMonthlyStatus]
   );
 
-  const addAccount = useCallback(
-    async (account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>): Promise<Account | null> => {
-      if (!user) return null;
-
-      const tempId = `temp-${Date.now()}`;
-      const optimistic: Account = { id: tempId, ...account };
-      setAccounts((prev) => [...prev, optimistic]);
-
-      try {
-        const created = await accountsService.createAccount({
-          ...account,
-          userId: user.id,
-          displayOrder: accounts.length,
-        });
-        setAccounts((prev) => [...prev.filter((a) => a.id !== tempId), created]);
-        void fetchEarliestMovementMonth();
-        return created;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Erro ao adicionar carteira';
-        toast.error(message);
-        setAccounts((prev) => prev.filter((a) => a.id !== tempId));
-        return null;
-      }
-    },
-    [user, accounts.length, fetchEarliestMovementMonth]
-  );
-
-  const updateAccount = useCallback(
-    async (id: string, updates: Partial<Omit<Account, 'id'>>): Promise<boolean> => {
-      if (!user) return false;
-
-      const previousAccounts = [...accounts];
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
-      );
-
-      try {
-        await accountsService.updateAccount(id, user.id, updates);
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Erro ao atualizar carteira';
-        toast.error(message);
-        setAccounts(previousAccounts);
-        return false;
-      }
-    },
-    [user, accounts]
-  );
-
-  const deleteAccount = useCallback(
-    async (id: string): Promise<boolean> => {
-      if (!user) return false;
-
-      const previousAccounts = [...accounts];
-      const previousBalances = [...accountBalances];
-      setAccounts((prev) => prev.filter((a) => a.id !== id));
-
-      try {
-        await accountsService.deleteAccount(id, user.id);
-        setAccountBalances((prev) => prev.filter((b) => b.accountId !== id));
-        setMonthBundle((prev) => ({
-          ...prev,
-          incomes: prev.incomes.map((income) =>
-            income.accountId === id ? { ...income, accountId: undefined } : income
-          ),
-          expenses: prev.expenses.map((expense) =>
-            expense.accountId === id ? { ...expense, accountId: undefined } : expense
-          ),
-          investments: prev.investments.map((investment) => {
-            if (investment.accountId !== id && investment.sourceAccountId !== id) {
-              return investment;
-            }
-            return {
-              ...investment,
-              accountId: investment.accountId === id ? undefined : investment.accountId,
-              sourceAccountId:
-                investment.sourceAccountId === id ? undefined : investment.sourceAccountId,
-            };
-          }),
-          accountOperations: (prev.accountOperations ?? []).map((operation) => {
-            if (operation.sourceAccountId !== id && operation.destinationAccountId !== id) {
-              return operation;
-            }
-            return {
-              ...operation,
-              sourceAccountId: operation.sourceAccountId === id ? null : operation.sourceAccountId,
-              destinationAccountId:
-                operation.destinationAccountId === id ? null : operation.destinationAccountId,
-            };
-          }),
-        }));
-        await invalidateCurrentMonth();
-        await queryClient.invalidateQueries({
-          queryKey: ['finance', 'accountHistory', user.id],
-        });
-        return true;
-      } catch {
-        toast.error('Erro ao excluir carteira');
-        setAccounts(previousAccounts);
-        setAccountBalances(previousBalances);
-        return false;
-      }
-    },
-    [user, accounts, accountBalances, setMonthBundle, invalidateCurrentMonth, queryClient]
-  );
-
-  const accountNameExists = useCallback(
-    (name: string, excludeId?: string): boolean => {
-      return accounts.some(
-        (a) => a.name.toLowerCase() === name.toLowerCase() && a.id !== excludeId
-      );
-    },
-    [accounts]
-  );
-
-  const upsertAccountBalance = useCallback(
-    async (accountId: string, yearMonth: string, balance: number): Promise<boolean> => {
-      if (!user) return false;
-
-      const existing = accountBalances.find(
-        (b) => b.accountId === accountId && b.yearMonth === yearMonth
-      );
-      const tempBalance: AccountBalance = existing
-        ? { ...existing, balance }
-        : {
-            id: `temp-${Date.now()}`,
-            accountId,
-            userId: user.id,
-            yearMonth,
-            balance,
-          };
-
-      setAccountBalances((prev) => {
-        const filtered = prev.filter(
-          (b) => !(b.accountId === accountId && b.yearMonth === yearMonth)
-        );
-        return [...filtered, tempBalance];
-      });
-
-      try {
-        const saved = await accountBalancesService.upsertAccountBalance({
-          accountId,
-          userId: user.id,
-          yearMonth,
-          balance,
-        } as UpsertAccountBalanceInput);
-
-        setAccountBalances((prev) => {
-          const filtered = prev.filter(
-            (b) => !(b.accountId === accountId && b.yearMonth === yearMonth)
-          );
-          return [...filtered, saved];
-        });
-        return true;
-      } catch {
-        setAccountBalances((prev) => {
-          const filtered = prev.filter(
-            (b) => !(b.accountId === accountId && b.yearMonth === yearMonth)
-          );
-          if (existing) return [...filtered, existing];
-          return filtered;
-        });
-        toast.error('Erro ao salvar saldo da carteira');
-        return false;
-      }
-    },
-    [user, accountBalances]
-  );
-
   const addInvestment = useCallback(
     async (investment: Omit<Investment, 'id'>): Promise<boolean> => {
       if (!user) return false;
@@ -1192,7 +794,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           scheduleRefreshYearMonths([currentMonth, ...months]);
         }
 
-        refreshEarliestMovementMonthIfAccountLinked(investment.accountId);
         timing.mark('syncDone');
         timing.end();
         return true;
@@ -1206,7 +807,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, currentMonth, investments.length, setMonthBundle, scheduleRefreshYearMonths, refreshEarliestMovementMonthIfAccountLinked]
+    [user, currentMonth, investments.length, setMonthBundle, scheduleRefreshYearMonths]
   );
 
   const updateInvestment = useCallback(
@@ -1235,7 +836,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         if (applyToAllMonths) {
           scheduleRefreshAffectedYearMonths(true);
         }
-        refreshEarliestMovementMonthIfAccountChanged(updates);
         return true;
       } catch {
         toast.error('Erro ao atualizar investimento');
@@ -1243,7 +843,7 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         return false;
       }
     },
-    [user, monthQuery.data?.investments, setMonthBundle, scheduleRefreshAffectedYearMonths, refreshEarliestMovementMonthIfAccountChanged]
+    [user, monthQuery.data?.investments, setMonthBundle, scheduleRefreshAffectedYearMonths]
   );
 
   const deleteInvestment = useCallback(
@@ -1455,82 +1055,20 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     [user, settings.expenseCategories]
   );
 
-  const invalidateAccountHistory = useCallback(async () => {
-    if (!user || !accountHistoryRange) return;
-    await queryClient.invalidateQueries({
-      queryKey: financeKeys.accountHistory(
-        userId,
-        accountHistoryRange.from,
-        accountHistoryRange.to
-      ),
-    });
-  }, [user, accountHistoryRange, queryClient, userId]);
-
-  const scheduleInvalidateAccountHistory = useCallback(() => {
-    void invalidateAccountHistory().catch(() => {
-      toast.error('Erro ao atualizar histórico de carteiras');
-    });
-  }, [invalidateAccountHistory]);
-
   const payCardInvoice = useCallback(
-    async (
-      cardId: string,
-      paymentAccountId: string | null,
-      operationDate?: string
-    ): Promise<boolean> => {
+    async (cardId: string): Promise<boolean> => {
       if (!user) return false;
 
       const timing = startSaveTiming('payCardInvoice');
       const card = creditCards.find((c) => c.id === cardId);
       if (!card) return false;
 
-      const opDate = operationDate ?? formatDateToYYYYMMDD(new Date());
-      const bundle = queryClient.getQueryData<MonthBundle>(monthKey);
-      const summary = getCreditCardInvoiceSummary(card.name, {
-        incomes: bundle?.incomes ?? incomes,
-        expenses: bundle?.expenses ?? expenses,
-        investments: bundle?.investments ?? investments,
-        accountOperations: bundle?.accountOperations ?? accountOperations,
-      });
-      const existing = getInvoicePaymentOperation(
-        bundle?.accountOperations ?? accountOperations,
-        cardId
-      );
       const previousStatuses = { ...cardMonthlyStatus };
-      const previousOps = [...(bundle?.accountOperations ?? accountOperations)];
 
-      setMonthBundle((prev) => {
-        let nextOps = prev.accountOperations ?? [];
-        if (summary.total > 0) {
-          const optimisticOp = existing
-            ? {
-                ...existing,
-                sourceAccountId: paymentAccountId,
-                amount: summary.total,
-                operationDate: opDate,
-              }
-            : {
-                id: `temp-invoice-${cardId}`,
-                type: 'invoice_payment' as const,
-                sourceAccountId: paymentAccountId,
-                destinationAccountId: null,
-                transferGroupId: null,
-                creditCardId: cardId,
-                amount: summary.total,
-                yearMonth: currentMonth,
-                operationDate: opDate,
-                description: `Fatura ${card.name}`,
-              };
-          nextOps = existing
-            ? nextOps.map((op) => (op.id === existing.id ? optimisticOp : op))
-            : [...nextOps, optimisticOp];
-        }
-        return {
-          ...prev,
-          cardMonthlyStatuses: { ...prev.cardMonthlyStatuses, [cardId]: true },
-          accountOperations: nextOps,
-        };
-      });
+      setMonthBundle((prev) => ({
+        ...prev,
+        cardMonthlyStatuses: { ...prev.cardMonthlyStatuses, [cardId]: true },
+      }));
 
       try {
         await creditCardsService.setCardMonthlyStatus(
@@ -1540,43 +1078,6 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
           true
         );
 
-        if (summary.total > 0) {
-          if (existing && !existing.id.startsWith('temp-')) {
-            const updated = await accountOperationsService.updateInvoicePayment(
-              existing.id,
-              user.id,
-              {
-                sourceAccountId: paymentAccountId,
-                amount: summary.total,
-                description: `Fatura ${card.name}`,
-              }
-            );
-            setMonthBundle((prev) => ({
-              ...prev,
-              accountOperations: (prev.accountOperations ?? []).map((op) =>
-                op.id === existing.id ? updated : op
-              ),
-            }));
-          } else {
-            const created = await accountOperationsService.createInvoicePayment({
-              userId: user.id,
-              sourceAccountId: paymentAccountId,
-              creditCardId: cardId,
-              amount: summary.total,
-              yearMonth: currentMonth,
-              operationDate: opDate,
-              description: `Fatura ${card.name}`,
-            });
-            setMonthBundle((prev) => ({
-              ...prev,
-              accountOperations: (prev.accountOperations ?? [])
-                .filter((op) => op.id !== `temp-invoice-${cardId}`)
-                .concat(created),
-            }));
-          }
-          scheduleInvalidateAccountHistory();
-        }
-
         timing.mark('apiDone');
         timing.mark('syncDone');
         timing.end();
@@ -1585,54 +1086,27 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         setMonthBundle((prev) => ({
           ...prev,
           cardMonthlyStatuses: previousStatuses,
-          accountOperations: previousOps,
         }));
         toast.error('Erro ao registrar pagamento da fatura');
         timing.end();
         return false;
       }
     },
-    [
-      user,
-      creditCards,
-      queryClient,
-      monthKey,
-      incomes,
-      expenses,
-      investments,
-      accountOperations,
-      cardMonthlyStatus,
-      currentMonth,
-      setMonthBundle,
-      scheduleInvalidateAccountHistory,
-    ]
+    [user, creditCards, cardMonthlyStatus, currentMonth, setMonthBundle]
   );
 
   const unpayCardInvoice = useCallback(
     async (cardId: string): Promise<boolean> => {
       if (!user) return false;
 
-      const existing = getInvoicePaymentOperation(accountOperations, cardId);
       const previousStatuses = { ...cardMonthlyStatus };
-      const previousOps = [...accountOperations];
 
       setMonthBundle((prev) => ({
         ...prev,
         cardMonthlyStatuses: { ...prev.cardMonthlyStatuses, [cardId]: false },
-        accountOperations: (prev.accountOperations ?? []).filter(
-          (op) => !(op.type === 'invoice_payment' && op.creditCardId === cardId)
-        ),
       }));
 
       try {
-        if (existing) {
-          await accountOperationsService.deleteInvoicePaymentByCard(
-            user.id,
-            cardId,
-            currentMonth
-          );
-          scheduleInvalidateAccountHistory();
-        }
         await creditCardsService.setCardMonthlyStatus(
           user.id,
           cardId,
@@ -1644,229 +1118,28 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
         setMonthBundle((prev) => ({
           ...prev,
           cardMonthlyStatuses: previousStatuses,
-          accountOperations: previousOps,
         }));
         toast.error('Erro ao desmarcar fatura');
         return false;
       }
     },
-    [
-      user,
-      accountOperations,
-      cardMonthlyStatus,
-      currentMonth,
-      setMonthBundle,
-      scheduleInvalidateAccountHistory,
-    ]
+    [user, cardMonthlyStatus, currentMonth, setMonthBundle]
   );
 
   const setCardPaidStatus = useCallback(
     async (cardId: string, paid: boolean): Promise<boolean> => {
       if (paid) {
-        return payCardInvoice(cardId, null);
+        return payCardInvoice(cardId);
       }
       return unpayCardInvoice(cardId);
     },
     [payCardInvoice, unpayCardInvoice]
   );
 
-  const createWithdrawal = useCallback(
-    async (
-      sourceAccountId: string,
-      amount: number,
-      operationDate: string,
-      description?: string,
-      destinationAccountId?: string | null
-    ): Promise<boolean> => {
-      if (!user) return false;
-
-      const timing = startSaveTiming('createWithdrawal');
-      let createdOps: import('@/types/domain').AccountOperation[] = [];
-
-      try {
-        let linkedOperationId: string;
-
-        if (destinationAccountId) {
-          const created = await accountOperationsService.createTransfer({
-            userId: user.id,
-            sourceAccountId,
-            destinationAccountId,
-            amount,
-            yearMonth: currentMonth,
-            operationDate,
-            description: description ?? 'Resgate',
-          });
-          const transferIn = created.find((op) => op.type === 'transfer_in');
-          if (!transferIn) {
-            throw new Error('Operação de resgate incompleta');
-          }
-          linkedOperationId = transferIn.id;
-          createdOps = created;
-        } else {
-          const created = await accountOperationsService.createWithdrawal({
-            userId: user.id,
-            sourceAccountId,
-            amount,
-            yearMonth: currentMonth,
-            operationDate,
-            description,
-          });
-          linkedOperationId = created.id;
-          createdOps = [created];
-        }
-
-        const incomeDescription = description?.trim() || 'Resgate de investimentos';
-        const createdIncome = await incomesService.createResgateIncome({
-          userId: user.id,
-          yearMonth: currentMonth,
-          description: incomeDescription,
-          value: amount,
-          date: operationDate,
-          accountId: destinationAccountId ?? null,
-          sourceOperationId: linkedOperationId,
-          displayOrder: incomes.length,
-        });
-
-        setMonthBundle((prev) => ({
-          ...prev,
-          accountOperations: [...(prev.accountOperations ?? []), ...createdOps],
-          incomes: [...prev.incomes, createdIncome],
-        }));
-
-        timing.mark('apiDone');
-        scheduleInvalidateAccountHistory();
-        timing.mark('syncDone');
-        timing.end();
-        toast.success(
-          'Resgate registrado. Entrada criada em Entradas; resumo e regra 50/30/20 atualizados.'
-        );
-        return true;
-      } catch {
-        for (const op of createdOps) {
-          try {
-            await accountOperationsService.deleteAccountOperation(op.id, user.id);
-          } catch {
-            // best-effort rollback
-          }
-        }
-        toast.error('Erro ao registrar resgate');
-        timing.end();
-        return false;
-      }
-    },
-    [user, currentMonth, incomes.length, setMonthBundle, scheduleInvalidateAccountHistory]
-  );
-
-  const createTransfer = useCallback(
-    async (
-      sourceAccountId: string | null,
-      destinationAccountId: string | null,
-      amount: number,
-      operationDate: string,
-      description?: string
-    ): Promise<boolean> => {
-      if (!user) return false;
-      if (!sourceAccountId && !destinationAccountId) return false;
-      if (sourceAccountId && destinationAccountId && sourceAccountId === destinationAccountId) {
-        return false;
-      }
-
-      const timing = startSaveTiming('createTransfer');
-
-      try {
-        const created = await accountOperationsService.createTransfer({
-          userId: user.id,
-          sourceAccountId,
-          destinationAccountId,
-          amount,
-          yearMonth: currentMonth,
-          operationDate,
-          description,
-        });
-
-        setMonthBundle((prev) => ({
-          ...prev,
-          accountOperations: [...(prev.accountOperations ?? []), ...created],
-        }));
-        timing.mark('apiDone');
-        scheduleInvalidateAccountHistory();
-        timing.mark('syncDone');
-        timing.end();
-        return true;
-      } catch {
-        toast.error('Erro ao registrar transferência');
-        timing.end();
-        return false;
-      }
-    },
-    [user, currentMonth, setMonthBundle, scheduleInvalidateAccountHistory]
-  );
-
-  const deleteOperation = useCallback(
-    async (id: string): Promise<boolean> => {
-      if (!user) return false;
-
-      const currentOps = monthQuery.data?.accountOperations ?? [];
-      const currentIncomes = monthQuery.data?.incomes ?? [];
-      const target = currentOps.find((op) => op.id === id);
-      const idsToRemove = target?.transferGroupId
-        ? currentOps
-            .filter((op) => op.transferGroupId === target.transferGroupId)
-            .map((op) => op.id)
-        : [id];
-
-      const previousOps = currentOps;
-      const previousIncomes = currentIncomes;
-
-      setMonthBundle((prev) => ({
-        ...prev,
-        accountOperations: (prev.accountOperations ?? []).filter(
-          (op) => !idsToRemove.includes(op.id)
-        ),
-        incomes: prev.incomes.filter(
-          (income) =>
-            !income.sourceOperationId || !idsToRemove.includes(income.sourceOperationId)
-        ),
-      }));
-
-      try {
-        await accountOperationsService.deleteAccountOperation(id, user.id);
-        scheduleInvalidateAccountHistory();
-        return true;
-      } catch {
-        toast.error('Erro ao excluir operação');
-        setMonthBundle((prev) => ({
-          ...prev,
-          accountOperations: previousOps,
-          incomes: previousIncomes,
-        }));
-        return false;
-      }
-    },
-    [
-      user,
-      monthQuery.data?.accountOperations,
-      monthQuery.data?.incomes,
-      setMonthBundle,
-      scheduleInvalidateAccountHistory,
-    ]
-  );
-
   const monthData: MonthData = useMemo(
-    () => ({ incomes, expenses, investments, accountOperations }),
-    [incomes, expenses, investments, accountOperations]
+    () => ({ incomes, expenses, investments }),
+    [incomes, expenses, investments]
   );
-
-  const accountHistoryMonths = useMemo(() => {
-    const merged: Record<string, MonthData> = {
-      ...(accountHistoryQuery.data ?? {}),
-    };
-    merged[currentMonth] = {
-      ...monthData,
-      cardMonthlyStatuses: cardMonthlyStatus,
-    };
-    return merged;
-  }, [accountHistoryQuery.data, currentMonth, monthData, cardMonthlyStatus]);
 
   const loading = !initialLoadDone || (monthQuery.isLoading && !monthQuery.data);
   const monthRefetching = monthQuery.isFetching && !!monthQuery.data;
@@ -1880,21 +1153,10 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
     setCurrentMonth,
     monthData,
     settings,
-    accounts,
-    accountBalances,
-    accountHistoryMonths,
     creditCards,
     cardMonthlyStatus,
     yearData,
     loadingYearData,
-    addAccount,
-    updateAccount,
-    deleteAccount,
-    accountNameExists,
-    upsertAccountBalance,
-    createWithdrawal,
-    createTransfer,
-    deleteOperation,
     addIncome,
     updateIncome,
     deleteIncome,

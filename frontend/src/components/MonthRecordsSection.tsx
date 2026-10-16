@@ -9,7 +9,7 @@ import { WishSection } from '@/components/WishSection';
 import { CreditCardStrip } from '@/components/CreditCardStrip';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { CreditCard, Expense, IncomeEntry, Investment } from '@/types/finance';
-import type { Account, AccountOperation, WishItem, CreateWishItemInput } from '@/types/domain';
+import type { WishItem, CreateWishItemInput } from '@/types/domain';
 import { cn, formatRecordsMonthTitle } from '@/lib/utils';
 
 export type RecordsTab = 'income' | 'expense' | 'investment' | 'wish';
@@ -25,8 +25,6 @@ interface MonthRecordsSectionProps {
   expenseCategories: string[];
   paymentMethods: string[];
   investmentTags: string[];
-  accounts: Account[];
-  accountOperations?: AccountOperation[];
   cardMonthlyStatuses?: Record<string, boolean>;
   creditCards: CreditCard[];
   selectedIncomeIds: Set<string>;
@@ -52,11 +50,7 @@ interface MonthRecordsSectionProps {
   canDeleteCard: (cardName: string) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
-  payCardInvoice: (
-    cardId: string,
-    paymentAccountId: string | null,
-    operationDate?: string
-  ) => Promise<boolean>;
+  payCardInvoice: (cardId: string) => Promise<boolean>;
   unpayCardInvoice: (cardId: string) => Promise<boolean>;
   addIncomeTag: (tag: string) => void;
   updateIncomeTag: (oldTag: string, newTag: string) => void;
@@ -67,7 +61,6 @@ interface MonthRecordsSectionProps {
   addInvestmentTag: (tag: string) => void;
   updateInvestmentTag: (oldTag: string, newTag: string) => void;
   deleteInvestmentTag: (tag: string) => void;
-  onRequestAddAccount?: () => void;
   expenseDraft?: Partial<Expense> | null;
   onExpenseDraftConsumed?: (cancelled?: boolean) => void;
   wishConquerPlannedValue?: number;
@@ -112,8 +105,6 @@ export const MonthRecordsSection = ({
   addInvestment,
   updateInvestment,
   deleteInvestment,
-  accounts,
-  accountOperations,
   cardMonthlyStatuses,
   addCreditCard,
   updateCreditCard,
@@ -133,7 +124,6 @@ export const MonthRecordsSection = ({
   addInvestmentTag,
   updateInvestmentTag,
   deleteInvestmentTag,
-  onRequestAddAccount,
   expenseDraft,
   onExpenseDraftConsumed,
   wishConquerPlannedValue,
@@ -222,8 +212,6 @@ export const MonthRecordsSection = ({
               onDeleteTag={deleteIncomeTag}
               selectedIds={selectedIncomeIds}
               onSelectionChange={onIncomeSelectionChange}
-              accounts={accounts}
-              onRequestAddAccount={onRequestAddAccount}
             />
           )}
 
@@ -231,13 +219,11 @@ export const MonthRecordsSection = ({
             <div className="space-y-5">
               <CreditCardStrip
                 creditCards={creditCards}
-                accounts={accounts}
                 currentMonth={currentMonth}
                 monthData={{
                   incomes,
                   expenses,
                   investments,
-                  accountOperations,
                   cardMonthlyStatuses,
                 }}
                 onAdd={addCreditCard}
@@ -271,9 +257,6 @@ export const MonthRecordsSection = ({
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={onExpenseDraftConsumed}
                 wishConquerPlannedValue={wishConquerPlannedValue}
-                accounts={accounts}
-                accountOperations={accountOperations}
-                onRequestAddAccount={onRequestAddAccount}
               />
             </div>
           )}
@@ -282,7 +265,6 @@ export const MonthRecordsSection = ({
             <InvestmentSection
               variant="embedded"
               investments={investments}
-              accounts={accounts}
               tags={investmentTags}
               onAdd={addInvestment}
               onUpdate={updateInvestment}
@@ -292,7 +274,6 @@ export const MonthRecordsSection = ({
               onDeleteTag={deleteInvestmentTag}
               selectedIds={selectedInvestmentIds}
               onSelectionChange={onInvestmentSelectionChange}
-              onRequestAddAccount={onRequestAddAccount}
             />
           )}
 

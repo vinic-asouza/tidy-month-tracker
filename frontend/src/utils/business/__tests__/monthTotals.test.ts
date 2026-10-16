@@ -13,7 +13,6 @@ const mockMonthData = (overrides: Partial<MonthData> = {}): MonthData => ({
   incomes: [],
   expenses: [],
   investments: [],
-  accountOperations: [],
   ...overrides,
 });
 
@@ -24,7 +23,6 @@ const mockResgateIncome = (value: number, received = true) => ({
   tag: RESGATE_INCOME_TAG,
   date: '2026-06-12',
   received,
-  sourceOperationId: 'op-1',
 });
 
 describe('calculateEffectiveMonthTotals with resgate incomes', () => {
@@ -48,22 +46,9 @@ describe('calculateEffectiveMonthTotals with resgate incomes', () => {
     expect(totals.balance).toBe(3400);
   });
 
-  it('nao conta resgate pendente nem operacoes sem entrada vinculada', () => {
+  it('nao conta resgate pendente', () => {
     const data = mockMonthData({
       incomes: [mockResgateIncome(600, false)],
-      accountOperations: [
-        {
-          id: 'op-out',
-          type: 'transfer_out',
-          sourceAccountId: 'inv-1',
-          destinationAccountId: null,
-          transferGroupId: 'tg-1',
-          amount: 600,
-          yearMonth: '2026-06',
-          operationDate: '2026-06-10',
-          description: null,
-        },
-      ],
     });
 
     const totals = calculateEffectiveMonthTotals(data, []);

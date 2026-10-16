@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Jornadas de usuário
@@ -20,7 +20,7 @@ Cabeçalho: marca, seletor do período, toggle **Mensal** / **Anual**, tema clar
 
 | Visão | Conteúdo principal |
 | --- | --- |
-| **Mensal** (`view = dashboard`) | `MonthSummarySection` → `AccountStrip` → `MonthRecordsSection` |
+| **Mensal** (`view = dashboard`) | `MonthSummarySection` → `MonthRecordsSection` |
 | **Anual** (`view = statistics`) | `Statistics` — média e total do ano, gráfico mês a mês, regra e exportação do recorte na mesma janela |
 
 Abas de registros (`RecordsTab`): **Entradas** · **Gastos** · **Investimentos** · **Desejos**. Cartões (`CreditCardStrip`) só na aba Gastos.
@@ -50,12 +50,11 @@ Não há convite, SSO nem perfil compartilhado.
 
 1. Cai no **mês atual**, visão Mensal.
 2. (Opcional) Abre a regra no resumo e mapeia categorias (essencial vs. estilo de vida).
-3. (Opcional) Cadastra carteiras em `AccountStrip` — pelo menos uma de **movimentação** e uma de **investimentos** se for aportar.
-4. (Opcional) Cadastra cartões na aba Gastos.
-5. Reserva minutos para lançar entradas, gastos e investimentos (ainda **planejados**).
-6. Efetiva o que já aconteceu (jornadas 3–5).
-7. Confere o resumo e a regra; se quiser, troca o toggle para **Planejados**.
-8. Olha a visão **Anual** quando tiver alguns meses.
+3. (Opcional) Cadastra cartões na aba Gastos.
+4. Reserva minutos para lançar entradas, gastos e investimentos (ainda **planejados**).
+5. Efetiva o que já aconteceu (jornadas 3–5).
+6. Confere o resumo e a regra; se quiser, troca o toggle para **Planejados**.
+7. Olha a visão **Anual** quando tiver alguns meses.
 
 ---
 
@@ -66,8 +65,8 @@ Não há convite, SSO nem perfil compartilhado.
 1. Aba Entradas ou Gastos.
 2. Adiciona o lançamento (`IncomeSection` / `ExpenseSection`): valor, descrição, tag ou categoria, data. Gasto: tipo fixo / variável / parcelado; forma de pagamento.
 3. Item nasce **não efetivado**.
-4. Marca recebido ou pago → `EffectuateWalletDialog`: carteira de **movimentação** ou **Saldo Livre**.
-5. Resumo, chips de carteira e (no gasto) regra atualizam no efetivado.
+4. Marca recebido ou pago com o toggle de status (`StatusToggleBadge`). Sem diálogo, sem carteira.
+5. Resumo e (no gasto) regra atualizam no efetivado.
 
 Recorrência: repetir no **ano civil**; editar/excluir só este mês ou os seguintes. Parcelas podem atravessar o ano.
 
@@ -80,34 +79,26 @@ Recorrência: repetir no **ano civil**; editar/excluir só este mês ou os segui
 1. Aba Gastos; faixa `CreditCardStrip`.
 2. Lança gasto com aquele cartão. **Não** há checkbox “pago” no item — o status vem da fatura.
 3. O gasto aparece na lista, mas **não** entra no caixa efetivado enquanto a fatura estiver aberta.
-4. Marca a fatura paga (`PayInvoiceDialog` via strip): escolhe a carteira de movimentação que pagou o **total**.
-5. Todos os gastos daquele cartão naquele mês passam a efetivados; a carteira reflete o débito único da fatura.
+4. Marca a fatura paga (`PayInvoiceDialog` via strip): confirma o **total** da fatura. Não escolhe carteira.
+5. O status mensal do cartão (`credit_card_monthly_status`) vira pago e todos os gastos daquele cartão naquele mês passam a efetivados.
 6. Dá para desmarcar a fatura (`unpayCardInvoice`).
 
 ---
 
-## 5. Aportar (origem → destino)
+## 5. Aportar
 
 **Persona:** André.
 
 1. Aba Investimentos (`InvestmentSection`).
-2. Lança o aporte do mês (ainda não investido).
-3. Marca investido → `EffectuateInvestmentDialog`: **origem** (movimentação ou Saldo Livre) e **destino** (carteira de investimentos), obrigatórios e diferentes.
-4. Liquidez cai na origem; posição sobe no destino; o **saldo do mês** desconta o aporte.
-
-Se faltar carteira de um dos papéis, o fluxo oferece criar (`onRequestAddAccount`).
+2. Lança o aporte do mês (ainda não investido): valor, descrição, tag, data.
+3. Marca investido com o toggle de status. Sem origem, destino nem diálogo.
+4. O **saldo do mês** desconta o aporte.
 
 ---
 
-## 6. Mover patrimônio: transferência e resgate
+## 6. (Removida) Mover patrimônio: transferência e resgate
 
-**Persona:** André / multi-conta.
-
-1. Menu da carteira em `AccountStrip`.
-2. **Transferência** (`TransferDialog`): entre movimentação (ou Saldo Livre). Não mexe no resumo nem na regra.
-3. **Resgate** (`WithdrawalDialog`): da carteira de investimentos para movimentação ou Saldo Livre. Gera entrada automática já recebida; entra no resumo e na regra.
-
-Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
+Jornada removida na DEV-151 (carteiras, transferência e resgate saíram do produto). O número 6 fica reservado para não quebrar referências cruzadas. Ver [`ADR-007`](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md).
 
 ---
 
@@ -116,7 +107,7 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 **Persona:** Camila.
 
 1. Aba Desejos (`WishSection`): descrição, valor estimado, urgência, prazo (“conquistar até”).
-2. O desejo **não** altera saldo, regra, estatísticas nem carteiras.
+2. O desejo **não** altera saldo, regra nem estatísticas.
 3. Conquistar: só marcar, ou marcar **e** abrir gasto pré-preenchido. No não-cartão, o gasto pode nascer já pago; no cartão, espera a fatura.
 4. Prazo vencido: renovar ou remover. Conquistado some da lista ativa.
 
@@ -128,7 +119,7 @@ Exclusão de operações: Saldo Livre e “operações do mês” na carteira.
 
 1. Cabeçalho → **Anual**. O seletor passa a ser o ano e guarda o mês que estava aberto.
 2. `Statistics`: cada card mostra a média da janela em destaque e o total dos 12 meses abaixo. Mês vazio sai do divisor. Sem mês na janela, a média mostra ausência. O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico, regra e seções de dinheiro.
-3. A regra anual usa a mesma média nas barras. Abaixo dela, quatro leituras: gastos por categoria (e por tipo), forma de pagamento (com a soma dos cartões), aportes por tag e desejos do ano. Desejos não entram no caixa. Não há seção de carteiras.
+3. A regra anual usa a mesma média nas barras. Abaixo dela, quatro leituras: gastos por categoria (e por tipo), forma de pagamento (com a soma dos cartões), aportes por tag e desejos do ano. Desejos não entram no caixa.
 4. **Exportar CSV** ou **Exportar PDF** baixa o ano e o modo que estão na tela: resumo, série mensal, regra, categorias, tipo, pagamento e aportes. Desejos ficam só na tela. A visão Mensal não oferece essas ações.
 5. Volta a **Mensal** no mesmo mês do ano escolhido. A visão Mensal continua com um valor só.
 
@@ -152,6 +143,6 @@ Regras CSV-01…CSV-06: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](
 
 Não é uma tela: é a jornada que o produto existe para formar.
 
-Registrar → efetivar (escolher onde o dinheiro está) → olhar resumo e regra → no tempo, olhar o ano → desejos antes da compra.
+Registrar → efetivar (marcar o que de fato aconteceu) → olhar resumo e regra → no tempo, olhar o ano → desejos antes da compra.
 
 A importação CSV assistida (jornada 9) **acelera o volume com revisão**; se o uso virar só “conferir extrato sem decidir”, sai da visão do produto ([`visao-do-produto.md`](./visao-do-produto.md)).

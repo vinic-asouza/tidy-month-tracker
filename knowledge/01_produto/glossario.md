@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Glossário
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Glossário
@@ -16,15 +16,15 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
 | Termo | Significado |
 | --- | --- |
-| **Entradas** | Receitas do mês (salário, extras, rendimentos). Resgates de investimentos geram uma entrada automática já recebida. |
+| **Entradas** | Receitas do mês (salário, extras, rendimentos). A tag *Resgate de investimentos* continua disponível; entradas antigas com ela são entradas normais. |
 | **Gastos** | Despesas do mês (fixo, variável ou parcelado). |
-| **Investimentos (seção)** | Aportes do mês — o hábito de investir naquele período, não o extrato da corretora. |
+| **Investimentos (seção)** | **Aporte** do mês — registro do hábito de investir naquele período, sem carteira de origem ou destino e sem extrato da corretora. Efetivar é marcar como investido. |
 | **Planejado** | Soma dos lançamentos do mês, independente de estarem recebidos, pagos ou investidos. |
 | **Efetivado** | Valores que de fato entraram, saíram ou foram investidos. Gasto no cartão só conta quando a **fatura** está paga. |
-| **Saldo do mês** | Entradas efetivadas (incluindo resgates automáticos) − gastos efetivados − investimentos efetivados. Fluxo líquido **deste** mês — não é saldo de conta bancária. |
+| **Saldo do mês** | Entradas efetivadas − gastos efetivados − investimentos efetivados. Fluxo líquido **deste** mês — não é saldo de conta bancária. |
 | **Total do ano** | Soma dos 12 meses do ano civil, no modo efetivado ou planejado. Na visão Anual aparece junto da média, como número secundário. |
 | **Média mensal do ano** | Soma da janela ÷ meses dessa janela com entrada, gasto ou investimento no modo ativo. Ano já encerrado: janela de 12 meses. Ano corrente: janeiro até o último mês completo. Ano futuro: nenhum mês completo. Mês vazio sai do divisor. Na visão Anual é o número em destaque dos cards, da regra e das seções. Sem mês na janela, mostra ausência. |
-| **Saldo planejado** | Mesma fórmula sobre lançamentos planejados. Não inclui resgates (operações de carteira). Toggle **Planejados** no resumo. |
+| **Saldo planejado** | Mesma fórmula sobre lançamentos planejados. Entradas com tag *Resgate de investimentos* ficam fora da renda planejada. Toggle **Planejados** no resumo. |
 | **Repetição mensal** | Cópia do lançamento nos demais meses do **mesmo ano civil**. |
 | **Parcela** | Parte de uma compra dividida em meses (pode atravessar o ano). |
 | **Importação CSV assistida** | Fluxo em Gastos em que um CSV **propõe** linhas; a pessoa mapeia colunas, revisa e só então grava. Não é Open Finance nem lançamento automático. |
@@ -32,30 +32,13 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
 ---
 
-## Três leituras de patrimônio
+## Carteiras (removido)
 
-Medem coisas diferentes; as três são corretas.
+Carteiras, Saldo Livre, patrimônio estimado, transferência, resgate de carteira e aporte origem → destino foram removidos na DEV-151 e **não são termos do produto**. Só o **saldo do mês** (acima) mede resultado. Notas de release antigas ainda os citam como histórico. Ver [`ADR-007`](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md).
 
-| Termo | Significado |
+| Termo | Significado hoje |
 | --- | --- |
-| **Saldo do mês** | Resultado líquido do período (fluxo). Ver acima. |
-| **Saldo estimado na carteira** | Posição naquela conta: declaração ou carry-forward + variação efetiva. Melhora com declarações; pode divergir do extrato. |
-| **Saldo Livre** | Saldo estimado de movimentos efetivados **sem** carteira nomeada; também destino de resgates. O chip existe mesmo sem carteiras cadastradas. |
-| **Patrimônio estimado** | Liquidez das carteiras de movimentação + posição das de investimentos + Saldo Livre. |
-
----
-
-## Carteiras e operações
-
-| Termo | Significado |
-| --- | --- |
-| **Carteira** | Conta onde o dinheiro está organizado, com um **papel** definido. |
-| **Carteira de movimentação** | Liquidez do dia a dia: entradas, gastos, origem de aportes, pagamento de fatura. Chip ≈ entrou − saiu − enviado a investimentos. Reserva de emergência costuma ficar aqui. |
-| **Carteira de investimentos** | Custódia da posição aplicada. Recebe aportes; origem de resgates. Chip ≈ aportado − resgatado. |
-| **Carteira na efetivação** | Entradas e gastos (não-cartão) escolhem movimentação ou Saldo Livre ao efetivar. Investimentos exigem origem e destino no dialog de aporte. Cartão segue a fatura. |
-| **Aporte (origem → destino)** | Ao marcar investido: de qual liquidez saiu e em qual carteira de investimentos ficou. Liquidez cai na origem; posição sobe no destino; o resumo do mês desconta o aporte. |
-| **Resgate** | Sai da carteira de investimentos para movimentação ou Saldo Livre. Cria entrada automática (tag *Resgate de investimentos*), já recebida. Entra no resumo e na regra 50/30/20. |
-| **Transferência** | Entre carteiras de movimentação (ou Saldo Livre). **Não** altera o resumo do mês nem a regra. Para aplicar dinheiro, use Investimentos (aporte). |
+| **Resgate de investimentos** | Apenas uma **tag** de entrada, ainda nas tags padrão. Entradas antigas com ela são normais; no efetivado contam na renda, no planejado ficam fora da base. Não há mais operação de resgate. |
 
 ---
 
@@ -63,7 +46,7 @@ Medem coisas diferentes; as três são corretas.
 
 | Termo | Significado |
 | --- | --- |
-| **Fatura** | Total de compras daquele cartão no mês. Ao pagar, escolhe-se a carteira pagadora — um débito pelo **total**, não por lançamento. |
+| **Fatura** | Total de compras daquele cartão no mês. Ao pagar, confirma-se o **total** da fatura; o status vai para a fatura do mês, sem carteira pagadora. |
 | **Fatura paga** | Status mensal que libera os gastos daquele cartão no caixa efetivado. |
 | **Vencimento** | Dia informativo do cartão; não muda o cálculo da fatura. Com fatura pendente e data próxima, o chip alerta. |
 | **Limite de crédito** | Opcional. O app mostra % da fatura do mês sobre o limite. Só informativo; não bloqueia lançamentos. |
@@ -74,14 +57,14 @@ Medem coisas diferentes; as três são corretas.
 
 | Termo | Significado |
 | --- | --- |
-| **Regra 50/30/20** | Meta: 50% essenciais, 30% estilo de vida, 20% investimentos — sobre o que já foi **recebido** no mês (incluindo resgates). Percentuais podem ser personalizados (somam 100%). |
+| **Regra 50/30/20** | Meta: 50% essenciais, 30% estilo de vida, 20% investimentos — sobre o que já foi **recebido** no mês. Percentuais podem ser personalizados (somam 100%). |
 | **Não classificado** | Gastos efetivados em categorias ainda não mapeadas na regra. Entram no saldo do mês, não nas barras de Essenciais / Estilo de vida até o mapeamento. |
-| **Desejo** | Meta de consumo com prazo e urgência. **Não** é movimento financeiro: não entra no saldo, na regra, nas estatísticas nem nas carteiras. |
+| **Desejo** | Meta de consumo com prazo e urgência. **Não** é movimento financeiro: não entra no saldo, na regra, nem nas estatísticas. |
 
 ---
 
 ## O que não confundir
 
 - **Saldo do mês** ≠ saldo da conta no banco.
-- **Seção Investimentos** = aportes do mês; **carteira de investimentos** = posição estimada.
+- **Seção Investimentos** = aportes do mês, não a posição na corretora.
 - **Desejo** ≠ gasto. Conquistar pode abrir um gasto pré-preenchido; só o gasto (e a efetivação) mexe no caixa.

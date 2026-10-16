@@ -1,7 +1,7 @@
 ---
 type: padrao
 titulo: Padrões de testes
-ultima_atualizacao: 2026-09-07
+ultima_atualizacao: 2026-10-16
 ---
 
 # Padrões de testes
@@ -47,7 +47,7 @@ Harness: `createSupabaseMock()` + `vi.mock('@/integrations/supabase/client')` co
 
 `frontend/src/test/example.test.ts` é tautologia. Não use como modelo.
 
-Preferir função pura ou adapter mock. Componente só se a Issue exigir (Auth, ProtectedRoute). Hook pesado (`useSupabaseFinance` pay invoice): preferir testar a camada de dados (`accountOperations`) e deixar orquestração em QA residual.
+Preferir função pura ou adapter mock. Componente só se a Issue exigir (Auth, ProtectedRoute). Hook pesado (`useSupabaseFinance` pay invoice): preferir testar a camada de dados (`creditCards` adapter) e deixar orquestração em QA residual.
 
 ---
 
@@ -59,11 +59,9 @@ Prioridade: regra que muda número na tela ou no banco.
 - Parcelas e virada de ano (`installments.ts`)
 - Série / `omitPerMonthFields` (`seriesUpdates.ts`)
 - Match cartão pelo **nome** (`creditCards.ts`)
-- Papéis e labels de carteira (`accountRoles`, `accountLabels`, `accounts`)
 - Visibilidade de desejos (`wishItems.ts`)
-- Defaults de dialogs de efetivação / fatura
 - `financialRuleCalculations.ts`
-- Adapters: create/update/delete, gates RN-G06/RN-W01, rollback de série, `ilike` de nomes
+- Adapters: create/update/delete, gates RN-G06, rollback de série, `ilike` de nomes
 - Auth cliente: `authErrors`, validação de senha, redirects de sessão
 
 Asserções: valores explícitos (`toBe(3400)`), não snapshots de JSX.
@@ -77,10 +75,10 @@ Credenciais de smoke local: só `.cursor/rules/test-credentials.mdc` (ambiente l
 ## O que a suíte ainda não cobre (lacuna)
 
 - Orquestração completa de `payCardInvoice` / sync no hook
-- UI de efetivação / resgate intocável / dialogs (residual QA)
-- Barra de seleção, Express, SET NULL real no Postgres
+- UI de efetivação (toggle) e dialogs de fatura (residual QA)
+- Barra de seleção, Express
 - Refresh de token ao focar a aba (DEV-68)
-- Adaptadores `investments`, `accountBalances`, `financialRule` (além dos utils)
+- Adaptadores `investments`, `financialRule` (além dos utils)
 
 Issue que mexe nesses fluxos: teste de util/adapter se a regra mudou + verificação manual (ou E2E se alguém adicionar ferramenta). Não declare “testado” só porque `npm test` passou se o arquivo crítico não tem spec.
 

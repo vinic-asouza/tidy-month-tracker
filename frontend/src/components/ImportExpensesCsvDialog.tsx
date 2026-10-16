@@ -22,13 +22,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import type { Account, Expense, CreditCard } from '@/types/domain';
+import type { Expense, CreditCard } from '@/types/domain';
 import { DEFAULT_PAYMENT_METHODS } from '@/types/finance';
-import { filterMovementAccounts } from '@/utils/business/accountRoles';
-import {
-  EFFECTUATE_WALLET_FREE,
-  getDefaultEffectuateAccountId,
-} from '@/utils/effectuateWalletDefaults';
 import {
   applyColumnMapping,
   guessColumnMapping,
@@ -73,7 +68,6 @@ interface ImportExpensesCsvDialogProps {
   categories: string[];
   creditCards: CreditCard[];
   expenses: Expense[];
-  accounts: Account[];
   onAdd: ImportAddHandler;
   onUpdate: ImportUpdateHandler;
 }
@@ -111,12 +105,9 @@ export function ImportExpensesCsvDialog({
   categories,
   creditCards,
   expenses,
-  accounts,
   onAdd,
   onUpdate,
 }: ImportExpensesCsvDialogProps) {
-  const movementAccounts = useMemo(() => filterMovementAccounts(accounts), [accounts]);
-
   const [step, setStep] = useState<Step>(1);
   const [originMode, setOriginMode] = useState<OriginMode>('account');
   const [cardId, setCardId] = useState<string>(creditCards[0]?.id ?? '');
@@ -202,7 +193,6 @@ export function ImportExpensesCsvDialog({
               ...r,
               paymentMethod: selectedCard.name,
               effectuate: false,
-              accountId: undefined,
             }))
           : built;
       setRows(withOrigin);
@@ -287,10 +277,6 @@ export function ImportExpensesCsvDialog({
       const isCard = originMode === 'card';
       const shouldEffectuate = !isCard && row.effectuate;
 
-      if (shouldEffectuate && row.accountId === undefined) {
-        return false;
-      }
-
       if (row.action === 'link_existing') {
         if (!row.linkExpenseId) return false;
         const updates: Partial<Expense> = {
@@ -302,10 +288,6 @@ export function ImportExpensesCsvDialog({
         };
         if (shouldEffectuate) {
           updates.paid = true;
-          updates.accountId =
-            row.accountId === null
-              ? (null as unknown as string)
-              : row.accountId;
         }
         return onUpdate(row.linkExpenseId, updates);
       }
@@ -342,11 +324,6 @@ export function ImportExpensesCsvDialog({
         repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
         currentInstallment,
         totalInstallments,
-        accountId: shouldEffectuate
-          ? row.accountId === null
-            ? (null as unknown as string)
-            : row.accountId
-          : undefined,
       };
 
       const created = await onAdd(payload, row.yearMonth);
@@ -577,7 +554,6 @@ export function ImportExpensesCsvDialog({
                         : accountPaymentMethods
                     }
                     originMode={originMode}
-                    movementAccounts={movementAccounts}
                     lockPayment={originMode === 'card'}
                     onChange={(patch) => updateRow(row.id, patch)}
                     onResolveMonth={(choice) =>
@@ -649,7 +625,6 @@ function ReviewRowCard({
   categories,
   paymentMethods,
   originMode,
-  movementAccounts,
   lockPayment,
   onChange,
   onResolveMonth,
@@ -658,17 +633,10 @@ function ReviewRowCard({
   categories: string[];
   paymentMethods: string[];
   originMode: OriginMode;
-  movementAccounts: Account[];
   lockPayment: boolean;
   onChange: (patch: Partial<ImportReviewRow>) => void;
   onResolveMonth: (choice: 'csv' | 'ui') => void;
 }) {
-  const walletValue =
-    row.accountId === null
-      ? EFFECTUATE_WALLET_FREE
-      : row.accountId ??
-        getDefaultEffectuateAccountId('expense', movementAccounts);
-
   const installmentDetected =
     typeof row.currentInstallment === 'number' &&
     typeof row.totalInstallments === 'number' &&
@@ -684,7 +652,6 @@ function ReviewRowCard({
     isInstallmentAction ||
     installmentDetected ||
     row.action === 'create_fixed' ||
-    (originMode === 'account' && row.effectuate) ||
     (row.monthDiverges && row.monthResolution === 'pending');
 
   return (
@@ -820,15 +787,7 @@ function ReviewRowCard({
               checked={row.effectuate}
               onCheckedChange={(c) => {
                 const on = c === true;
-                onChange({
-                  effectuate: on,
-                  accountId: on
-                    ? getDefaultEffectuateAccountId('expense', movementAccounts) ===
-                      EFFECTUATE_WALLET_FREE
-                      ? null
-                      : getDefaultEffectuateAccountId('expense', movementAccounts)
-                    : undefined,
-                });
+                onChange({ effectuate: on });
               }}
             />
             Efet.
@@ -909,29 +868,6 @@ function ReviewRowCard({
               />
               Repetir nos meses do ano
             </label>
-          )}
-
-          {originMode === 'account' && row.effectuate && (
-            <Select
-              value={walletValue}
-              onValueChange={(v) =>
-                onChange({
-                  accountId: v === EFFECTUATE_WALLET_FREE ? null : v,
-                })
-              }
-            >
-              <SelectTrigger className="h-8 w-36 text-sm">
-                <SelectValue placeholder="Carteira" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={EFFECTUATE_WALLET_FREE}>Saldo Livre</SelectItem>
-                {movementAccounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           )}
 
           {row.monthDiverges && row.monthResolution === 'pending' && (

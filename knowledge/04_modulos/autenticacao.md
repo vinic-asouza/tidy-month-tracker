@@ -4,7 +4,7 @@ nome: Autenticação
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-08-22
+ultima_atualizacao: 2026-10-16
 tags: [auth, supabase, frontend]
 dependencias: []
 ---
@@ -43,7 +43,7 @@ Identifica a pessoa, guarda a sessão e decide quem entra no painel. Sem este m�
 
 - Papéis, convite, conta compartilhada ou SSO
 - Tela de perfil (a tabela `profiles` existe; a UI não lê/edita)
-- CRUD financeiro nem totais do mês (resumo: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md); entradas: [`entradas.md`](./entradas.md); gastos: [`gastos.md`](./gastos.md); cartões: [`cartoes.md`](./cartoes.md); investimentos: [`investimentos.md`](./investimentos.md); carteiras: [`carteiras.md`](./carteiras.md); desejos: [`desejos.md`](./desejos.md); regra financeira: [`regra-financeira.md`](./regra-financeira.md); seleção: [`selecao.md`](./selecao.md))
+- CRUD financeiro nem totais do mês (resumo: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md); entradas: [`entradas.md`](./entradas.md); gastos: [`gastos.md`](./gastos.md); cartões: [`cartoes.md`](./cartoes.md); investimentos: [`investimentos.md`](./investimentos.md); desejos: [`desejos.md`](./desejos.md); regra financeira: [`regra-financeira.md`](./regra-financeira.md); seleção: [`selecao.md`](./selecao.md))
 - Definir nova senha depois do link de recovery (o SPA **não** tem esse formulário; só dispara o e-mail)
 - Hospedar SMTP: o e-mail é do Supabase Auth
 

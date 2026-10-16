@@ -14,7 +14,6 @@ export interface BulkDeleteListItem {
   expenseType?: Expense['type'];
   /** Parcela atual / total (só parcelados) */
   installmentLabel?: string;
-  isResgate?: boolean;
   tagOrCategory?: string;
 }
 
@@ -68,7 +67,6 @@ export function buildBulkDeleteList(
       value: i.value,
       blocking: isIncomeBulkBlocking(i),
       blockingReason: isIncomeBulkBlocking(i) ? ('recurring' as const) : undefined,
-      isResgate: !!i.sourceOperationId,
       tagOrCategory: i.tag,
     }));
 

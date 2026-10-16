@@ -13,13 +13,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { InvoiceExpensesTable } from '@/components/InvoiceExpensesTable';
 import { InvoiceCategorySummaryTable } from '@/components/InvoiceCategorySummaryTable';
 import { cn, formatCurrency } from '@/lib/utils';
-import type { Account, CreditCard, MonthData } from '@/types/domain';
+import type { CreditCard, MonthData } from '@/types/domain';
 import { getCardColorTheme, getCardGradientClass } from '@/utils/cardColorTheme';
 import {
   getCreditCardInvoiceExpenses,
   getCreditCardInvoiceSummary,
   getCreditCardUsagePercent,
-  getInvoicePaymentOperation,
   groupInvoiceExpensesByCategory,
 } from '@/utils/business/creditCards';
 import { toast } from 'sonner';
@@ -30,7 +29,6 @@ interface CreditCardInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   card: CreditCard | null;
-  accounts: Account[];
   currentMonth: string;
   monthData: MonthData;
   isPaid: boolean;
@@ -74,7 +72,6 @@ export const CreditCardInvoiceDialog = ({
   open,
   onOpenChange,
   card,
-  accounts,
   currentMonth,
   monthData,
   isPaid,
@@ -118,16 +115,6 @@ export const CreditCardInvoiceDialog = ({
     () => groupInvoiceExpensesByCategory(expenses),
     [expenses]
   );
-
-  const invoicePayment = useMemo(
-    () => (card ? getInvoicePaymentOperation(monthData.accountOperations, card.id) : undefined),
-    [card, monthData.accountOperations]
-  );
-
-  const payingAccountName = useMemo(() => {
-    if (!invoicePayment?.sourceAccountId) return null;
-    return accounts.find((a) => a.id === invoicePayment.sourceAccountId)?.name ?? null;
-  }, [invoicePayment, accounts]);
 
   const colorTheme = useMemo(
     () => (card ? getCardColorTheme(card.color) : getCardColorTheme('violet')),
@@ -199,12 +186,6 @@ export const CreditCardInvoiceDialog = ({
                   </span>
                 </label>
               </div>
-              {isPaid && payingAccountName && (
-                <SummaryRow
-                  label="Pago com"
-                  value={payingAccountName}
-                />
-              )}
             </div>
 
             <ToggleGroup

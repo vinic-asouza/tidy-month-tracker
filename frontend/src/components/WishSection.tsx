@@ -796,9 +796,8 @@ export const WishSection = ({
               {conquerWish && (
                 <>
                   <strong>{conquerWish.description}</strong>. Deseja registrar como gasto deste mês?
-                  O desejo só será marcado como conquistado após salvar o gasto. Ao salvar, Pix, débito
-                  e dinheiro pedem a carteira de origem; no cartão, o gasto nasce pendente e o impacto
-                  ocorre ao pagar a fatura.
+                  O desejo só será marcado como conquistado após salvar o gasto. No cartão, o gasto
+                  nasce pendente e o impacto ocorre ao pagar a fatura.
                 </>
               )}
             </AlertDialogDescription>

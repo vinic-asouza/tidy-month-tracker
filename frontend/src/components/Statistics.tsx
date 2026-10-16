@@ -218,7 +218,7 @@ export const Statistics = ({
   };
 
   const summarySubtitle = isPlanned
-    ? `${averageWindowLabel}. Abaixo de cada média, o total dos 12 meses — fluxo mensal, não patrimônio acumulado.`
+    ? `${averageWindowLabel}. Abaixo de cada média, o total dos 12 meses — fluxo mensal, não saldo acumulado.`
     : `${averageWindowLabel}. Abaixo de cada média, o total dos 12 meses. Investimentos são aportes de caixa, não valorização de ativos.`;
 
   return (

@@ -55,7 +55,9 @@ Isola o “como persiste” do “o que a tela precisa”. O default perigoso (`
 
 **Positivas:** CRUD novo tem lugar óbvio (facade + os dois adapters se o domínio já tem par).
 
-**Negativas:** adapters `api` de carteiras/desejos/operações **existem** no frontend e o Express **não** — ligar o modo `api` quebra.
+**Negativas:** adapters `api` de desejos **existem** no frontend e o Express **não** — ligar o modo `api` quebra.
+
+> **Nota histórica (DEV-151, 2026-10-16):** o texto original citava também carteiras e operações; esses facades/adapters foram removidos com o módulo de carteiras ([ADR-007](./ADR-007-remover-carteiras.md)).
 
 **Follow-up:** feature nova = os dois lados **ou** deixar o adapter `api` explícito como stub que falha.
 

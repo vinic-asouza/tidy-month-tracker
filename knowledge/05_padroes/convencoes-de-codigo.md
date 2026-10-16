@@ -1,7 +1,7 @@
 ---
 type: padrao
 titulo: Convenções de código
-ultima_atualizacao: 2026-08-23
+ultima_atualizacao: 2026-10-16
 ---
 
 # Convenções de código
@@ -61,7 +61,7 @@ frontend/src/
   contexts/        # AuthContext
   services/        # facades + adapters (único I/O financeiro da UI)
   types/           # domain, finance
-  utils/business/  # regras puras (caixa, parcelas, carteiras…)
+  utils/business/  # regras puras (caixa, parcelas, cartões…)
   lib/             # cn, datas, chaves de query
   integrations/supabase/  # client + types gerados
   api/client.ts    # fetch do modo api (não é produção)
@@ -87,8 +87,8 @@ frontend/src/
 | Hook | `use` + PascalCase (`useSupabaseFinance.ts`) |
 | Facade / função | camelCase (`createIncome`, `getIncomes`) |
 | Pasta de adaptador | `adapters/supabase`, `adapters/api` |
-| Tabela SQL | snake_case (`year_month`, `account_id`) |
-| Campo na UI | camelCase (`yearMonth`, `accountId`) — via `mappers.ts` |
+| Tabela SQL | snake_case (`year_month`, `base_income_id`) |
+| Campo na UI | camelCase (`yearMonth`, `baseIncomeId`) — via `mappers.ts` |
 | Mês de navegação | string `YYYY-MM` |
 | Data de lançamento | `YYYY-MM-DD` |
 

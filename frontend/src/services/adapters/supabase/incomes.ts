@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Income } from '@/types/domain';
 import type { CreateIncomeParams, UpdateIncomeParams } from '@/services/params';
-import { RESGATE_INCOME_TAG } from '@/types/finance';
 import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
 import { toIncome } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
@@ -9,45 +8,6 @@ import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
-}
-
-export const RESGATE_INCOME_TAG = 'Resgate de investimentos' as const;
-
-export interface CreateResgateIncomeParams {
-  userId: string;
-  yearMonth: string;
-  description: string;
-  value: number;
-  date: string;
-  accountId?: string | null;
-  sourceOperationId: string;
-  displayOrder?: number;
-}
-
-export async function createResgateIncome(params: CreateResgateIncomeParams): Promise<Income> {
-  const userId = await resolveUserId(params.userId);
-  const displayOrder = params.displayOrder ?? 0;
-
-  const { data, error } = await supabase
-    .from('incomes')
-    .insert({
-      user_id: userId,
-      year_month: params.yearMonth,
-      description: params.description,
-      value: params.value,
-      tag: RESGATE_INCOME_TAG,
-      date: params.date,
-      received: true,
-      repeat_all_months: false,
-      display_order: displayOrder,
-      account_id: params.accountId ?? null,
-      source_operation_id: params.sourceOperationId,
-    })
-    .select('*')
-    .single();
-
-  throwIfError(error);
-  return toIncome(data!);
 }
 
 export async function getIncomes(userId: string, yearMonth: string): Promise<Income[]> {
@@ -79,8 +39,6 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
       received: incomeData.received ?? false,
       repeat_all_months: incomeData.repeatAllMonths || false,
       display_order: displayOrder,
-      account_id: incomeData.accountId ?? null,
-      source_operation_id: incomeData.sourceOperationId ?? null,
     })
     .select('*')
     .single();
@@ -102,7 +60,6 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
         repeat_all_months: true,
         base_income_id: createdIncome.id,
         display_order: 0,
-        account_id: null,
       }));
       const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
@@ -118,7 +75,7 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
 
   const { data: currentRows, error: fetchError } = await supabase
     .from('incomes')
-    .select('id, base_income_id, repeat_all_months, year_month, description, value, tag, date, account_id')
+    .select('id, base_income_id, repeat_all_months, year_month, description, value, tag, date')
     .eq('id', id)
     .eq('user_id', userId)
     .single();
@@ -146,7 +103,6 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
         repeat_all_months: true,
         base_income_id: id,
         display_order: 0,
-        account_id: null,
       }));
       const { error: copyError } = await supabase.from('incomes').insert(rows);
       throwIfError(copyError);
@@ -170,7 +126,6 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
   if (updates.received !== undefined) row.received = updates.received;
   if (updates.repeatAllMonths !== undefined) row.repeat_all_months = updates.repeatAllMonths;
   if (updates.date !== undefined) row.date = updates.date;
-  if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
 
   if (Object.keys(row).length === 0) return;
 

@@ -4,7 +4,7 @@ nome: Desejos
 status: Ativo
 versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 tags: [desejos, wishlist, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -19,7 +19,7 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/desejos.md`](../02_regras-de
 
 ## Overview
 
-Lista de **metas de consumo** com prazo e urgência. Não é movimento financeiro: planejar um desejo **não** mexe em caixa, regra, gráfico nem carteiras. A visão Anual mostra o histórico do ano em três grupos, só leitura, sem somar no caixa (RN-R06). Só vira dinheiro se a pessoa conquistar **e** registrar um gasto.
+Lista de **metas de consumo** com prazo e urgência. Não é movimento financeiro: planejar um desejo **não** mexe em caixa, regra nem gráfico. A visão Anual mostra o histórico do ano em três grupos, só leitura, sem somar no caixa (RN-R06). Só vira dinheiro se a pessoa conquistar **e** registrar um gasto.
 
 **Responsabilidade única:** persistir `wish_items` (CRUD, status, prazo) e calcular no cliente quem aparece no mês de navegação.
 
@@ -44,12 +44,12 @@ Lista de **metas de consumo** com prazo e urgência. Não é movimento financeir
 
 ### O que este módulo NÃO FAZ
 
-- Entrar no caixa, na regra 50/30/20, no gráfico anual ou nos chips de carteira (RN-D01, RN-R05)
+- Entrar no caixa, na regra 50/30/20, ou no gráfico anual (RN-D01, RN-R05)
 - Entrar na barra de seleção ([`selecao.md`](./selecao.md) — desejos não são selecionáveis)
 - CRUD de linhas de gasto ([`gastos.md`](./gastos.md) — este módulo só dispara o rascunho e grava `linked_expense_id`)
-- Efetivar carteira / pagar fatura (o form de gasto segue as regras de gastos/cartões)
+- Efetivar gasto / pagar fatura (o form de gasto segue as regras de gastos/cartões)
 - Totais do resumo ([`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) **não** lê `wish_items`)
-- CRUD de entradas, aportes, cartões, carteiras ou regra financeira ([`regra-financeira.md`](./regra-financeira.md))
+- CRUD de entradas, aportes, cartões ou regra financeira ([`regra-financeira.md`](./regra-financeira.md))
 - Persistência de sort / filtro de conquistas (`useState` local)
 - Marketing da landing (`landing/.../WishListSection`) — não é este bounded context
 
@@ -161,12 +161,12 @@ Não há REST de produção.
 
 1. Dialog: **Só marcar conquistado** → `conquerWish(id, currentMonth)` imediato.
 2. **Sim, incluir gasto** → guarda `pendingWishConquer`, preenche `expenseDraft` (`description`, `type: 'variable'`), troca para a aba Gastos. **Ainda não** altera o desejo.
-3. Form de gasto: não-cartão nasce `paid: true` (e tenta dialog de carteira); cartão nasce `paid: false` ([`gastos.md`](./gastos.md)).
+3. Form de gasto: não-cartão nasce `paid: true`; cartão nasce `paid: false` ([`gastos.md`](./gastos.md)).
 4. `addExpense` ok → `conquerWish(..., created.id)`.
 5. Cancelar o form / trocar de aba / trocar de mês: pendência some; desejo segue `active`. Toast: *Registro de gasto cancelado. O desejo continua ativo.*
 6. Gasto salva e conquista falha: toast de erro; gasto fica; desejo ativo.
 
-No fluxo “já pago” (não-cartão), a carteira escolhida entra no INSERT da linha criada (`account_id` UUID ou `null` = Saldo Livre). Cartão no mesmo fluxo continua `paid: false` e sem carteira. Detalhe do create: [`gastos.md`](./gastos.md).
+No fluxo “já pago” (não-cartão), o INSERT da linha criada leva `paid: true`. Cartão no mesmo fluxo continua `paid: false`. Detalhe do create: [`gastos.md`](./gastos.md).
 
 ### Validação no cliente
 
@@ -211,7 +211,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/desejos.md`](../02_regras-d
 
 | ID | Regra | Onde está no código |
 | --- | --- | --- |
-| RN-D01 | Fora do caixa, regra, estatísticas, carteiras e seleção | Ausência em `monthTotals.ts` / `SelectionBottomBar`; aba própria |
+| RN-D01 | Fora do caixa, regra, estatísticas e seleção | Ausência em `monthTotals.ts` / `SelectionBottomBar`; aba própria |
 | RN-D02 | Descrição, valor > 0, urgência, prazo; start = mês de criação | Form + `createWishItem` (`startMonth: currentMonth`) |
 | RN-D03 | Visibilidade por status | `isWishVisibleInMonth` / `filterWishesForMonthDisplay` |
 | RN-D04 | Mês depois do prazo → `expired` em lote | `shouldAutoExpireWish` + `expireWishItems` no load |
@@ -248,7 +248,7 @@ Conta desejos `conquered` com `conqueredMonth ===` mês aberto. Soma o **valor d
 - [`autenticacao.md`](./autenticacao.md) — `user.id`; RLS
 - [`gastos.md`](./gastos.md) — **não** é dependência de leitura contínua; só o rascunho + INSERT na conquista. Este módulo grava `linked_expense_id`.
 - [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) — **não** consome este módulo
-- [`carteiras.md`](./carteiras.md) / [`cartoes.md`](./cartoes.md) — só indireto, via form de gasto
+- [`cartoes.md`](./cartoes.md) — só indireto, via form de gasto
 
 ### Serviços / integrações externas
 
@@ -313,7 +313,7 @@ Sem `localStorage` próprio.
 - [ ] Só marcar → `conquered` sem `linked_expense_id`; caixa inalterado — **residual QA**
 - [ ] Incluir gasto: desejo só fecha após INSERT; cancelar mantém `active` — **residual QA**
 - [ ] Cartão no fluxo conquista nasce `paid: false`; não-cartão `paid: true` — **residual QA**
-- [x] `createExpense` persiste `accountId` (DEV-52 / `expenses.test.ts`)
+- [x] `createExpense` grava `paid` do payload na linha criada (`expenses.test.ts`)
 - [ ] Apagar o gasto zera o vínculo e **não** reabre o desejo — **residual QA**
 - [ ] Express `/api/wish-items` não existe — **fora** (ADR-001)
 
@@ -331,6 +331,7 @@ npm test --workspace=frontend
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-08-24 | 1.1 | Conquista “já pago” persiste carteira no gasto criado | DEV-52 | Technical Writer |
+| 2026-10-16 | 1.2 | Remove carteiras do fluxo de conquista (sem `account_id`) | DEV-151 | Technical Writer |
 
 ---
 

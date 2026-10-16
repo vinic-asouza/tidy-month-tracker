@@ -155,37 +155,6 @@ export const productDemo = {
   legend: "Baseado no que você marcou como recebido, pago ou investido.",
 } as const;
 
-export const wallets = {
-  id: "carteiras",
-  badge: "Carteiras",
-  title: "Seu dinheiro com endereço",
-  subtitle:
-    "Organize por conta, acompanhe aportes mensais e movimente patrimônio com consciência — sem distorcer o mês.",
-  features: [
-    {
-      title: "Aportes no mês",
-      description: "Registre quanto destinou às suas carteiras neste mês.",
-    },
-    {
-      title: "Saldo estimado",
-      description: "Veja quanto tem em cada conta — com declaração consciente.",
-    },
-    {
-      title: "Resgate",
-      description: "Saída da carteira entra no Saldo Livre do mês.",
-    },
-    {
-      title: "Transferência",
-      description: "Mova valor entre carteiras sem alterar saldo do mês nem a regra.",
-    },
-  ],
-  saldoLivre: {
-    title: "Saldo Livre",
-    description:
-      "Movimentos sem carteira e resgates ficam visíveis aqui — nada se perde.",
-  },
-} as const;
-
 export const annual = {
   id: "evolucao",
   badge: "Visão anual",

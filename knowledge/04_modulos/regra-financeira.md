@@ -4,7 +4,7 @@ nome: Regra financeira
 status: Ativo
 versao: "1.1"
 owner: Development
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 tags: [regra-financeira, 50-30-20, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -13,7 +13,7 @@ dependencias: [autenticacao]
 
 Documento-base em `knowledge/04_modulos/regra-financeira.md`. Atualize quando buckets, base de renda, mapeamento de categorias, não classificado ou o toggle efetivado/planejado mudarem.
 
-Regras: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02_regras-de-negocio/regras-por-modulo/regra-financeira.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). Hospedagem na UI: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md). Categorias de gasto: [`gastos.md`](./gastos.md). Aportes: [`investimentos.md`](./investimentos.md). Resgate na base: [`entradas.md`](./entradas.md) (RN-G08).
+Regras: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02_regras-de-negocio/regras-por-modulo/regra-financeira.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). Hospedagem na UI: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md). Categorias de gasto: [`gastos.md`](./gastos.md). Aportes: [`investimentos.md`](./investimentos.md). Tag histórica de resgate: [`entradas.md`](./entradas.md) (RN-G08).
 
 ---
 
@@ -35,21 +35,20 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 - Três percentuais que somam 100%; default 50 / 30 / 20; `is_custom` quando o modelo não é o padrão
 - Mapear **todas** as categorias de gasto atuais para `essentials` ou `lifestyle` no wizard (passo 2)
 - Bucket **investimentos** = aportes do modo ativo (`invested` no efetivado; todos no planejado) / renda — **não** usa categoria de gasto (RN-F03)
-- Base de renda (RN-F02): efetivado = entradas `received` (inclui resgate); planejado = todas as entradas; renda 0 → percentuais atuais 0
+- Base de renda (RN-F02): efetivado = entradas `received` (inclui tag histórica de resgate); planejado = entradas **exceto** tag de resgate (`isResgateIncome`); renda 0 → percentuais atuais 0
 - Gastos na regra: só os do modo ativo; cartão no efetivado via `isExpenseEffectivelyPaid` (RN-F03, RN-F05)
 - **Não classificado:** gasto do modo ativo cuja categoria não está no mapping; alerta + CTA; rodapé classificados + não classificado (RN-F04)
 - Mesmo toggle do resumo (`viewMode` efetivado/planejado) (RN-F05)
 - Visão anual: duas agregações (`calculateAnnualFinancialRuleStatsByMode`). `resolveAnnualRuleMoney` escala só o R$ da janela (`scaleFinancialRuleMoney`) e guarda o total dos 12 meses. Sem janela ou sem mês com lançamento, a média fica nula (RN-F07). A UI anual mostra a média em destaque, o total do ano ao lado e as barras só da janela. A visão Mensal não recebe o total do ano.
-- Hint quando a base efetivada inclui resgate (`getResgateInflowFromIncomes`)
+- Hint quando a base efetivada inclui entradas com tag de resgate (`getResgateInflowFromIncomes`)
 
 ### O que este módulo NÃO FAZ
 
 - Totais do caixa / gráfico anual ([`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) **hospeda** esta UI à direita / no anual)
 - CRUD de categorias ([`gastos.md`](./gastos.md) — este módulo só lê `expense_categories`)
 - CRUD de entradas, gastos, aportes ou faturas — só lê `MonthData`
-- Incluir desejos, transferências ou operações `withdrawal` na conta (resgate entra **pela entrada**)
+- Incluir desejos na conta
 - Definir o toggle (dono: resumo, `localStorage` `tidy-summary-view-mode`)
-- Recalcular patrimônio / Saldo Livre ([`carteiras.md`](./carteiras.md))
 - Landing (`FinancialRulePreview`) — não é este bounded context
 - Soma de itens selecionados ([`selecao.md`](./selecao.md))
 
@@ -59,7 +58,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 
 ```text
 frontend/src/
-  components/FinancialRuleDisplay.tsx          # barras, não classificado, hint de resgate
+  components/FinancialRuleDisplay.tsx          # barras, não classificado, hint de tag de resgate
   components/FinancialRuleSetup.tsx            # wizard 2 passos (modelo + mapping)
   components/MonthSummarySection.tsx           # hospeda setup/display no mês (resumo)
   components/AnnualFinancialRuleSection.tsx    # mesma regra, stats do ano
@@ -188,7 +187,7 @@ Sem URL própria. Coluna da regra em `/` visão mensal (`MonthSummarySection`) e
 
 ## Regras de negócio
 
-Detalhe: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02_regras-de-negocio/regras-por-modulo/regra-financeira.md). Gerais: RN-G02 (efetivado), RN-G08 (resgate = entrada). Resumo: RN-R02 (toggle).
+Detalhe: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02_regras-de-negocio/regras-por-modulo/regra-financeira.md). Gerais: RN-G02 (efetivado), RN-G08 (tag de resgate = entrada normal). Resumo: RN-R02 (toggle).
 
 | ID | Regra | Onde está no código |
 | --- | --- | --- |
@@ -224,7 +223,7 @@ Modo planejado: todas as linhas, sem flags.
 ### Módulos internos consumidos
 
 - [`autenticacao.md`](./autenticacao.md) — `user.id`; RLS
-- [`entradas.md`](./entradas.md) — renda (`received` / todas); resgate já veio como entrada
+- [`entradas.md`](./entradas.md) — renda (`received` / todas); entradas com tag de resgate contam como qualquer entrada
 - [`gastos.md`](./gastos.md) — linhas + lista de categorias; fatura via [`cartoes.md`](./cartoes.md) (`isExpenseEffectivelyPaid`)
 - [`investimentos.md`](./investimentos.md) — aportes `invested`
 - [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) — **não** é dependência de persistência; **hospeda** a UI e entrega `viewMode` + `MonthData`
@@ -276,7 +275,7 @@ Nenhuma env exclusiva. [`../03_arquitetura/infraestrutura.md`](../03_arquitetura
 - [x] Essenciais + estilo + não classificado = gastos efetivados
 - [x] Não classificado = 0 quando o mapping cobre as categorias usadas
 - [x] Planejado soma linhas não efetivadas; efetivado ignora
-- [x] Resgate `received` entra na renda e dilui os %
+- [x] Entrada `received` com tag de resgate entra na renda e dilui os %
 
 **Casos críticos (não automatizados hoje):**
 

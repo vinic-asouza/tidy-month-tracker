@@ -14,147 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      account_balances: {
-        Row: {
-          account_id: string
-          balance: number
-          created_at: string
-          id: string
-          updated_at: string
-          user_id: string
-          year_month: string
-        }
-        Insert: {
-          account_id: string
-          balance?: number
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id: string
-          year_month: string
-        }
-        Update: {
-          account_id?: string
-          balance?: number
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-          year_month?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "account_balances_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      account_operations: {
-        Row: {
-          amount: number
-          created_at: string
-          credit_card_id: string | null
-          description: string | null
-          destination_account_id: string | null
-          id: string
-          operation_date: string
-          source_account_id: string | null
-          transfer_group_id: string | null
-          type: string
-          user_id: string
-          year_month: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          credit_card_id?: string | null
-          description?: string | null
-          destination_account_id?: string | null
-          id?: string
-          operation_date?: string
-          source_account_id?: string | null
-          transfer_group_id?: string | null
-          type: string
-          user_id: string
-          year_month: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          credit_card_id?: string | null
-          description?: string | null
-          destination_account_id?: string | null
-          id?: string
-          operation_date?: string
-          source_account_id?: string | null
-          transfer_group_id?: string | null
-          type?: string
-          user_id?: string
-          year_month?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "account_operations_source_account_id_fkey"
-            columns: ["source_account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "account_operations_destination_account_id_fkey"
-            columns: ["destination_account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "account_operations_credit_card_id_fkey"
-            columns: ["credit_card_id"]
-            isOneToOne: false
-            referencedRelation: "credit_cards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      accounts: {
-        Row: {
-          color: string | null
-          created_at: string
-          display_order: number
-          id: string
-          name: string
-          role: string
-          type: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          color?: string | null
-          created_at?: string
-          display_order?: number
-          id?: string
-          name: string
-          role?: string
-          type?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          color?: string | null
-          created_at?: string
-          display_order?: number
-          id?: string
-          name?: string
-          role?: string
-          type?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       credit_card_monthly_status: {
         Row: {
           created_at: string
@@ -190,7 +49,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_cards"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       credit_cards: {
@@ -234,7 +93,6 @@ export type Database = {
       }
       expenses: {
         Row: {
-          account_id: string | null
           base_expense_id: string | null
           category: string
           created_at: string
@@ -254,7 +112,6 @@ export type Database = {
           year_month: string
         }
         Insert: {
-          account_id?: string | null
           base_expense_id?: string | null
           category: string
           created_at?: string
@@ -274,7 +131,6 @@ export type Database = {
           year_month: string
         }
         Update: {
-          account_id?: string | null
           base_expense_id?: string | null
           category?: string
           created_at?: string
@@ -295,19 +151,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "expenses_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "expenses_base_expense_id_fkey"
             columns: ["base_expense_id"]
             isOneToOne: false
             referencedRelation: "expenses"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       finance_settings: {
@@ -381,7 +230,6 @@ export type Database = {
       }
       incomes: {
         Row: {
-          account_id: string | null
           base_income_id: string | null
           created_at: string
           date: string | null
@@ -390,7 +238,6 @@ export type Database = {
           id: string
           received: boolean
           repeat_all_months: boolean
-          source_operation_id: string | null
           tag: string
           updated_at: string
           user_id: string
@@ -398,7 +245,6 @@ export type Database = {
           year_month: string
         }
         Insert: {
-          account_id?: string | null
           base_income_id?: string | null
           created_at?: string
           date?: string | null
@@ -407,7 +253,6 @@ export type Database = {
           id?: string
           received?: boolean
           repeat_all_months?: boolean
-          source_operation_id?: string | null
           tag: string
           updated_at?: string
           user_id: string
@@ -415,7 +260,6 @@ export type Database = {
           year_month: string
         }
         Update: {
-          account_id?: string | null
           base_income_id?: string | null
           created_at?: string
           date?: string | null
@@ -424,7 +268,6 @@ export type Database = {
           id?: string
           received?: boolean
           repeat_all_months?: boolean
-          source_operation_id?: string | null
           tag?: string
           updated_at?: string
           user_id?: string
@@ -433,24 +276,16 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "incomes_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "incomes_base_income_id_fkey"
             columns: ["base_income_id"]
             isOneToOne: false
             referencedRelation: "incomes"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       investments: {
         Row: {
-          account_id: string | null
           base_investment_id: string | null
           created_at: string
           date: string | null
@@ -459,7 +294,6 @@ export type Database = {
           id: string
           invested: boolean
           repeat_all_months: boolean
-          source_account_id: string | null
           tag: string
           updated_at: string
           user_id: string
@@ -467,7 +301,6 @@ export type Database = {
           year_month: string
         }
         Insert: {
-          account_id?: string | null
           base_investment_id?: string | null
           created_at?: string
           date?: string | null
@@ -476,7 +309,6 @@ export type Database = {
           id?: string
           invested?: boolean
           repeat_all_months?: boolean
-          source_account_id?: string | null
           tag: string
           updated_at?: string
           user_id: string
@@ -484,7 +316,6 @@ export type Database = {
           year_month: string
         }
         Update: {
-          account_id?: string | null
           base_investment_id?: string | null
           created_at?: string
           date?: string | null
@@ -493,7 +324,6 @@ export type Database = {
           id?: string
           invested?: boolean
           repeat_all_months?: boolean
-          source_account_id?: string | null
           tag?: string
           updated_at?: string
           user_id?: string
@@ -502,19 +332,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "investments_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "investments_base_investment_id_fkey"
             columns: ["base_investment_id"]
             isOneToOne: false
             referencedRelation: "investments"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       profiles: {
@@ -591,7 +414,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "expenses"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
     }

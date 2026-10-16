@@ -333,7 +333,7 @@ export function AnnualYearSections({
 
       <SectionSurface
         title="Investimentos"
-        subtitle="Classificação do aporte, não a carteira de destino."
+        subtitle="Classificação do aporte por tag."
         icon={PiggyBank}
         iconVariant="investment"
         actions={<SectionCornerFigures rows={investments} tone="investment" />}

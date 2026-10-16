@@ -7,12 +7,11 @@ import {
   getCreditCardUsagePercent,
   getDaysUntilDueForSort,
   getEffectiveDueDay,
-  getInvoicePaymentOperation,
   groupInvoiceExpensesByCategory,
   isCreditCardExpense,
   canAddExpenseToCreditCard,
 } from '../creditCards';
-import type { AccountOperation, CreditCard, MonthData } from '@/types/domain';
+import type { CreditCard, MonthData } from '@/types/domain';
 
 const mockMonthData = (overrides: Partial<MonthData> = {}): MonthData => ({
   incomes: [],
@@ -58,31 +57,6 @@ describe('isCreditCardExpense', () => {
         cards
       )
     ).toBe(false);
-  });
-});
-
-describe('getInvoicePaymentOperation', () => {
-  const ops: AccountOperation[] = [
-    {
-      id: '1',
-      type: 'invoice_payment',
-      sourceAccountId: 'acc-a',
-      destinationAccountId: null,
-      transferGroupId: null,
-      creditCardId: 'card-1',
-      amount: 500,
-      yearMonth: '2026-06',
-      operationDate: '2026-06-10',
-      description: 'Fatura Nubank',
-    },
-  ];
-
-  it('encontra pagamento do cartão', () => {
-    expect(getInvoicePaymentOperation(ops, 'card-1')?.amount).toBe(500);
-  });
-
-  it('retorna undefined para outro cartão', () => {
-    expect(getInvoicePaymentOperation(ops, 'card-2')).toBeUndefined();
   });
 });
 

@@ -1,9 +1,8 @@
 /**
  * DEV-63 — Adaptador Supabase de receitas.
  *
- * Cobre a persistência de carteira, a clonagem para os demais meses do ano,
- * a criação de receita de resgate (tag reservada + vínculo com a operação de
- * origem) e o comportamento de `updateIncome` sobre `account_id`.
+ * Cobre a persistência da receita, a clonagem para os demais meses do ano
+ * e o comportamento de `updateIncome` (sem vínculo com carteiras).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -15,8 +14,7 @@ const mock = await vi.hoisted(async () => {
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: mock.supabase }));
 
-import { createIncome, createResgateIncome, updateIncome } from '../incomes';
-import { RESGATE_INCOME_TAG } from '@/types/finance';
+import { createIncome, updateIncome } from '../incomes';
 import type { CreateIncomeParams } from '@/services/params';
 
 function incomeRow(overrides: Record<string, unknown> = {}) {
@@ -32,8 +30,6 @@ function incomeRow(overrides: Record<string, unknown> = {}) {
     repeat_all_months: false,
     base_income_id: null,
     display_order: 0,
-    account_id: null,
-    source_operation_id: null,
     created_at: '2026-03-05T00:00:00.000Z',
     ...overrides,
   };
@@ -58,31 +54,28 @@ beforeEach(() => {
 });
 
 describe('createIncome', () => {
-  it('persiste account_id no insert raiz', async () => {
-    mock.enqueue({ data: incomeRow({ account_id: 'acc-1', received: true }) });
+  it('persiste a receita no insert raiz sem campos de carteira', async () => {
+    mock.enqueue({ data: incomeRow({ received: true }) });
 
-    const created = await createIncome(createParams({ accountId: 'acc-1', received: true }));
+    await createIncome(createParams({ received: true }));
 
     const [insert] = mock.getOperationsFor('incomes', 'insert');
     expect(insert.payload).toMatchObject({
       user_id: 'user-1',
       year_month: '2026-03',
-      account_id: 'acc-1',
       received: true,
-      source_operation_id: null,
     });
-    expect(created.accountId).toBe('acc-1');
+    expect(insert.payload).not.toHaveProperty('account_id');
+    expect(insert.payload).not.toHaveProperty('source_operation_id');
   });
 
-  it('clona para os demais meses do ano com received false e sem carteira', async () => {
+  it('clona para os demais meses do ano com received false', async () => {
     mock.enqueue(
-      { data: incomeRow({ repeat_all_months: true, account_id: 'acc-1', received: true }) },
+      { data: incomeRow({ repeat_all_months: true, received: true }) },
       {}
     );
 
-    await createIncome(
-      createParams({ repeatAllMonths: true, accountId: 'acc-1', received: true })
-    );
+    await createIncome(createParams({ repeatAllMonths: true, received: true }));
 
     const inserts = mock.getOperationsFor('incomes', 'insert');
     expect(inserts).toHaveLength(2);
@@ -92,7 +85,7 @@ describe('createIncome', () => {
     expect(clones).toHaveLength(11);
     expect(clones.map((row) => row.year_month)).not.toContain('2026-03');
     expect(clones.every((row) => row.received === false)).toBe(true);
-    expect(clones.every((row) => row.account_id === null)).toBe(true);
+    expect(clones.every((row) => !('account_id' in row))).toBe(true);
     expect(clones.every((row) => row.base_income_id === 'inc-root')).toBe(true);
     expect(clones.every((row) => row.repeat_all_months === true)).toBe(true);
   });
@@ -142,73 +135,6 @@ describe('createIncome', () => {
   });
 });
 
-describe('createResgateIncome', () => {
-  it('grava a tag reservada, marca como recebida e vincula a operação de origem', async () => {
-    mock.enqueue({
-      data: incomeRow({
-        tag: RESGATE_INCOME_TAG,
-        received: true,
-        account_id: 'acc-1',
-        source_operation_id: 'op-1',
-      }),
-    });
-
-    const created = await createResgateIncome({
-      userId: 'user-1',
-      yearMonth: '2026-03',
-      description: 'Resgate CDB',
-      value: 1200,
-      date: '2026-03-20',
-      accountId: 'acc-1',
-      sourceOperationId: 'op-1',
-    });
-
-    const [insert] = mock.getOperationsFor('incomes', 'insert');
-    expect(insert.payload).toMatchObject({
-      tag: RESGATE_INCOME_TAG,
-      received: true,
-      repeat_all_months: false,
-      account_id: 'acc-1',
-      source_operation_id: 'op-1',
-    });
-    expect(created.sourceOperationId).toBe('op-1');
-    expect(created.received).toBe(true);
-  });
-
-  it('envia account_id null quando a carteira de destino não é informada', async () => {
-    mock.enqueue({
-      data: incomeRow({ tag: RESGATE_INCOME_TAG, received: true, source_operation_id: 'op-2' }),
-    });
-
-    await createResgateIncome({
-      userId: 'user-1',
-      yearMonth: '2026-03',
-      description: 'Resgate',
-      value: 500,
-      date: '2026-03-20',
-      sourceOperationId: 'op-2',
-    });
-
-    const [insert] = mock.getOperationsFor('incomes', 'insert');
-    expect((insert.payload as Record<string, unknown>).account_id).toBeNull();
-  });
-
-  it('propaga erro do insert', async () => {
-    mock.enqueue({ error: { message: 'resgate falhou' } });
-
-    await expect(
-      createResgateIncome({
-        userId: 'user-1',
-        yearMonth: '2026-03',
-        description: 'Resgate',
-        value: 500,
-        date: '2026-03-20',
-        sourceOperationId: 'op-3',
-      })
-    ).rejects.toThrow('resgate falhou');
-  });
-});
-
 describe('updateIncome', () => {
   it('atualiza somente os campos enviados no mês corrente', async () => {
     mock.enqueue({ data: incomeRow({ id: 'inc-1' }) }, {});
@@ -216,7 +142,7 @@ describe('updateIncome', () => {
     await updateIncome({
       id: 'inc-1',
       userId: 'user-1',
-      updates: { value: 5500, received: true, accountId: 'acc-2' },
+      updates: { value: 5500, received: true },
     });
 
     const updates = mock.getOperationsFor('incomes', 'update');
@@ -224,27 +150,11 @@ describe('updateIncome', () => {
     expect(updates[0].payload).toEqual({
       value: 5500,
       received: true,
-      account_id: 'acc-2',
     });
   });
 
-  it('limpa account_id quando accountId chega como null', async () => {
-    mock.enqueue({ data: incomeRow({ id: 'inc-1', account_id: 'acc-1' }) }, {});
-
-    await updateIncome({
-      id: 'inc-1',
-      userId: 'user-1',
-      updates: { received: false, accountId: null as unknown as undefined },
-    });
-
-    const [update] = mock.getOperationsFor('incomes', 'update');
-    expect(update.payload).toEqual({ received: false, account_id: null });
-  });
-
-  it('não limpa a carteira automaticamente ao desmarcar received', async () => {
-    // O adaptador só grava `account_id` quando `accountId` vem no payload; a
-    // limpeza ao desmarcar é responsabilidade da camada de UI/hook.
-    mock.enqueue({ data: incomeRow({ id: 'inc-1', account_id: 'acc-1' }) }, {});
+  it('desmarcar received atualiza somente received', async () => {
+    mock.enqueue({ data: incomeRow({ id: 'inc-1' }) }, {});
 
     await updateIncome({ id: 'inc-1', userId: 'user-1', updates: { received: false } });
 

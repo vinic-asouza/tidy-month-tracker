@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: cartoes
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-16
 ---
 
 # Cartões de crédito
@@ -20,11 +20,11 @@ Chip = soma de **todos** os gastos daquele cartão no mês (visão de fatura). N
 
 ## RN-C03 — Pagar a fatura
 
-Escolhe carteira de **movimentação** (ou Saldo Livre, conforme o dialog). Um débito `invoice_payment` pelo **total**. Isso efetiva todos os gastos daquele cartão naquele mês para caixa, regra e estatísticas.
+`PayInvoiceDialog` só confirma o **total da fatura**; não há carteira, Saldo Livre nem data de pagamento separada. Grava `credit_card_monthly_status` (`paid = true`) via `setCardMonthlyStatus`. Isso efetiva todos os gastos daquele cartão naquele mês para caixa, regra e estatísticas.
 
 ## RN-C04 — Desmarcar fatura
 
-Reverte o pagamento; gastos voltam a não contar no efetivado; operação de pagamento some.
+Reverte o status (`paid = false`); gastos voltam a não contar no efetivado.
 
 ## RN-C05 — Vencimento e limite
 

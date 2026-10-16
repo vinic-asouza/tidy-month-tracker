@@ -1,4 +1,4 @@
-import type { AccountOperation, CreditCard, Expense, MonthData } from '@/types/domain';
+import type { CreditCard, Expense, MonthData } from '@/types/domain';
 
 export const CREDIT_CARD_DUE_ALERT_DAYS = 3;
 
@@ -59,15 +59,6 @@ export function getCreditCardByName(
   creditCards: CreditCard[]
 ): CreditCard | undefined {
   return creditCards.find((c) => c.name === cardName);
-}
-
-export function getInvoicePaymentOperation(
-  operations: AccountOperation[] | undefined,
-  creditCardId: string
-): AccountOperation | undefined {
-  return (operations ?? []).find(
-    (op) => op.type === 'invoice_payment' && op.creditCardId === creditCardId
-  );
 }
 
 export function getCreditCardInvoicePaymentAmount(

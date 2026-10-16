@@ -7,7 +7,6 @@ import { BenefitsSection } from "@/components/sections/BenefitsSection";
 import { MethodSection } from "@/components/sections/MethodSection";
 import { WishListSection } from "@/components/sections/WishListSection";
 import { ProductDemoSection } from "@/components/sections/ProductDemoSection";
-import { WalletsSection } from "@/components/sections/WalletsSection";
 import { AnnualSection } from "@/components/sections/AnnualSection";
 import { SocialProofSection } from "@/components/sections/SocialProofSection";
 import { FaqSection } from "@/components/sections/FaqSection";
@@ -27,7 +26,6 @@ function App() {
         <MethodSection />
         <WishListSection />
         <ProductDemoSection />
-        <WalletsSection />
         <AnnualSection />
         <SocialProofSection />
         <FaqSection />

@@ -5,17 +5,13 @@ export function getMonthIndex(yearMonth: string): number {
 }
 
 export function toMonthSnapshot(
-  monthData: Pick<
-    MonthData,
-    'incomes' | 'expenses' | 'investments' | 'accountOperations'
-  >,
+  monthData: Pick<MonthData, 'incomes' | 'expenses' | 'investments'>,
   cardMonthlyStatuses: Record<string, boolean>
 ): MonthData {
   return {
     incomes: monthData.incomes,
     expenses: monthData.expenses,
     investments: monthData.investments,
-    accountOperations: monthData.accountOperations ?? [],
     cardMonthlyStatuses: { ...cardMonthlyStatuses },
   };
 }

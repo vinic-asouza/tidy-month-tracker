@@ -41,7 +41,6 @@ export interface ImportReviewRow {
   totalInstallments?: number;
   repeatAllMonths: boolean;
   effectuate: boolean;
-  accountId?: string | null;
   /** Linha inelegível (crédito / parse inválido) */
   ineligible: boolean;
   ineligibleReason?: string;

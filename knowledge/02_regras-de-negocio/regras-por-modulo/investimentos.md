@@ -1,12 +1,12 @@
 ---
 type: regras-modulo
 modulo: investimentos
-ultima_atualizacao: 2026-10-14
+ultima_atualizacao: 2026-10-16
 ---
 
 # Investimentos (aportes do mês)
 
-`InvestmentSection`, `EffectuateInvestmentDialog`. Posição acumulada: [`carteiras.md`](./carteiras.md).
+`InvestmentSection`. Não há posição acumulada nem carteira de destino (removidas na DEV-151).
 
 Esta seção responde *“quanto aportei neste mês?”* — não substitui a corretora.
 
@@ -14,25 +14,16 @@ Esta seção responde *“quanto aportei neste mês?”* — não substitui a co
 
 ## RN-I01 — Nascimento
 
-`invested = false`, sem origem nem destino.
+`invested = false`. Tag, descrição e valor > 0 obrigatórios.
 
-## RN-I02 — Efetivação (origem → destino)
+## RN-I02 — Efetivação
 
-Obrigatórios e **diferentes**:
+Marcar investido é só o **toggle** de `invested` (`StatusToggleBadge`). Sem origem, destino, carteira ou diálogo. O **saldo do mês** desconta o valor quando investido (RN-G03).
 
-- **Origem:** carteira de movimentação ou Saldo Livre (`source_account_id` nulo = Saldo Livre)
-- **Destino:** carteira de investimentos (`account_id`)
+## RN-I03 — Aporte como hábito
 
-Liquidez cai na origem; posição sobe no destino; o **saldo do mês** desconta o valor (RN-G03).
-
-## RN-I03 — Sem carteira do papel
-
-O app oferece criar carteira (`onRequestAddAccount`) se faltar movimentação ou investimentos.
-
-## RN-I04 — Legado
-
-Investimento antigo só com destino, origem nula: liquidez da origem pode estar errada até re-efetivar no dialog atual.
+O Finto registra *quanto* foi aportado no mês. Onde o dinheiro foi parar (corretora, banco) fica fora do produto.
 
 ## RN-I05 — Repetição e tags
 
-Ano civil (RN-G05). Tags: mesmas regras de exclusão/renomeação que entradas. Na visão Anual, os aportes do ano agrupam pela tag, não pela carteira de destino (RN-R06).
+Ano civil (RN-G05). Tags: mesmas regras de exclusão/renomeação que entradas. Na visão Anual, os aportes do ano agrupam pela tag (RN-R06). Na lista mensal, a ordenação “Instituição” e o resumo por grupo usam a tag.
