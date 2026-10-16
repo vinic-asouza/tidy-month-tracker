@@ -17,17 +17,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "Os números vão bater com meu banco?",
     answer:
-      "O Finto não espelha extrato. Saldo do mês = caixa efetivado. Carteiras = saldo estimado com declaração consciente. Saldo Livre = movimentos sem carteira + resgates — não é sua conta bancária.",
-  },
-  {
-    question: "O que é Saldo Livre?",
-    answer:
-      "Agrupamento de movimentos efetivados do mês que não estão em nenhuma carteira, mais entradas de resgate. Não é conta corrente — é organização consciente.",
-  },
-  {
-    question: "Como funcionam resgate e transferência?",
-    answer:
-      "Resgate: sai da carteira, entra no Saldo Livre e no resumo como entrada efetivada. Transferência: move valor entre carteiras sem alterar saldo do mês nem a regra 50/30/20.",
+      "O Finto não espelha extrato. O saldo do mês é o resultado líquido do caixa efetivado (entradas − gastos − aportes) — não é o saldo da sua conta bancária.",
   },
   {
     question: "O que significa caixa efetivado?",
