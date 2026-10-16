@@ -78,11 +78,6 @@ function BulkDeleteItemRow({
                 {parceladoLabel}
               </Badge>
             )}
-            {item.isResgate && (
-              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-normal leading-none">
-                Resgate
-              </Badge>
-            )}
           </div>
         </div>
         <span className="text-xs font-semibold tabular-nums shrink-0 leading-none">

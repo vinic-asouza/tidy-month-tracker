@@ -89,7 +89,7 @@ describe('buildBulkDeleteList / defaultScopes', () => {
   it('marca resgate e label de série', () => {
     const list = buildBulkDeleteList(
       {
-        incomes: [income({ id: 'r1', sourceOperationId: 'op1', tag: 'Resgate de investimentos' })],
+        incomes: [income({ id: 'r1', tag: 'Resgate de investimentos' })],
         expenses: [],
         investments: [],
       },
@@ -97,7 +97,7 @@ describe('buildBulkDeleteList / defaultScopes', () => {
       new Set(),
       new Set()
     );
-    expect(list[0].isResgate).toBe(true);
+    expect(list[0].tagOrCategory).toBe('Resgate de investimentos');
     expect(seriesScopeLabel('installment')).toBe('Todas as parcelas');
     expect(seriesScopeLabel('fixed')).toBe('Meses seguintes da série');
   });

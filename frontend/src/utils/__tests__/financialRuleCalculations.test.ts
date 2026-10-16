@@ -25,7 +25,7 @@ const baseRule: FinancialRule = {
 };
 
 const baseMonthData: MonthData = {
-  incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', received: true }],
+  incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', date: null, received: true }],
   expenses: [
     {
       id: 'e1',
@@ -88,7 +88,7 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
   it('essenciais + estilo de vida + não classificado = gastos planejados', () => {
     const monthData: MonthData = {
       ...baseMonthData,
-      incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', received: false }],
+      incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', date: null, received: false }],
       expenses: [
         {
           id: 'e1',
@@ -123,7 +123,7 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
   it('efetivado ignora lançamentos não marcados; planejado inclui todos', () => {
     const monthData: MonthData = {
       ...baseMonthData,
-      incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', received: false }],
+      incomes: [{ id: '1', description: 'Salário', value: 5000, tag: 'Salário', date: null, received: false }],
       expenses: [
         {
           id: 'e1',
@@ -149,14 +149,14 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
   it('inclui resgates recebidos na base da renda e dilui percentuais', () => {
     const monthData: MonthData = {
       incomes: [
-        { id: '1', description: 'Salario', value: 5000, tag: 'Salario', received: true },
+        { id: '1', description: 'Salario', value: 5000, tag: 'Salario', date: null, received: true },
         {
           id: '2',
           description: 'Resgate',
           value: 2000,
           tag: RESGATE_INCOME_TAG,
+          date: null,
           received: true,
-          sourceOperationId: 'op-1',
         },
       ],
       expenses: [
@@ -184,14 +184,14 @@ describe('calculatePlannedFinancialRuleStats reconciliation', () => {
   it('exclui resgates da base de renda no planejado', () => {
     const monthData: MonthData = {
       incomes: [
-        { id: '1', description: 'Salario', value: 5000, tag: 'Salario', received: false },
+        { id: '1', description: 'Salario', value: 5000, tag: 'Salario', date: null, received: false },
         {
           id: '2',
           description: 'Resgate',
           value: 2000,
           tag: RESGATE_INCOME_TAG,
+          date: null,
           received: false,
-          sourceOperationId: 'op-1',
         },
       ],
       expenses: [
@@ -221,7 +221,7 @@ describe('scaleFinancialRuleMoney', () => {
     const january = baseMonthData;
     const february: MonthData = {
       ...baseMonthData,
-      incomes: [{ id: '2', description: 'Salário', value: 5000, tag: 'Salário', received: true }],
+      incomes: [{ id: '2', description: 'Salário', value: 5000, tag: 'Salário', date: null, received: true }],
       expenses: [
         {
           id: 'e3',

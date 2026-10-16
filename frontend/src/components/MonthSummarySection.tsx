@@ -119,7 +119,7 @@ export const MonthSummarySection = ({
       bg: 'bg-investment-light',
       hint: isPlanned
         ? undefined
-        : 'Saída de caixa para aplicação — a posição aparece nas carteiras de investimentos',
+        : 'Aportes efetivados no mês — saída de caixa para aplicação',
     },
     {
       label: isPlanned ? 'Saldo' : 'Saldo (efetiv.)',
@@ -129,7 +129,7 @@ export const MonthSummarySection = ({
       bg: balance >= 0 ? 'bg-income-light' : 'bg-expense-light',
       hint: isPlanned
         ? 'Saldo planejado — resultado se tudo fosse executado conforme registrado'
-        : 'Saldo do mês — resultado líquido efetivado deste mês (diferente do saldo estimado na carteira)',
+        : 'Saldo do mês — resultado líquido efetivado deste mês',
     },
   ];
 

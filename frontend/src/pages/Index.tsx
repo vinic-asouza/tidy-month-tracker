@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { MonthNavigator, getCurrentMonthKey, isCurrentMonthKey } from '@/components/MonthNavigator';
 import { YearNavigator } from '@/components/YearNavigator';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { AccountStrip } from '@/components/AccountStrip';
 import { MonthSummarySection } from '@/components/MonthSummarySection';
 import { MonthRecordsSection, RecordsTab } from '@/components/MonthRecordsSection';
 import { SelectionBottomBar } from '@/components/SelectionBottomBar';
@@ -46,7 +45,6 @@ const Index = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteItems, setBulkDeleteItems] = useState<BulkDeleteListItem[]>([]);
 
-  const [openAccountDialog, setOpenAccountDialog] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState<Partial<Expense> | null>(null);
   const [pendingWishConquer, setPendingWishConquer] = useState<WishItem | null>(null);
   const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
@@ -80,19 +78,8 @@ const Index = () => {
     setCurrentMonth,
     monthData,
     settings,
-    accounts,
-    accountBalances,
-    accountHistoryMonths,
     creditCards,
     cardMonthlyStatus,
-    addAccount,
-    updateAccount,
-    deleteAccount,
-    accountNameExists,
-    upsertAccountBalance,
-    createWithdrawal,
-    createTransfer,
-    deleteOperation,
     addIncome,
     updateIncome,
     deleteIncome,
@@ -740,25 +727,6 @@ const Index = () => {
                 creditCards={creditCards}
                 cardMonthlyStatuses={cardMonthlyStatus}
               />
-              <AccountStrip
-            accounts={accounts}
-            accountBalances={accountBalances}
-            accountHistoryMonths={accountHistoryMonths}
-            currentMonth={currentMonth}
-            monthData={monthData}
-            creditCards={creditCards}
-            cardMonthlyStatuses={cardMonthlyStatus}
-            onAdd={addAccount}
-            onUpdate={updateAccount}
-            onDelete={deleteAccount}
-            onUpsertBalance={upsertAccountBalance}
-            onCreateWithdrawal={createWithdrawal}
-            onCreateTransfer={createTransfer}
-            onDeleteOperation={deleteOperation}
-            accountNameExists={accountNameExists}
-            openAddDialog={openAccountDialog}
-            onAddDialogClose={() => setOpenAccountDialog(false)}
-          />
 
           <MonthRecordsSection
                 currentMonth={currentMonth}
@@ -771,8 +739,6 @@ const Index = () => {
                 expenseCategories={settings.expenseCategories}
                 paymentMethods={settings.paymentMethods}
                 investmentTags={settings.investmentTags}
-                accounts={accounts}
-                accountOperations={monthData.accountOperations}
                 cardMonthlyStatuses={cardMonthlyStatus}
                 creditCards={creditCards}
                 selectedIncomeIds={selectedIncomeIds}
@@ -809,7 +775,6 @@ const Index = () => {
                 addInvestmentTag={addInvestmentTag}
                 updateInvestmentTag={updateInvestmentTag}
                 deleteInvestmentTag={deleteInvestmentTag}
-                onRequestAddAccount={() => setOpenAccountDialog(true)}
                 expenseDraft={expenseDraft}
                 onExpenseDraftConsumed={handleExpenseDraftConsumed}
                 wishConquerPlannedValue={wishConquerPlannedValue}

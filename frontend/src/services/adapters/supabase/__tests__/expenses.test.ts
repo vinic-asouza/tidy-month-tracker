@@ -1,7 +1,7 @@
 /**
  * DEV-64 — Adaptador Supabase de gastos.
  *
- * Cobre a persistência de `account_id`, a geração de séries (fixo repetido e
+ * Cobre a persistência do gasto, a geração de séries (fixo repetido e
  * parcelado), o rollback quando a inserção da série falha e a exclusão da
  * série inteira de um parcelado.
  */
@@ -40,7 +40,6 @@ function expenseRow(overrides: Record<string, unknown> = {}) {
     current_installment: null,
     total_installments: null,
     display_order: 0,
-    account_id: null,
     created_at: '2026-03-10T00:00:00.000Z',
     ...overrides,
   };
@@ -67,31 +66,19 @@ beforeEach(() => {
 });
 
 describe('createExpense', () => {
-  it('persiste account_id no insert raiz', async () => {
-    mock.enqueue({ data: expenseRow({ account_id: 'acc-1', paid: true }) });
+  it('persiste o gasto no insert raiz sem campos de carteira', async () => {
+    mock.enqueue({ data: expenseRow({ paid: true }) });
 
-    const created = await createExpense(
-      createParams({ accountId: 'acc-1', paid: true })
-    );
+    await createExpense(createParams({ paid: true }));
 
     const inserts = mock.getOperationsFor('expenses', 'insert');
     expect(inserts).toHaveLength(1);
     expect(inserts[0].payload).toMatchObject({
       user_id: 'user-1',
       year_month: '2026-03',
-      account_id: 'acc-1',
       paid: true,
     });
-    expect(created.accountId).toBe('acc-1');
-  });
-
-  it('envia account_id null quando nenhuma carteira é informada', async () => {
-    mock.enqueue({ data: expenseRow() });
-
-    await createExpense(createParams());
-
-    const [insert] = mock.getOperationsFor('expenses', 'insert');
-    expect((insert.payload as Record<string, unknown>).account_id).toBeNull();
+    expect(inserts[0].payload).not.toHaveProperty('account_id');
   });
 
   it('propaga o erro do insert raiz', async () => {
@@ -101,14 +88,14 @@ describe('createExpense', () => {
     expect(mock.getOperationsFor('expenses', 'delete')).toHaveLength(0);
   });
 
-  it('clona um gasto fixo repetido para os demais meses do ano com paid false e sem carteira', async () => {
+  it('clona um gasto fixo repetido para os demais meses do ano com paid false', async () => {
     mock.enqueue(
-      { data: expenseRow({ type: 'fixed', repeat_all_months: true, account_id: 'acc-1' }) },
+      { data: expenseRow({ type: 'fixed', repeat_all_months: true }) },
       {}
     );
 
     await createExpense(
-      createParams({ type: 'fixed', repeatAllMonths: true, accountId: 'acc-1', paid: true })
+      createParams({ type: 'fixed', repeatAllMonths: true, paid: true })
     );
 
     const inserts = mock.getOperationsFor('expenses', 'insert');
@@ -120,7 +107,7 @@ describe('createExpense', () => {
     expect(clones).toHaveLength(11);
     expect(clones.map((row) => row.year_month)).not.toContain('2026-03');
     expect(clones.every((row) => row.paid === false)).toBe(true);
-    expect(clones.every((row) => row.account_id === null)).toBe(true);
+    expect(clones.every((row) => !('account_id' in row))).toBe(true);
     expect(clones.every((row) => row.base_expense_id === 'exp-root')).toBe(true);
     expect(clones.every((row) => row.repeat_all_months === true)).toBe(true);
   });
@@ -133,14 +120,13 @@ describe('createExpense', () => {
     expect(mock.getOperationsFor('expenses', 'insert')).toHaveLength(1);
   });
 
-  it('gera as parcelas restantes com paid false e sem carteira', async () => {
+  it('gera as parcelas restantes com paid false', async () => {
     mock.enqueue(
       {
         data: expenseRow({
           type: 'installment',
           current_installment: 1,
           total_installments: 3,
-          account_id: 'acc-1',
         }),
       },
       {}
@@ -151,7 +137,6 @@ describe('createExpense', () => {
         type: 'installment',
         currentInstallment: 1,
         totalInstallments: 3,
-        accountId: 'acc-1',
         paid: true,
       })
     );
@@ -164,7 +149,7 @@ describe('createExpense', () => {
     expect(installments.map((row) => row.year_month)).toEqual(['2026-04', '2026-05']);
     expect(installments.map((row) => row.current_installment)).toEqual([2, 3]);
     expect(installments.every((row) => row.paid === false)).toBe(true);
-    expect(installments.every((row) => row.account_id === null)).toBe(true);
+    expect(installments.every((row) => !('account_id' in row))).toBe(true);
     expect(installments.every((row) => row.total_installments === 3)).toBe(true);
     expect(installments.every((row) => row.base_expense_id === 'exp-root')).toBe(true);
   });
@@ -245,25 +230,12 @@ describe('updateExpense', () => {
     await updateExpense({
       id: 'exp-1',
       userId: 'user-1',
-      updates: { value: 300, accountId: 'acc-9' },
+      updates: { value: 300 },
     });
 
     const updates = mock.getOperationsFor('expenses', 'update');
     expect(updates).toHaveLength(1);
-    expect(updates[0].payload).toEqual({ value: 300, account_id: 'acc-9' });
-  });
-
-  it('limpa account_id quando accountId é null', async () => {
-    mock.enqueue({ data: expenseRow({ id: 'exp-1', account_id: 'acc-1' }) }, {});
-
-    await updateExpense({
-      id: 'exp-1',
-      userId: 'user-1',
-      updates: { accountId: null as unknown as undefined },
-    });
-
-    const [update] = mock.getOperationsFor('expenses', 'update');
-    expect(update.payload).toEqual({ account_id: null });
+    expect(updates[0].payload).toEqual({ value: 300 });
   });
 
   it('não dispara update quando não há campos alterados', async () => {

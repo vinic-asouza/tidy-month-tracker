@@ -1,8 +1,4 @@
 import type {
-  Account,
-  AccountBalance,
-  AccountOperation,
-  AccountOperationType,
   CreditCard,
   Expense,
   FinanceSettings,
@@ -13,58 +9,12 @@ import type {
 } from '@/types/domain';
 import type { Database } from '@/integrations/supabase/types';
 
-type AccountRow = Database['public']['Tables']['accounts']['Row'];
-type AccountBalanceRow = Database['public']['Tables']['account_balances']['Row'];
-type AccountOperationRow = Database['public']['Tables']['account_operations']['Row'];
 type IncomeRow = Database['public']['Tables']['incomes']['Row'];
 type ExpenseRow = Database['public']['Tables']['expenses']['Row'];
 type InvestmentRow = Database['public']['Tables']['investments']['Row'];
 type CreditCardRow = Database['public']['Tables']['credit_cards']['Row'];
 type FinanceSettingsRow = Database['public']['Tables']['finance_settings']['Row'];
 type FinancialRuleRow = Database['public']['Tables']['financial_rule']['Row'];
-
-export function toAccount(row: AccountRow): Account {
-  const role: Account['role'] =
-    row.role === 'investment' ? 'investment' : 'movement';
-  return {
-    id: row.id,
-    name: row.name,
-    type: row.type as Account['type'],
-    role,
-    color: row.color,
-    displayOrder: row.display_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-export function toAccountBalance(row: AccountBalanceRow): AccountBalance {
-  return {
-    id: row.id,
-    accountId: row.account_id,
-    userId: row.user_id,
-    yearMonth: row.year_month,
-    balance: Number(row.balance),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-export function toAccountOperation(row: AccountOperationRow): AccountOperation {
-  return {
-    id: row.id,
-    type: row.type as AccountOperationType,
-    sourceAccountId: row.source_account_id,
-    destinationAccountId: row.destination_account_id,
-    transferGroupId: row.transfer_group_id,
-    creditCardId: row.credit_card_id ?? null,
-    amount: Number(row.amount),
-    yearMonth: row.year_month,
-    operationDate: row.operation_date,
-    description: row.description,
-    createdAt: row.created_at,
-  };
-}
 
 export function toIncome(row: IncomeRow): Income {
   return {
@@ -76,8 +26,6 @@ export function toIncome(row: IncomeRow): Income {
     received: row.received || false,
     repeatAllMonths: row.repeat_all_months,
     baseIncomeId: row.base_income_id || undefined,
-    accountId: row.account_id ?? undefined,
-    sourceOperationId: row.source_operation_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }
@@ -96,7 +44,6 @@ export function toExpense(row: ExpenseRow): Expense {
     baseExpenseId: row.base_expense_id || undefined,
     currentInstallment: row.current_installment ?? undefined,
     totalInstallments: row.total_installments ?? undefined,
-    accountId: row.account_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }
@@ -111,8 +58,6 @@ export function toInvestment(row: InvestmentRow): Investment {
     invested: row.invested || false,
     repeatAllMonths: row.repeat_all_months,
     baseInvestmentId: row.base_investment_id || undefined,
-    sourceAccountId: row.source_account_id ?? undefined,
-    accountId: row.account_id ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
   };
 }

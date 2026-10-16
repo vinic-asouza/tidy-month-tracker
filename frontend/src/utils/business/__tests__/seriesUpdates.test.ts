@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { omitPerMonthFields } from '../seriesUpdates';
 
 describe('omitPerMonthFields', () => {
-  it('remove paid, received, invested, account_id e source_account_id do objeto', () => {
+  it('remove paid, received e invested do objeto', () => {
     expect(
       omitPerMonthFields({
         description: 'Aluguel',
@@ -10,8 +10,6 @@ describe('omitPerMonthFields', () => {
         paid: true,
         received: true,
         invested: true,
-        account_id: 'acc-1',
-        source_account_id: 'acc-2',
       })
     ).toEqual({
       description: 'Aluguel',

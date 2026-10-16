@@ -50,7 +50,7 @@ import { PayInvoiceDialog } from '@/components/PayInvoiceDialog';
 import { UnpayInvoiceConfirmDialog } from '@/components/UnpayInvoiceConfirmDialog';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { CreditCard, CARD_COLORS } from '@/types/finance';
-import type { Account, MonthData } from '@/types/domain';
+import type { MonthData } from '@/types/domain';
 import { cn } from '@/lib/utils';
 import {
   getCreditCardDueAlertContext,
@@ -61,7 +61,6 @@ import { toast } from 'sonner';
 
 interface CreditCardStripProps {
   creditCards: CreditCard[];
-  accounts: Account[];
   currentMonth: string;
   monthData: MonthData;
   onAdd: (card: Omit<CreditCard, 'id'>) => Promise<boolean> | boolean;
@@ -71,11 +70,7 @@ interface CreditCardStripProps {
   canDeleteCard: (cardName: string) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
-  payCardInvoice: (
-    cardId: string,
-    paymentAccountId: string | null,
-    operationDate?: string
-  ) => Promise<boolean>;
+  payCardInvoice: (cardId: string) => Promise<boolean>;
   unpayCardInvoice: (cardId: string) => Promise<boolean>;
   openAddDialog?: boolean;
   onAddDialogClose?: () => void;
@@ -101,7 +96,6 @@ const DUE_DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const CreditCardStripComponent = ({
   creditCards,
-  accounts,
   currentMonth,
   monthData,
   onAdd,
@@ -260,11 +254,11 @@ const CreditCardStripComponent = ({
     const card = creditCards.find((c) => c.id === cardId);
 
     if (paid) {
-      if (accounts.length > 0 && card) {
+      if (card) {
         setPayDialogCard(card);
         return true;
       }
-      const success = await payCardInvoice(cardId, null);
+      const success = await payCardInvoice(cardId);
       if (!success) {
         toast.error('Erro ao atualizar status da fatura');
       }
@@ -276,21 +270,8 @@ const CreditCardStripComponent = ({
       return success;
     }
 
-    if (accounts.length > 0) {
-      setUnpayDialogCard(card ?? creditCards.find((c) => c.id === cardId) ?? null);
-      return true;
-    }
-
-    const success = await unpayCardInvoice(cardId);
-    if (!success) {
-      toast.error('Erro ao atualizar status da fatura');
-    }
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(scrollLeft, scrollTop);
-      });
-    });
-    return success;
+    setUnpayDialogCard(card ?? creditCards.find((c) => c.id === cardId) ?? null);
+    return true;
   };
 
   const handleConfirmUnpay = async () => {
@@ -373,7 +354,7 @@ const CreditCardStripComponent = ({
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
                 Valor comprometido no cartão neste mês. Entra no saldo do resumo quando você marcar a
-                fatura como paga e informar a carteira pagadora.
+                fatura como paga.
               </TooltipContent>
             </Tooltip>
             <p className="text-sm font-bold text-white tabular-nums leading-tight">
@@ -645,7 +626,6 @@ const CreditCardStripComponent = ({
         open={!!invoiceDialogCard}
         onOpenChange={(open) => !open && setInvoiceDialogCard(null)}
         card={invoiceDialogCard}
-        accounts={accounts}
         currentMonth={currentMonth}
         monthData={monthData}
         isPaid={invoiceDialogCard ? getCardPaidStatus(invoiceDialogCard.id) : false}
@@ -659,14 +639,9 @@ const CreditCardStripComponent = ({
         onOpenChange={(open) => !open && setPayDialogCard(null)}
         card={payDialogCard}
         invoiceTotal={payDialogCard ? getCardTotal(payDialogCard.name) : 0}
-        accounts={accounts}
-        onConfirm={async (paymentAccountId, operationDate) => {
+        onConfirm={async () => {
           if (!payDialogCard) return false;
-          const success = await payCardInvoice(
-            payDialogCard.id,
-            paymentAccountId,
-            operationDate
-          );
+          const success = await payCardInvoice(payDialogCard.id);
           if (!success) {
             toast.error('Erro ao registrar pagamento da fatura');
           }

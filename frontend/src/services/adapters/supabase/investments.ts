@@ -42,8 +42,6 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
       invested: false,
       repeat_all_months: investmentData.repeatAllMonths || false,
       display_order: displayOrder,
-      account_id: null,
-      source_account_id: null,
     })
     .select('*')
     .single();
@@ -65,8 +63,6 @@ export async function createInvestment(params: CreateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: createdInvestment.id,
         display_order: 0,
-        account_id: null,
-        source_account_id: null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -82,7 +78,7 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
 
   const { data: currentRows, error: fetchError } = await supabase
     .from('investments')
-    .select('id, base_investment_id, repeat_all_months, year_month, description, value, tag, date, invested, account_id')
+    .select('id, base_investment_id, repeat_all_months, year_month, description, value, tag, date, invested')
     .eq('id', id)
     .eq('user_id', userId)
     .single();
@@ -110,8 +106,6 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
         repeat_all_months: true,
         base_investment_id: id,
         display_order: 0,
-        account_id: null,
-        source_account_id: null,
       }));
       const { error: copyError } = await supabase.from('investments').insert(rows);
       throwIfError(copyError);
@@ -135,8 +129,6 @@ export async function updateInvestment(params: UpdateInvestmentParams): Promise<
   if (updates.invested !== undefined) row.invested = updates.invested;
   if (updates.repeatAllMonths !== undefined) row.repeat_all_months = updates.repeatAllMonths;
   if (updates.date !== undefined) row.date = updates.date;
-  if (updates.accountId !== undefined) row.account_id = updates.accountId ?? null;
-  if (updates.sourceAccountId !== undefined) row.source_account_id = updates.sourceAccountId ?? null;
 
   if (Object.keys(row).length === 0) return;
 

@@ -42,13 +42,9 @@ import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
-import { resolveAccountDisplayName } from '@/utils/business/accountLabels';
-import { EffectuateInvestmentDialog } from '@/components/EffectuateInvestmentDialog';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
-import type { Account } from '@/types/domain';
-import { filterInvestmentAccounts } from '@/utils/business/accountRoles';
 
 type PersistHandler = (data: Omit<Investment, 'id'>) => Promise<boolean> | boolean;
 type UpdateHandler = (
@@ -59,7 +55,6 @@ type UpdateHandler = (
 
 interface InvestmentSectionProps {
   investments: Investment[];
-  accounts: Account[];
   tags: string[];
   onAdd: PersistHandler;
   onUpdate: UpdateHandler;
@@ -73,8 +68,6 @@ interface InvestmentSectionProps {
   openAddDialog?: boolean;
   /** Chamado quando o dialog de adicionar é fechado */
   onAddDialogClose?: () => void;
-  /** Abre o dialog de nova carteira quando não há carteiras cadastradas */
-  onRequestAddAccount?: () => void;
   variant?: 'default' | 'embedded';
 }
 
@@ -99,24 +92,14 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Data' },
   { value: 'pending', label: 'Pendentes' },
   { value: 'alphabetic', label: 'Ordem Alfabética' },
-  { value: 'institution', label: 'Carteira' },
+  { value: 'institution', label: 'Instituição' },
   { value: 'highest', label: 'Maior Valor' },
   { value: 'lowest', label: 'Menor Valor' },
 ];
 
-const NO_ACCOUNT = 'none';
-const PENDING_WALLET_LABEL = 'Pendente';
-
-/** Carteira de destino do aporte: vem da lista de contas, não da tag. */
-const getWalletLabel = (investment: Investment, accounts: Account[]): string => {
-  if (!investment.invested) return PENDING_WALLET_LABEL;
-  return resolveAccountDisplayName(investment.accountId, accounts);
-};
-
 const sortInvestments = (
   investments: Investment[],
-  sortOption: SortOption,
-  accounts: Account[]
+  sortOption: SortOption
 ): Investment[] => {
   const sorted = [...investments];
   const getSortDate = (i: Investment) => i.date ?? (i.createdAt ? i.createdAt.split('T')[0] : '');
@@ -125,9 +108,7 @@ const sortInvestments = (
     case 'alphabetic':
       return sorted.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'));
     case 'institution':
-      return sorted.sort((a, b) =>
-        getWalletLabel(a, accounts).localeCompare(getWalletLabel(b, accounts), 'pt-BR')
-      );
+      return sorted.sort((a, b) => a.tag.localeCompare(b.tag, 'pt-BR'));
     case 'date':
       return sorted.sort((a, b) => {
         const dateCmp = getSortDate(b).localeCompare(getSortDate(a));
@@ -146,13 +127,12 @@ const sortInvestments = (
   return sorted;
 };
 
-const groupByAccount = (
+const groupByInstitution = (
   investments: Investment[],
-  sortOption: SortOption,
-  accounts: Account[]
+  sortOption: SortOption
 ): { institution: string; total: number }[] => {
   const grouped = investments.reduce((acc, investment) => {
-    const label = getWalletLabel(investment, accounts);
+    const label = investment.tag;
     if (!acc[label]) {
       acc[label] = 0;
     }
@@ -224,19 +204,8 @@ const InstitutionSummaryItem = ({
   );
 };
 
-const WalletTag = ({ label }: { label: string }) => (
-  <Badge
-    variant="outline"
-    className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground font-normal truncate max-w-[5rem]"
-    title={label}
-  >
-    {label}
-  </Badge>
-);
-
 const InvestmentListItem = ({
   investment,
-  accounts,
   isSelected,
   onItemClick,
   onToggleInvested,
@@ -246,7 +215,6 @@ const InvestmentListItem = ({
   style,
 }: {
   investment: Investment;
-  accounts: Account[];
   isSelected: boolean;
   onItemClick: (e: React.MouseEvent) => void;
   onToggleInvested: (investment: Investment) => void;
@@ -255,13 +223,8 @@ const InvestmentListItem = ({
   className?: string;
   style?: React.CSSProperties;
 }) => {
-  const walletLabel = investment.invested
-    ? resolveAccountDisplayName(investment.accountId, accounts)
-    : null;
-
   const dateDisplay = (
     <div className="flex items-center gap-1.5 shrink-0">
-      {walletLabel && <WalletTag label={walletLabel} />}
       <span className="text-xs text-muted-foreground tabular-nums">
         {formatItemDayMonth(investment.date, investment.createdAt)}
       </span>
@@ -354,7 +317,6 @@ const InvestmentListItem = ({
 
 const InvestmentSectionComponent = ({
   investments,
-  accounts,
   tags,
   onAdd,
   onUpdate,
@@ -366,12 +328,10 @@ const InvestmentSectionComponent = ({
   onSelectionChange,
   openAddDialog,
   onAddDialogClose,
-  onRequestAddAccount,
   variant = 'default',
 }: InvestmentSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(NO_ACCOUNT);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -390,7 +350,6 @@ const InvestmentSectionComponent = ({
   const [applyToAllMonths, setApplyToAllMonths] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
-  const [effectuateTarget, setEffectuateTarget] = useState<Investment | null>(null);
 
   // Tag management
   const [isTagsOpenInModal, setIsTagsOpenInModal] = useState(false);
@@ -401,19 +360,18 @@ const InvestmentSectionComponent = ({
 
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
   const [tagError, setTagError] = useState<string | null>(null);
 
   const INITIAL_ITEMS_LIMIT = 10;
 
   // Apply sorting and grouping
   const sortedInvestments = useMemo(
-    () => sortInvestments(investments, sortOption, accounts),
-    [investments, sortOption, accounts]
+    () => sortInvestments(investments, sortOption),
+    [investments, sortOption]
   );
-  const groupedByAccount = useMemo(
-    () => groupByAccount(investments, sortOption, accounts),
-    [investments, sortOption, accounts]
+  const groupedByInstitution = useMemo(
+    () => groupByInstitution(investments, sortOption),
+    [investments, sortOption]
   );
 
   const [showAllInvestments, setShowAllInvestments] = useState(false);
@@ -534,10 +492,8 @@ const InvestmentSectionComponent = ({
     setRepeatAllMonths(false);
     setEditingId(null);
     setSelectedTag('');
-    setSelectedAccountId(NO_ACCOUNT);
     setDescriptionError(null);
     setValueError(null);
-    setAccountError(null);
     setTagError(null);
   };
 
@@ -560,7 +516,6 @@ const InvestmentSectionComponent = ({
 
     if (hasError) return;
 
-    const editingItem = editingId ? investments.find((i) => i.id === editingId) : null;
     const tag = selectedTag.trim();
 
     setIsSubmitting(true);
@@ -568,25 +523,13 @@ const InvestmentSectionComponent = ({
       const success = editingId
         ? await onUpdate(
             editingId,
-            editingItem?.invested
-              ? {
-                  description: description.trim(),
-                  value: numValue,
-                  tag,
-                  date: itemDate,
-                  repeatAllMonths,
-                  accountId:
-                    selectedAccountId !== NO_ACCOUNT
-                      ? selectedAccountId
-                      : (null as unknown as string),
-                }
-              : {
-                  description: description.trim(),
-                  value: numValue,
-                  tag,
-                  date: itemDate,
-                  repeatAllMonths,
-                },
+            {
+              description: description.trim(),
+              value: numValue,
+              tag,
+              date: itemDate,
+              repeatAllMonths,
+            },
             applyToAllMonths
           )
         : await onAdd({
@@ -628,7 +571,6 @@ const InvestmentSectionComponent = ({
       setItemDate(investment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(investment.repeatAllMonths || false);
       setSelectedTag(investment.tag);
-      setSelectedAccountId(investment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
     }
   };
@@ -641,7 +583,6 @@ const InvestmentSectionComponent = ({
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
       setSelectedTag(editingInvestment.tag);
-      setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setIsOpen(true);
       setEditingInvestment(null);
       setPendingAction(null);
@@ -657,7 +598,6 @@ const InvestmentSectionComponent = ({
       setItemDate(editingInvestment.date ?? formatDateToYYYYMMDD(new Date()));
       setRepeatAllMonths(editingInvestment.repeatAllMonths || false);
       setSelectedTag(editingInvestment.tag);
-      setSelectedAccountId(editingInvestment.accountId ?? NO_ACCOUNT);
       setApplyToAllMonths(true);
       setIsOpen(true);
       setEditingInvestment(null);
@@ -707,53 +647,16 @@ const InvestmentSectionComponent = ({
   };
 
   const handleToggleInvested = (investment: Investment) => {
-    if (investment.invested) {
-      const scrollTop = window.scrollY;
-      const scrollLeft = window.scrollX;
-      onUpdate(investment.id, {
-        invested: false,
-        accountId: null as unknown as string,
-        sourceAccountId: null as unknown as string,
-      });
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(scrollLeft, scrollTop);
-        });
-      });
-      return;
-    }
-
-    setEffectuateTarget(investment);
-  };
-
-  const handleRequestAddAccount = () => {
-    setEffectuateTarget(null);
-    onRequestAddAccount?.();
-  };
-
-  const handleEffectuateConfirm = async (
-    sourceAccountId: string | null,
-    destinationAccountId: string
-  ) => {
-    if (!effectuateTarget) return false;
-
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
-    const ok = await onUpdate(effectuateTarget.id, {
-      invested: true,
-      sourceAccountId,
-      accountId: destinationAccountId,
-    });
-
-    if (ok) {
+    void onUpdate(investment.id, { invested: !investment.invested });
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(scrollLeft, scrollTop);
-        });
+        window.scrollTo(scrollLeft, scrollTop);
       });
-    }
-    return ok;
+    });
   };
+
   const total = investments.reduce((sum, i) => sum + i.value, 0);
   const investedTotal = investments
     .filter((i) => i.invested)
@@ -769,7 +672,6 @@ const InvestmentSectionComponent = ({
   };
 
   const shellClass = variant === 'embedded' ? '' : sectionSurfaceClass;
-  const editingItem = editingId ? investments.find((i) => i.id === editingId) : null;
 
   return (
     <div className={shellClass}>
@@ -793,10 +695,7 @@ const InvestmentSectionComponent = ({
       <Alert className="mb-4 bg-muted/40 border-border py-2.5">
         <AlertDescription className="text-xs sm:text-sm text-muted-foreground">
           Este espaço registra seus <strong className="font-medium text-foreground">aportes mensais</strong>.
-          O saldo total de cada conta está em <strong className="font-medium text-foreground">Carteiras</strong>.
-          {accounts.length > 0
-            ? ' A carteira de destino é escolhida ao marcar como investido.'
-            : ' Sem carteiras cadastradas, o valor vai para o Saldo Livre ao efetivar. Você pode criar uma carteira a qualquer momento.'}
+          Marque cada aporte como investido quando for efetivado.
         </AlertDescription>
       </Alert>
       <Dialog
@@ -1020,46 +919,6 @@ const InvestmentSectionComponent = ({
                   </div>
                 </div>
 
-                {/* Carteira — só para itens já investidos */}
-                {accounts.length > 0 && editingItem?.invested && (
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block text-muted-foreground">
-                      Carteira
-                    </label>
-                    <Select
-                      value={selectedAccountId}
-                      onValueChange={(v) => {
-                        setSelectedAccountId(v);
-                        setAccountError(null);
-                      }}
-                    >
-                      <SelectTrigger
-                        className={`rounded-md h-10 ${accountError ? 'border-destructive' : ''} focus:ring-2 focus:ring-investment focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-investment focus-visible:ring-offset-2`}
-                      >
-                        <SelectValue placeholder="Selecione uma carteira" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        <SelectItem value={NO_ACCOUNT} className="rounded-lg">
-                          Saldo Livre
-                        </SelectItem>
-                        {filterInvestmentAccounts(accounts).map((acc) => (
-                          <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
-                            {acc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {accountError && (
-                      <p className="text-destructive text-sm mt-1">{accountError}</p>
-                    )}
-                  </div>
-                )}
-                {accounts.length > 0 && !editingItem?.invested && (
-                  <p className="text-xs text-muted-foreground">
-                    A carteira de destino é escolhida ao marcar como investido.
-                  </p>
-                )}
-
                 {/* Repeat All Months */}
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2">
@@ -1187,7 +1046,6 @@ const InvestmentSectionComponent = ({
               <InvestmentListItem
                 key={investment.id}
                 investment={investment}
-                accounts={accounts}
                 isSelected={isSelected}
                 onItemClick={handleItemClick}
                 onToggleInvested={handleToggleInvested}
@@ -1210,8 +1068,7 @@ const InvestmentSectionComponent = ({
                   <InvestmentListItem
                     key={investment.id}
                     investment={investment}
-                    accounts={accounts}
-                    isSelected={isSelected}
+                        isSelected={isSelected}
                     onItemClick={handleItemClick}
                     onToggleInvested={handleToggleInvested}
                     onEdit={handleEdit}
@@ -1243,7 +1100,7 @@ const InvestmentSectionComponent = ({
         </div>
       ) : (
         <div className="space-y-1">
-          {groupedByAccount.map(({ institution, total: institutionTotal }) => (
+          {groupedByInstitution.map(({ institution, total: institutionTotal }) => (
             <InstitutionSummaryItem
               key={institution}
               institution={institution}
@@ -1293,17 +1150,6 @@ const InvestmentSectionComponent = ({
             : undefined
         }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
-      />
-
-      <EffectuateInvestmentDialog
-        open={!!effectuateTarget}
-        onOpenChange={(open) => !open && setEffectuateTarget(null)}
-        description={effectuateTarget?.description ?? ''}
-        amount={effectuateTarget?.value ?? 0}
-        accounts={accounts}
-        onConfirm={handleEffectuateConfirm}
-        onRequestAddMovementAccount={handleRequestAddAccount}
-        onRequestAddInvestmentAccount={handleRequestAddAccount}
       />
     </div>
   );

@@ -5,9 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
-import { EffectuateWalletDialog } from '@/components/EffectuateWalletDialog';
-import { filterMovementAccounts } from '@/utils/business/accountRoles';
-import { persistEffectuateAccountId } from '@/utils/effectuateWalletDefaults';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -53,7 +50,6 @@ import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
-import { resolveExpenseWalletLabel } from '@/utils/business/accountLabels';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
@@ -94,9 +90,6 @@ interface ExpenseSectionProps {
   /** Valor planejado do desejo ao conquistar com gasto */
   wishConquerPlannedValue?: number;
   variant?: 'default' | 'embedded';
-  accounts?: import('@/types/domain').Account[];
-  accountOperations?: import('@/types/domain').AccountOperation[];
-  onRequestAddAccount?: () => void;
   /** Mês aberto na UI (YYYY-MM) — usado na importação CSV */
   currentMonth?: string;
 }
@@ -128,8 +121,6 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'lowest', label: 'Menor Valor' },
 ];
 
-const NO_ACCOUNT = 'none';
-
 const ExpenseForm = ({
   type,
   categories,
@@ -138,7 +129,6 @@ const ExpenseForm = ({
   onSubmit,
   initialData,
   categoryManagerSlot,
-  accounts = [],
   wishConquerPlannedValue,
 }: {
   type: Expense['type'];
@@ -148,10 +138,8 @@ const ExpenseForm = ({
   onSubmit: (data: Omit<Expense, 'id'>) => Promise<boolean> | boolean;
   initialData?: Expense;
   categoryManagerSlot?: ReactNode;
-  accounts?: import('@/types/domain').Account[];
   wishConquerPlannedValue?: number;
 }) => {
-  const movementAccounts = useMemo(() => filterMovementAccounts(accounts), [accounts]);
   const isWishConquerFlow = wishConquerPlannedValue != null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState(initialData?.category || '');
@@ -164,7 +152,6 @@ const ExpenseForm = ({
         ? formatValueForInput(initialData.value)
         : ''
   );
-  const [selectedAccountId, setSelectedAccountId] = useState(initialData?.accountId ?? NO_ACCOUNT);
   const [itemDate, setItemDate] = useState(
     initialData?.date ?? formatDateToYYYYMMDD(new Date())
   );
@@ -199,13 +186,6 @@ const ExpenseForm = ({
   ];
 
   const isCardPayment = creditCards.some((c) => c.name === paymentMethod);
-  const showWalletOnEdit = Boolean(initialData?.paid && !isCardPayment);
-
-  useEffect(() => {
-    if (isCardPayment && selectedAccountId !== NO_ACCOUNT) {
-      setSelectedAccountId(NO_ACCOUNT);
-    }
-  }, [isCardPayment, selectedAccountId]);
 
   const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
@@ -246,14 +226,6 @@ const ExpenseForm = ({
         repeatAllMonths: type === 'fixed' ? repeatAllMonths : undefined,
         currentInstallment: type === 'installment' ? parseInt(currentInstallment) || 1 : undefined,
         totalInstallments: type === 'installment' ? parseInt(totalInstallments) || 12 : undefined,
-        ...(showWalletOnEdit
-          ? {
-              accountId:
-                selectedAccountId !== NO_ACCOUNT
-                  ? selectedAccountId
-                  : (null as unknown as string),
-            }
-          : {}),
       });
       if (result === false) return;
     } finally {
@@ -383,39 +355,6 @@ const ExpenseForm = ({
         {paymentError && <p className="text-destructive text-sm mt-1">{paymentError}</p>}
       </div>
 
-      {/* Account / Carteira — só ao editar gasto já pago (não-cartão) */}
-      {accounts.length > 0 && showWalletOnEdit && (
-        <div>
-          <label className="text-sm font-medium mb-2 block text-muted-foreground">
-            Carteira
-          </label>
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-            <SelectTrigger className="rounded-md h-10">
-              <SelectValue placeholder="Nenhuma carteira" />
-            </SelectTrigger>
-            <SelectContent className="rounded-md">
-              <SelectItem value={NO_ACCOUNT} className="rounded-lg">Saldo Livre</SelectItem>
-              {movementAccounts.map((acc) => (
-                <SelectItem key={acc.id} value={acc.id} className="rounded-lg">
-                  {acc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      {accounts.length > 0 && !isCardPayment && !initialData?.paid && (
-        <p className="text-xs text-muted-foreground">
-          A carteira é escolhida ao marcar como pago.
-        </p>
-      )}
-      {accounts.length > 0 && isCardPayment && (
-        <p className="text-xs text-muted-foreground">
-          Gastos em cartão não vinculam carteira por item. Ao marcar a fatura como paga, você
-          informa de qual carteira saiu o pagamento.
-        </p>
-      )}
-
       {/* Installments for parcelado */}
       {type === 'installment' && (
         <div className="grid grid-cols-2 gap-3">
@@ -530,21 +469,9 @@ const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardTyp
   };
 };
 
-const WalletTag = ({ label }: { label: string }) => (
-  <Badge
-    variant="outline"
-    className="text-[10px] px-1.5 py-0 h-5 shrink-0 text-muted-foreground font-normal truncate max-w-[5rem]"
-    title={label}
-  >
-    {label}
-  </Badge>
-);
-
 const ExpenseItem = ({
   expense,
   creditCards,
-  accounts,
-  accountOperations,
   isLinkedToCard,
   isCardPaid,
   onTogglePaid,
@@ -556,8 +483,6 @@ const ExpenseItem = ({
 }: {
   expense: Expense;
   creditCards: CreditCardType[];
-  accounts: import('@/types/domain').Account[];
-  accountOperations?: import('@/types/domain').AccountOperation[];
   isLinkedToCard: boolean;
   isCardPaid: boolean;
   onTogglePaid: () => void;
@@ -575,14 +500,6 @@ const ExpenseItem = ({
   const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
   const PaymentIcon = !style.isCard && style.iconConfig ? style.iconConfig.Icon : null;
   const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
-  const creditCardId = creditCards.find((c) => c.name === expense.paymentMethod)?.id ?? null;
-  const walletLabel = resolveExpenseWalletLabel(expense, {
-    isLinkedToCard,
-    isCardPaid,
-    creditCardId,
-    accounts,
-    accountOperations,
-  });
 
   const paymentMethodDisplay = expense.paymentMethod ? (
     <span className="inline-flex items-center gap-1 min-w-0 max-w-[7rem] shrink">
@@ -615,7 +532,6 @@ const ExpenseItem = ({
 
   const dateDisplay = (
     <div className="flex items-center gap-1.5 shrink-0">
-      {walletLabel && <WalletTag label={walletLabel} />}
       <span className="text-xs text-muted-foreground tabular-nums">
         {formatItemDayMonth(expense.date, expense.createdAt)}
       </span>
@@ -889,9 +805,6 @@ const ExpenseSectionComponent = ({
   onExpenseDraftConsumed,
   wishConquerPlannedValue,
   variant = 'default',
-  accounts = [],
-  accountOperations = [],
-  onRequestAddAccount,
   currentMonth,
 }: ExpenseSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -925,8 +838,6 @@ const ExpenseSectionComponent = ({
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
-  const [effectuateTarget, setEffectuateTarget] = useState<Expense | null>(null);
-  const [pendingPaidExpense, setPendingPaidExpense] = useState<Omit<Expense, 'id'> | null>(null);
 
   // Category management state (similar to Income/Investment)
   const [isCategoryManagerOpenInModal, setIsCategoryManagerOpenInModal] = useState(false);
@@ -1089,7 +1000,6 @@ const ExpenseSectionComponent = ({
 
   const clearAddDialogState = (cancelled = true) => {
     setEditingExpense(null);
-    setPendingPaidExpense(null);
     if (addDraft) {
       setAddDraft(null);
       onExpenseDraftConsumed?.(cancelled);
@@ -1106,7 +1016,6 @@ const ExpenseSectionComponent = ({
 
   const closeDialogAfterSuccess = () => {
     setEditingExpense(null);
-    setPendingPaidExpense(null);
     setApplyToAllMonths(false);
     setPendingAction(null);
     if (addDraft) {
@@ -1117,9 +1026,6 @@ const ExpenseSectionComponent = ({
     setIsOpen(false);
     onAddDialogClose?.();
   };
-
-  const isCardPaymentMethod = (paymentMethod: string) =>
-    creditCards.some((c) => c.name === paymentMethod);
 
   const buildDraftExpense = (type: Expense['type'], draft: Partial<Expense>): Expense => ({
     id: '',
@@ -1145,15 +1051,6 @@ const ExpenseSectionComponent = ({
       );
       if (success === false) return false;
     } else {
-      if (
-        wishConquerPlannedValue != null &&
-        data.paid &&
-        !isCardPaymentMethod(data.paymentMethod)
-      ) {
-        setPendingPaidExpense(data);
-        return false;
-      }
-
       const created = await onAdd(data);
       if (!created) return false;
     }
@@ -1256,72 +1153,15 @@ const ExpenseSectionComponent = ({
   const handleTogglePaid = (expense: Expense) => {
     if (isExpenseLinkedToCard(expense)) return;
 
-    if (expense.paid) {
-      const scrollTop = window.scrollY;
-      const scrollLeft = window.scrollX;
-      onUpdate(expense.id, {
-        paid: false,
-        accountId: null as unknown as string,
-      });
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(scrollLeft, scrollTop);
-        });
-      });
-      return;
-    }
-
-    setEffectuateTarget(expense);
-  };
-
-  const handleRequestAddAccount = () => {
-    setEffectuateTarget(null);
-    setPendingPaidExpense(null);
-    onRequestAddAccount?.();
-  };
-
-  const handlePendingPaidExpenseConfirm = async (accountId: string | null) => {
-    if (!pendingPaidExpense) return false;
-
-    const created = await onAdd({
-      ...pendingPaidExpense,
-      accountId: accountId ?? (null as unknown as string),
-    });
-    if (!created) return false;
-
-    persistEffectuateAccountId('expense', accountId, pendingPaidExpense.paymentMethod);
-    closeDialogAfterSuccess();
-    return true;
-  };
-
-  const handleEffectuateConfirm = async (accountId: string | null) => {
-    if (!effectuateTarget) return false;
-
     const scrollTop = window.scrollY;
     const scrollLeft = window.scrollX;
-    const ok = await onUpdate(effectuateTarget.id, {
-      paid: true,
-      accountId: accountId ?? (null as unknown as string),
-    });
-
-    if (ok) {
+    void onUpdate(expense.id, { paid: !expense.paid });
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(scrollLeft, scrollTop);
-        });
+        window.scrollTo(scrollLeft, scrollTop);
       });
-    }
-    return ok;
+    });
   };
-
-  const handleWalletDialogConfirm = async (accountId: string | null) => {
-    if (pendingPaidExpense) {
-      return handlePendingPaidExpenseConfirm(accountId);
-    }
-    return handleEffectuateConfirm(accountId);
-  };
-
-  const walletDialogSource = effectuateTarget ?? pendingPaidExpense;
 
   // Calculate paid total (items marked as paid or linked to paid cards)
   const paidTotal = expenses.reduce((sum, e) => {
@@ -1408,8 +1248,6 @@ const ExpenseSectionComponent = ({
                 key={expense.id}
                 expense={expense}
                 creditCards={groupCreditCards}
-                accounts={accounts}
-                accountOperations={accountOperations}
                 isLinkedToCard={isExpenseLinkedToCard(expense)}
                 isCardPaid={isExpenseCardPaid(expense)}
                 onTogglePaid={() => handleTogglePaid(expense)}
@@ -1434,8 +1272,6 @@ const ExpenseSectionComponent = ({
                       <ExpenseItem
                         expense={expense}
                         creditCards={groupCreditCards}
-                        accounts={accounts}
-                        accountOperations={accountOperations}
                         isLinkedToCard={isExpenseLinkedToCard(expense)}
                         isCardPaid={isExpenseCardPaid(expense)}
                         onTogglePaid={() => handleTogglePaid(expense)}
@@ -1567,7 +1403,6 @@ const ExpenseSectionComponent = ({
           categories={categories}
           creditCards={creditCards}
           expenses={expenses}
-          accounts={accounts}
           onAdd={async (expense, yearMonth) => {
             const result = await onAdd(expense, yearMonth);
             return result ?? null;
@@ -1623,7 +1458,6 @@ const ExpenseSectionComponent = ({
                   paymentMethods={paymentMethods}
                   creditCards={creditCards}
                   onSubmit={handleSubmit}
-                  accounts={accounts}
                   wishConquerPlannedValue={addDraft ? wishConquerPlannedValue : undefined}
                   initialData={
                     editingExpense
@@ -1977,23 +1811,6 @@ const ExpenseSectionComponent = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <EffectuateWalletDialog
-        open={!!walletDialogSource}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEffectuateTarget(null);
-            setPendingPaidExpense(null);
-          }
-        }}
-        kind="expense"
-        description={walletDialogSource?.description ?? ''}
-        amount={walletDialogSource?.value ?? 0}
-        accounts={accounts}
-        paymentMethod={walletDialogSource?.paymentMethod}
-        onConfirm={handleWalletDialogConfirm}
-        onRequestAddAccount={handleRequestAddAccount}
-      />
     </div>
   );
 };

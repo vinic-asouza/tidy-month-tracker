@@ -29,7 +29,7 @@ export interface EffectiveMonthTotals {
   balance: number;
 }
 
-/** Soma entradas efetivadas com tag de resgate (fonte única após vínculo com operação). */
+/** Soma entradas efetivadas com tag de resgate (histórico). */
 export function getResgateInflowFromIncomes(incomes: Income[]): number {
   return incomes
     .filter((income) => income.received && income.tag === RESGATE_INCOME_TAG)
@@ -37,7 +37,7 @@ export function getResgateInflowFromIncomes(incomes: Income[]): number {
 }
 
 export function isResgateIncome(income: Income): boolean {
-  return income.sourceOperationId != null || income.tag === RESGATE_INCOME_TAG;
+  return income.tag === RESGATE_INCOME_TAG;
 }
 
 export function calculateEffectiveMonthTotals(

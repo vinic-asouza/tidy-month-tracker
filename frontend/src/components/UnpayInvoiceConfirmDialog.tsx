@@ -28,8 +28,8 @@ export const UnpayInvoiceConfirmDialog = ({
         <AlertDialogTitle>Desmarcar fatura como paga?</AlertDialogTitle>
         <AlertDialogDescription>
           {cardName
-            ? `A fatura de ${cardName} voltará ao status pendente e o débito na carteira será removido.`
-            : 'O débito registrado na carteira será removido.'}
+            ? `A fatura de ${cardName} voltará ao status pendente.`
+            : 'A fatura voltará ao status pendente.'}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
