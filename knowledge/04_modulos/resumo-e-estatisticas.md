@@ -2,7 +2,7 @@
 type: modulo
 nome: Resumo e estatísticas
 status: Ativo
-versao: "1.1"
+versao: "1.3"
 owner: Development
 ultima_atualizacao: 2026-10-16
 tags: [resumo, estatisticas, caixa, frontend]
@@ -87,7 +87,7 @@ frontend/src/
 | --- | --- |
 | `monthTotals.ts` | `calculateMonthTotals`, pendências, gasto efetivo no cartão, tag de resgate (histórico) nas entradas |
 | `MonthSummarySection.tsx` | Quatro tiles + pendências; coluna direita é regra financeira |
-| `Statistics.tsx` | Cards anuais (média e total) + `BarChart` (recharts); exportação; abaixo, regra anual e `AnnualYearSections`. Lê a regra uma vez e repassa à seção |
+| `Statistics.tsx` | Cards anuais (média e total) + `LineChart` (recharts); exportação; abaixo, regra anual e `AnnualYearSections`. Lê a regra uma vez e repassa à seção |
 | `annualExportDocument.ts` | Mesmas seções da tela, sem desejos. CSV e PDF só formatam esse modelo |
 | `annualAverage.ts` | Janela: 12 meses no ano encerrado; meses completos no ano corrente; zero no ano futuro. O divisor conta só os meses da janela com fluxo no modo ativo |
 | `annualBreakdown.ts` | Total dos 12 meses e média da janela por categoria, tipo, forma de pagamento e tag |
@@ -193,7 +193,7 @@ Título mensal: `formatSummaryMonthTitle` → “Resumo de Mês de {mês}”.
 
 Saldo ≥ 0 em verde (`text-income`); negativo em vermelho (`text-expense`), com `+` só se positivo.
 
-Gráfico anual: barras Entradas, Gastos, Investimentos, Saldo (cor do saldo por sinal). Não entra na média. Estado vazio se os três totais do ano são 0; os cards continuam visíveis. Overlay de loading se o ano já tem cache e está refetching.
+Gráfico anual: linhas Entradas, Gastos, Investimentos, Saldo (stroke âmbar no Saldo; dots verde/vermelho conforme o sinal). Não entra na média. Estado vazio se os três totais do ano são 0; os cards continuam visíveis. Overlay de loading se o ano já tem cache e está refetching.
 
 A janela é calculada uma vez em `Statistics` (`today` do mount). A média dos cards soma a fatia `averageWindow.monthCount` e divide por `activeMonthCount`. Divisor zero devolve ausência, não o zero de uma divisão. A regra recebe o tamanho da janela, o divisor e `averageWindowLabel`. As seções de dinheiro usam o mesmo divisor. `Index` não guarda modo Total/Média. `Index` repassa a lista de desejos já carregada; `groupWishesForYear` só lê. A soma dos cartões está em `sumCardPaymentRows`.
 
@@ -314,6 +314,7 @@ npm test
 | 2026-08-22 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-10-14 | 1.1 | Exportação anual agregada em PDF e CSV (RN-R07) | DEV-150 | Technical Writer |
 | 2026-10-16 | 1.2 | Remove carteiras: sem `accountOperations` no `MonthData`; saldo do mês como única leitura | DEV-151 | Technical Writer |
+| 2026-10-16 | 1.3 | Gráfico anual: `BarChart` → `LineChart` (evolução mês a mês) | DEV-152 | Technical Writer |
 
 ---
 
