@@ -41,6 +41,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SummaryPieChart } from '@/components/SummaryPieChart';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
@@ -1099,16 +1100,25 @@ const InvestmentSectionComponent = ({
           )}
         </div>
       ) : (
-        <div className="space-y-1">
-          {groupedByInstitution.map(({ institution, total: institutionTotal }) => (
-            <InstitutionSummaryItem
-              key={institution}
-              institution={institution}
-              total={institutionTotal}
-              groupTotal={total}
-              shouldAnimate={shouldAnimate}
-            />
-          ))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start md:gap-6">
+          <div className="space-y-1 min-w-0">
+            {groupedByInstitution.map(({ institution, total: institutionTotal }) => (
+              <InstitutionSummaryItem
+                key={institution}
+                institution={institution}
+                total={institutionTotal}
+                groupTotal={total}
+                shouldAnimate={shouldAnimate}
+              />
+            ))}
+          </div>
+          <SummaryPieChart
+            tone="investment"
+            data={groupedByInstitution.map(({ institution, total: institutionTotal }) => ({
+              name: institution,
+              value: institutionTotal,
+            }))}
+          />
         </div>
       )}
 

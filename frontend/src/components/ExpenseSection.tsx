@@ -48,6 +48,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SummaryPieChart } from '@/components/SummaryPieChart';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -1336,16 +1337,22 @@ const ExpenseSectionComponent = ({
           {emptyMessage}
         </p>
       ) : (
-        <div className="space-y-1">
-          {categoryData.map(({ category, total }) => (
-            <CategorySummaryItem
-              key={category}
-              category={category}
-              total={total}
-              groupTotal={groupTotal}
-              shouldAnimate={shouldAnimate}
-            />
-          ))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start md:gap-6">
+          <div className="space-y-1 min-w-0">
+            {categoryData.map(({ category, total }) => (
+              <CategorySummaryItem
+                key={category}
+                category={category}
+                total={total}
+                groupTotal={groupTotal}
+                shouldAnimate={shouldAnimate}
+              />
+            ))}
+          </div>
+          <SummaryPieChart
+            tone="expense"
+            data={categoryData.map(({ category, total }) => ({ name: category, value: total }))}
+          />
         </div>
       )}
     </div>
