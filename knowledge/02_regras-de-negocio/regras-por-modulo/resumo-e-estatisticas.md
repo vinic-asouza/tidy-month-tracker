@@ -24,7 +24,7 @@ Linhas secundárias: a receber, a pagar, a investir — planejado do tipo **meno
 
 ## RN-R04 — Visão anual
 
-O cabeçalho troca o seletor de mês por setas de ano. Fora do ano-calendário de hoje, aparece o atalho para o ano atual. O mês aberto fica guardado: ao voltar para Mensal, é o mesmo mês nesse ano.
+O cabeçalho troca o seletor de mês pelo de ano. Em Mensal, o centro do `MonthNavigator` abre um popover com grade de 12 meses e setas de ano; as setas laterais continuam paginando mês a mês. Em Anual, o centro do `YearNavigator` abre um seletor de anos; as setas laterais paginam o ano. Fora do ano-calendário de hoje, aparece o atalho para o ano atual. O mês aberto fica guardado: ao voltar para Mensal, é o mesmo mês nesse ano.
 
 Efetivados/Planejados segue a RN-R02. Os quatro cards mostram as duas leituras ao mesmo tempo: a média da janela é o número principal e o total dos 12 meses fica abaixo. A cor do saldo segue o sinal da média. Sem média, o card mostra ausência e não pinta um zero. O gráfico continua um valor por mês.
 
@@ -46,13 +46,14 @@ Desejos não entram nos quatro números, no gráfico nem na regra. A visão Anua
 
 ## RN-R06 — Seções da visão Anual
 
-Abaixo dos cards, do gráfico de caixa e da regra, somente leitura, nesta ordem: Categorias, Método de pagamento, Investimentos, Desejos.
+Abaixo dos cards, do gráfico de caixa e da regra, somente leitura, nesta ordem: Entradas, Gastos, Método de pagamento, Investimentos, Desejos.
 
-Regra Financeira, Categorias, Método de pagamento e Investimentos têm abas **Valores** (default) e **Gráficos** (RN-R08). Desejos e o Resumo Anual **não** têm essas abas.
+Regra Financeira, Entradas, Gastos, Método de pagamento e Investimentos têm abas **Valores** (default) e **Gráficos** (RN-R08). Desejos e o Resumo Anual **não** têm essas abas.
 
-Na aba **Valores** das três seções de dinheiro, cada linha mostra total e média ao mesmo tempo. Total soma os 12 meses. Média usa a janela e o divisor da RN-R04. Linha com total zero no modo ativo some. Ordenação: maior total, empate por nome em pt-BR.
+Na aba **Valores** das seções de dinheiro, cada linha mostra total e média ao mesmo tempo. Total soma os 12 meses. Média usa a janela e o divisor da RN-R04. Linha com total zero no modo ativo some. Ordenação: maior total, empate por nome em pt-BR.
 
-- Categorias: gastos por categoria. No mesmo bloco, os mesmos gastos em fixo, parcelado e variável. Um gasto entra na categoria e no tipo, sem somar duas vezes dentro do mesmo recorte. Tipo de gasto só na aba Valores.
+- Entradas: receitas do ano agrupadas pela tag (mesmo critério de classificação da visão Mensal). Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `received`. Planejado inclui as entradas do ano, exceto tag de resgate (RN-G08).
+- Gastos: gastos por categoria. No mesmo bloco, os mesmos gastos em fixo, parcelado e variável. Um gasto entra na categoria e no tipo, sem somar duas vezes dentro do mesmo recorte. Tipo de gasto só na aba Valores.
 - Método de pagamento: uma linha por forma usada. Cartão é a forma cujo nome coincide com um cartão cadastrado. Abaixo das linhas, o sub-bloco Cartões soma só essas formas, com a mesma média e o mesmo total do ano. Sem cartão no modo ativo, o sub-bloco não aparece. Pix e as demais formas ficam de fora da soma.
 - Investimentos: aportes agrupados pela tag (RN-I05). Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `invested`. Planejado inclui todos os aportes do ano.
 - Desejos, três grupos, fora do caixa: conquistado com mês de conquista no ano; ativo cujo intervalo do mês de criação até o prazo cruza o ano; expirado com prazo no ano. A lista não expira nem grava status.
@@ -61,7 +62,7 @@ Na aba **Valores** das três seções de dinheiro, cada linha mostra total e mé
 
 Na visão Anual, **Exportar CSV** e **Exportar PDF** baixam o ano selecionado e o modo ativo (RN-R02). Um arquivo por ação.
 
-O arquivo repete as leituras já exibidas: resumo (média da janela e total dos 12 meses), série dos 12 meses, regra financeira, categorias, tipo, método de pagamento, soma dos cartões e aportes por tag. Média ausente continua `—`, não R$ 0,00. Linha com total zero no modo ativo continua de fora. Seção vazia permanece vazia. Sem regra configurada, o arquivo diz isso, sem faixas inventadas.
+O arquivo repete as leituras já exibidas: resumo (média da janela e total dos 12 meses), série dos 12 meses, regra financeira, entradas por tag, gastos por categoria, tipo, método de pagamento, soma dos cartões e aportes por tag. Média ausente continua `—`, não R$ 0,00. Linha com total zero no modo ativo continua de fora. Seção vazia permanece vazia. Sem regra configurada, o arquivo diz isso, sem faixas inventadas.
 
 Desejos ficam só na tela (RN-R05). Não entram lançamentos linha a linha, visão Mensal, os dois modos juntos nem envio do arquivo. Nada é gravado.
 
@@ -71,13 +72,18 @@ Os gráficos por seção (RN-R08) **não** entram no PDF/CSV nesta versão.
 
 ## RN-R08 — Gráficos por seção (visão Anual)
 
-Nas seções Regra Financeira, Categorias, Método de pagamento e Investimentos, a aba **Gráficos** mostra evolução mês a mês (12 meses, linhas), no modo ativo (RN-R02). O Resumo Anual (Entradas/Gastos/Investimentos/Saldo) e Desejos ficam de fora.
+Nas seções Regra Financeira, Entradas, Gastos, Método de pagamento e Investimentos, a aba **Gráficos** mostra evolução mês a mês (12 meses, linhas), no modo ativo (RN-R02). O Resumo Anual (Entradas/Gastos/Investimentos/Saldo) e Desejos ficam de fora.
 
 Defaults e seletores (estado local; sem persistência):
 
 - **Regra:** Essenciais, Estilo de vida e Investimentos; série **Não classificado** só se houver valor no ano. Sem seletor.
-- **Categorias:** default = top 3 pela média da janela (RN-R04); seletor para uma categoria ou voltar ao top 3. Paleta vermelho/rosa.
+- **Entradas:** default = top 3 pela média da janela (RN-R04); seletor para uma tag ou voltar ao top 3. Paleta verde.
+- **Gastos:** default = top 3 pela média da janela (RN-R04); seletor para uma categoria ou voltar ao top 3. Paleta vermelho/rosa.
 - **Método de pagamento:** default = todas as séries com cartões agrupados em “Cartões”; seletor: Todas, Cartões, cada forma não-cartão e cada cartão nomeado. Paleta laranja/amarelo/marrom.
 - **Investimentos:** default = todas as tags; seletor Todas ou uma tag. Paleta azul.
 
 No hover de cada mês, a lista do tooltip ordena os itens do **maior para o menor** valor.
+
+## RN-R09 — Pizza no Resumo mensal
+
+Na visão Mensal, nas abas **Resumo** de Entradas, Gastos e Investimentos: desktop em duas colunas (lista com barras horizontais à esquerda; pizza dos mesmos itens à direita). Mobile empilha (lista acima, pizza abaixo). A agregação é a mesma já usada na lista do Resumo. Sem dados, a pizza não aparece.

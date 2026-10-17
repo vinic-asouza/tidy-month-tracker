@@ -35,9 +35,10 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Toggle **Efetivados** / **Planejados**, persistido e compartilhado (RN-R02)
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
 - Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês de caixa (RN-R04)
-- Seções somente leitura abaixo da regra: categorias, tipo de gasto, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Regra, Categorias, Pagamento e Investimentos têm abas Valores | Gráficos (RN-R08). Desejos não entram no caixa (RN-R05)
+- Seções somente leitura abaixo da regra: entradas por tag, gastos por categoria/tipo, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Regra, Entradas, Gastos, Pagamento e Investimentos têm abas Valores | Gráficos (RN-R08). Desejos não entram no caixa (RN-R05)
+- Na visão Mensal, aba Resumo de Entradas/Gastos/Investimentos: lista + pizza lado a lado no desktop (RN-R09)
 - Exportar PDF e CSV do ano e do modo ativos, sem desejos, sem gráficos por seção e sem gravar o arquivo (RN-R07)
-- Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
+- Seletor de mês/ano no header (clique no centro + setas); o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
 - Hint de entradas efetivadas com a tag histórica *Resgate de investimentos* (quando há valor)
 - Destacar o mês de hoje no eixo X quando o ano visto é o ano-calendário
@@ -218,11 +219,12 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R01 | Quatro números; saldo colorido | `MonthSummarySection`, `Statistics` `StatCard` |
 | RN-R02 | Toggle compartilhado (resumo, regra, anual) | `useSummaryViewMode` |
 | RN-R03 | Pendências só no efetivado; “a receber” sem misturar tag de resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
-| RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator` |
+| RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor mês/ano no header | `annualAverage.ts`, `Statistics`, `MonthNavigator`, `YearNavigator` |
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
-| RN-R06 | Seções anuais de categoria, pagamento (com soma dos cartões), tag e desejos; abas Valores | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
+| RN-R06 | Seções anuais Entradas, Gastos, pagamento (com soma dos cartões), aportes e desejos; abas Valores | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
 | RN-R07 | PDF/CSV do ano e do modo ativos; desejos e gráficos por seção de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
-| RN-R08 | Gráficos por seção (Regra, Categorias, Pagamento, Investimentos) | `annualMonthlySeries.ts`, `AnnualChartTabs`, `AnnualSectionChart`, `AnnualFinancialRuleSection` |
+| RN-R08 | Gráficos por seção (Regra, Entradas, Gastos, Pagamento, Investimentos) | `annualMonthlySeries.ts`, `AnnualChartTabs`, `AnnualSectionChart`, `AnnualFinancialRuleSection` |
+| RN-R09 | Pizza ao lado do Resumo mensal (Entradas, Gastos, Investimentos) | `SummaryPieChart.tsx`, seções mensais |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
 | RN-G08 | Tag de resgate = entrada normal (efetivado conta; planejado fora) | `getResgateInflowFromIncomes`; `isResgateIncome` |
 
@@ -323,6 +325,7 @@ npm test
 | 2026-10-16 | 1.2 | Remove carteiras: sem `accountOperations` no `MonthData`; saldo do mês como única leitura | DEV-151 | Technical Writer |
 | 2026-10-16 | 1.3 | Gráfico anual: `BarChart` → `LineChart` (evolução mês a mês) | DEV-152 | Technical Writer |
 | 2026-10-17 | 1.4 | Abas Valores/Gráficos e séries mês a mês por seção (RN-R08) | DEV-153 | Technical Writer |
+| 2026-10-17 | 1.5 | Entradas no anual + rename Gastos; seletor mês/ano; pizza no Resumo mensal (RN-R06–R09) | DEV-154, DEV-155, DEV-156 | Technical Writer |
 
 ---
 
