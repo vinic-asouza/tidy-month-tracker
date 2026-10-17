@@ -1,5 +1,6 @@
 import { CreditCard, Loader2, PiggyBank, Sparkles, Tags } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { AnnualChartTabs } from '@/components/AnnualChartTabs';
 import { Badge } from '@/components/ui/badge';
 import { SectionSurface } from '@/components/layout/SectionSurface';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -10,6 +11,16 @@ import {
   sumCardPaymentRows,
   type AnnualMoneyRow,
 } from '@/utils/business/annualBreakdown';
+import {
+  ALL_SERIES_KEY,
+  TOP3_SERIES_KEY,
+  buildCategoryChartOptions,
+  buildCategoryMonthlyChart,
+  buildInvestmentChartOptions,
+  buildInvestmentMonthlyChart,
+  buildPaymentChartOptions,
+  buildPaymentMonthlyChart,
+} from '@/utils/business/annualMonthlySeries';
 import type { SummaryViewMode } from '@/utils/business/monthTotals';
 import {
   formatShortYearMonth,
@@ -26,6 +37,7 @@ interface AnnualYearSectionsProps {
   averageWindowLabel: string;
   wishes: WishItem[];
   wishesLoading?: boolean;
+  currentMonthIndex?: number;
 }
 
 type MoneyTone = 'expense' | 'credit' | 'investment';
@@ -268,7 +280,12 @@ export function AnnualYearSections({
   averageWindowLabel,
   wishes,
   wishesLoading = false,
+  currentMonthIndex = -1,
 }: AnnualYearSectionsProps) {
+  const [categorySelection, setCategorySelection] = useState(TOP3_SERIES_KEY);
+  const [paymentSelection, setPaymentSelection] = useState(ALL_SERIES_KEY);
+  const [investmentSelection, setInvestmentSelection] = useState(ALL_SERIES_KEY);
+
   const expenses = useMemo(
     () => buildAnnualExpenseBreakdown(yearData, viewMode, creditCards, monthCount),
     [yearData, viewMode, creditCards, monthCount]
@@ -293,6 +310,65 @@ export function AnnualYearSections({
     viewMode === 'planned'
       ? 'Nenhum aporte registrado neste ano.'
       : 'Nenhum aporte efetivado neste ano.';
+  const emptyExpenseChart =
+    viewMode === 'planned'
+      ? 'Registre gastos ao longo do ano para ver o gráfico planejado.'
+      : 'Marque gastos como pagos (ou pague a fatura do cartão) para ver o gráfico.';
+  const emptyInvestmentChart =
+    viewMode === 'planned'
+      ? 'Registre aportes ao longo do ano para ver o gráfico planejado.'
+      : 'Marque aportes como investidos para ver o gráfico.';
+
+  const categoryOptions = useMemo(
+    () => buildCategoryChartOptions(yearData, viewMode, creditCards, monthCount),
+    [yearData, viewMode, creditCards, monthCount]
+  );
+  const safeCategorySelection = categoryOptions.some((option) => option.value === categorySelection)
+    ? categorySelection
+    : TOP3_SERIES_KEY;
+  const categoryChart = useMemo(
+    () =>
+      buildCategoryMonthlyChart(
+        yearData,
+        viewMode,
+        creditCards,
+        monthCount,
+        safeCategorySelection
+      ),
+    [yearData, viewMode, creditCards, monthCount, safeCategorySelection]
+  );
+  const paymentOptions = useMemo(
+    () => buildPaymentChartOptions(yearData, viewMode, creditCards, monthCount),
+    [yearData, viewMode, creditCards, monthCount]
+  );
+  const safePaymentSelection = paymentOptions.some((option) => option.value === paymentSelection)
+    ? paymentSelection
+    : ALL_SERIES_KEY;
+  const paymentChart = useMemo(
+    () =>
+      buildPaymentMonthlyChart(yearData, viewMode, creditCards, monthCount, safePaymentSelection),
+    [yearData, viewMode, creditCards, monthCount, safePaymentSelection]
+  );
+  const investmentOptions = useMemo(
+    () => buildInvestmentChartOptions(yearData, viewMode, monthCount, creditCards),
+    [yearData, viewMode, monthCount, creditCards]
+  );
+  const safeInvestmentSelection = investmentOptions.some(
+    (option) => option.value === investmentSelection
+  )
+    ? investmentSelection
+    : ALL_SERIES_KEY;
+  const investmentChart = useMemo(
+    () =>
+      buildInvestmentMonthlyChart(
+        yearData,
+        viewMode,
+        monthCount,
+        safeInvestmentSelection,
+        creditCards
+      ),
+    [yearData, viewMode, monthCount, safeInvestmentSelection, creditCards]
+  );
 
   return (
     <>
@@ -303,14 +379,25 @@ export function AnnualYearSections({
         iconVariant="expense"
         actions={<SectionCornerFigures rows={expenses.categories} tone="expense" />}
       >
-        {expenses.categories.length === 0 ? (
-          <EmptyLine>{emptyExpenses}</EmptyLine>
-        ) : (
-          <div className="space-y-4">
-            <MoneyRows rows={expenses.categories} tone="expense" />
-            <TypeBreakdown rows={expenses.types} />
-          </div>
-        )}
+        <AnnualChartTabs
+          currentMonthIndex={currentMonthIndex}
+          emptyMessage={emptyExpenseChart}
+          chart={categoryChart}
+          selectOptions={categoryOptions}
+          selectValue={safeCategorySelection}
+          onSelectChange={setCategorySelection}
+          selectAriaLabel="Filtrar categorias do gráfico"
+          valuesContent={
+            expenses.categories.length === 0 ? (
+              <EmptyLine>{emptyExpenses}</EmptyLine>
+            ) : (
+              <div className="space-y-4">
+                <MoneyRows rows={expenses.categories} tone="expense" />
+                <TypeBreakdown rows={expenses.types} />
+              </div>
+            )
+          }
+        />
       </SectionSurface>
 
       <SectionSurface
@@ -320,15 +407,26 @@ export function AnnualYearSections({
         iconVariant="credit"
         actions={<SectionCornerFigures rows={expenses.paymentMethods} tone="credit" />}
       >
-        {expenses.paymentMethods.length === 0 ? (
-          <EmptyLine>{emptyExpenses}</EmptyLine>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
-            <MoneyRows rows={expenses.paymentMethods} tone="credit" />
-            <CardPaymentsTotal rows={expenses.paymentMethods} />
-          </div>
-        )}
+        <AnnualChartTabs
+          currentMonthIndex={currentMonthIndex}
+          emptyMessage={emptyExpenseChart}
+          chart={paymentChart}
+          selectOptions={paymentOptions}
+          selectValue={safePaymentSelection}
+          onSelectChange={setPaymentSelection}
+          selectAriaLabel="Filtrar métodos de pagamento do gráfico"
+          valuesContent={
+            expenses.paymentMethods.length === 0 ? (
+              <EmptyLine>{emptyExpenses}</EmptyLine>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
+                <MoneyRows rows={expenses.paymentMethods} tone="credit" />
+                <CardPaymentsTotal rows={expenses.paymentMethods} />
+              </div>
+            )
+          }
+        />
       </SectionSurface>
 
       <SectionSurface
@@ -338,14 +436,25 @@ export function AnnualYearSections({
         iconVariant="investment"
         actions={<SectionCornerFigures rows={investments} tone="investment" />}
       >
-        {investments.length === 0 ? (
-          <EmptyLine>{emptyInvestments}</EmptyLine>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
-            <MoneyRows rows={investments} tone="investment" />
-          </div>
-        )}
+        <AnnualChartTabs
+          currentMonthIndex={currentMonthIndex}
+          emptyMessage={emptyInvestmentChart}
+          chart={investmentChart}
+          selectOptions={investmentOptions}
+          selectValue={safeInvestmentSelection}
+          onSelectChange={setInvestmentSelection}
+          selectAriaLabel="Filtrar aportes do gráfico"
+          valuesContent={
+            investments.length === 0 ? (
+              <EmptyLine>{emptyInvestments}</EmptyLine>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
+                <MoneyRows rows={investments} tone="investment" />
+              </div>
+            )
+          }
+        />
       </SectionSurface>
 
       <SectionSurface

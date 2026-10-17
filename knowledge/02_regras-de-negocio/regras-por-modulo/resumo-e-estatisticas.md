@@ -1,12 +1,12 @@
 ---
 type: regras-modulo
 modulo: resumo-e-estatisticas
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-17
 ---
 
 # Resumo do mês e estatísticas anuais
 
-Componentes: `MonthSummarySection`, `Statistics`. Cálculo: `monthTotals.ts`.
+Componentes: `MonthSummarySection`, `Statistics`. Cálculo: `monthTotals.ts`. Séries dos gráficos por seção: `annualMonthlySeries.ts`.
 
 ---
 
@@ -16,7 +16,7 @@ Entradas, gastos, investimentos e saldo, conforme o modo do toggle (RN-G03). Sal
 
 ## RN-R02 — Toggle compartilhado
 
-Efetivados (padrão) | Planejados. O mesmo modo alimenta resumo, gráfico, regra financeira e as seções de dinheiro da visão Anual (RN-R06). Na visão Anual a barra acima das seções tem só esse controle. Não há seletor Total/Média. A visão Mensal tem a própria instância; o `localStorage` alinha a próxima montagem, não as duas ao vivo.
+Efetivados (padrão) | Planejados. O mesmo modo alimenta resumo, gráfico de caixa, regra financeira, listas de Valores e gráficos das seções de dinheiro da visão Anual (RN-R06, RN-R08). Na visão Anual a barra acima das seções tem só esse controle. Não há seletor Total/Média. A visão Mensal tem a própria instância; o `localStorage` alinha a próxima montagem, não as duas ao vivo.
 
 ## RN-R03 — Pendências (modo efetivado)
 
@@ -46,11 +46,13 @@ Desejos não entram nos quatro números, no gráfico nem na regra. A visão Anua
 
 ## RN-R06 — Seções da visão Anual
 
-Abaixo dos cards, do gráfico e da regra, somente leitura, nesta ordem: Categorias, Método de pagamento, Investimentos, Desejos.
+Abaixo dos cards, do gráfico de caixa e da regra, somente leitura, nesta ordem: Categorias, Método de pagamento, Investimentos, Desejos.
 
-Nas três seções de dinheiro, cada linha mostra total e média ao mesmo tempo. Total soma os 12 meses. Média usa a janela e o divisor da RN-R04. Linha com total zero no modo ativo some. Ordenação: maior total, empate por nome em pt-BR.
+Regra Financeira, Categorias, Método de pagamento e Investimentos têm abas **Valores** (default) e **Gráficos** (RN-R08). Desejos e o Resumo Anual **não** têm essas abas.
 
-- Categorias: gastos por categoria. No mesmo bloco, os mesmos gastos em fixo, parcelado e variável. Um gasto entra na categoria e no tipo, sem somar duas vezes dentro do mesmo recorte.
+Na aba **Valores** das três seções de dinheiro, cada linha mostra total e média ao mesmo tempo. Total soma os 12 meses. Média usa a janela e o divisor da RN-R04. Linha com total zero no modo ativo some. Ordenação: maior total, empate por nome em pt-BR.
+
+- Categorias: gastos por categoria. No mesmo bloco, os mesmos gastos em fixo, parcelado e variável. Um gasto entra na categoria e no tipo, sem somar duas vezes dentro do mesmo recorte. Tipo de gasto só na aba Valores.
 - Método de pagamento: uma linha por forma usada. Cartão é a forma cujo nome coincide com um cartão cadastrado. Abaixo das linhas, o sub-bloco Cartões soma só essas formas, com a mesma média e o mesmo total do ano. Sem cartão no modo ativo, o sub-bloco não aparece. Pix e as demais formas ficam de fora da soma.
 - Investimentos: aportes agrupados pela tag (RN-I05). Tag em branco, só espaços, `—` ou `-` vira Sem classificação. Efetivado exige `invested`. Planejado inclui todos os aportes do ano.
 - Desejos, três grupos, fora do caixa: conquistado com mês de conquista no ano; ativo cujo intervalo do mês de criação até o prazo cruza o ano; expirado com prazo no ano. A lista não expira nem grava status.
@@ -64,3 +66,18 @@ O arquivo repete as leituras já exibidas: resumo (média da janela e total dos 
 Desejos ficam só na tela (RN-R05). Não entram lançamentos linha a linha, visão Mensal, os dois modos juntos nem envio do arquivo. Nada é gravado.
 
 A ação espera o ano com 12 meses, o fim do carregamento do ano e o fim do carregamento da regra. Ano futuro ou ano vazio, já exibidos, podem ser exportados. Nome: `finto-anual-{ano}-efetivados` ou `finto-anual-{ano}-planejados`.
+
+Os gráficos por seção (RN-R08) **não** entram no PDF/CSV nesta versão.
+
+## RN-R08 — Gráficos por seção (visão Anual)
+
+Nas seções Regra Financeira, Categorias, Método de pagamento e Investimentos, a aba **Gráficos** mostra evolução mês a mês (12 meses, linhas), no modo ativo (RN-R02). O Resumo Anual (Entradas/Gastos/Investimentos/Saldo) e Desejos ficam de fora.
+
+Defaults e seletores (estado local; sem persistência):
+
+- **Regra:** Essenciais, Estilo de vida e Investimentos; série **Não classificado** só se houver valor no ano. Sem seletor.
+- **Categorias:** default = top 3 pela média da janela (RN-R04); seletor para uma categoria ou voltar ao top 3. Paleta vermelho/rosa.
+- **Método de pagamento:** default = todas as séries com cartões agrupados em “Cartões”; seletor: Todas, Cartões, cada forma não-cartão e cada cartão nomeado. Paleta laranja/amarelo/marrom.
+- **Investimentos:** default = todas as tags; seletor Todas ou uma tag. Paleta azul.
+
+No hover de cada mês, a lista do tooltip ordena os itens do **maior para o menor** valor.

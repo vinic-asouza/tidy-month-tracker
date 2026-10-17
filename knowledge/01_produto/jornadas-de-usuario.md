@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-17
 ---
 
 # Jornadas de usuário
@@ -118,9 +118,9 @@ Jornada removida na DEV-151 (carteiras, transferência e resgate saíram do prod
 **Persona:** Rafael (média) / André (disciplina de aportes).
 
 1. Cabeçalho → **Anual**. O seletor passa a ser o ano e guarda o mês que estava aberto.
-2. `Statistics`: cada card mostra a média da janela em destaque e o total dos 12 meses abaixo. Mês vazio sai do divisor. Sem mês na janela, a média mostra ausência. O gráfico continua mês a mês. Efetivados/Planejados vale para resumo, gráfico, regra e seções de dinheiro.
-3. A regra anual usa a mesma média nas barras. Abaixo dela, quatro leituras: gastos por categoria (e por tipo), forma de pagamento (com a soma dos cartões), aportes por tag e desejos do ano. Desejos não entram no caixa.
-4. **Exportar CSV** ou **Exportar PDF** baixa o ano e o modo que estão na tela: resumo, série mensal, regra, categorias, tipo, pagamento e aportes. Desejos ficam só na tela. A visão Mensal não oferece essas ações.
+2. `Statistics`: cada card mostra a média da janela em destaque e o total dos 12 meses abaixo. Mês vazio sai do divisor. Sem mês na janela, a média mostra ausência. O gráfico de caixa continua mês a mês. Efetivados/Planejados vale para resumo, gráfico, regra, listas e gráficos das seções.
+3. A regra anual usa a mesma média nas barras e oferece abas **Valores** | **Gráficos**. Abaixo, Categorias, Método de pagamento e Investimentos também têm essas abas (evolução mês a mês com seletores). Desejos ficam só na lista, sem abas nem gráfico. Desejos não entram no caixa.
+4. **Exportar CSV** ou **Exportar PDF** baixa o ano e o modo que estão na tela: resumo, série mensal, regra, categorias, tipo, pagamento e aportes. Desejos e os gráficos por seção ficam só na tela. A visão Mensal não oferece essas ações.
 5. Volta a **Mensal** no mesmo mês do ano escolhido. A visão Mensal continua com um valor só.
 
 ---

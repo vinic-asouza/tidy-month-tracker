@@ -385,6 +385,7 @@ export const Statistics = ({
             averageMonthCount={averageWindow.monthCount}
             activeMonthCount={activeMonthCount}
             averageWindowLabel={averageWindowLabel}
+            currentMonthIndex={currentMonthIndex}
             rule={rule}
             ruleLoading={ruleLoading}
             onCreateRule={createRule}
@@ -401,6 +402,7 @@ export const Statistics = ({
             averageWindowLabel={averageWindowLabel}
             wishes={wishes}
             wishesLoading={wishesLoading}
+            currentMonthIndex={currentMonthIndex}
           />
         </>
       )}
