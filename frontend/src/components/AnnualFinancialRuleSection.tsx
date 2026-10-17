@@ -5,6 +5,7 @@
 
 import { useState, useMemo } from 'react';
 import { Settings, Loader2, AlertCircle, Scale } from 'lucide-react';
+import { AnnualChartTabs } from '@/components/AnnualChartTabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionSurface } from '@/components/layout/SectionSurface';
@@ -14,6 +15,7 @@ import { FinancialRuleDisplay } from './FinancialRuleDisplay';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { formatCurrency } from '@/lib/utils';
 import { sliceYearMonths } from '@/utils/business/annualAverage';
+import { buildFinancialRuleMonthlyChart } from '@/utils/business/annualMonthlySeries';
 import {
   calculateAnnualFinancialRuleStatsByMode,
   resolveAnnualRuleMoney,
@@ -42,6 +44,7 @@ interface AnnualFinancialRuleSectionProps {
   /** Meses da janela com entrada, gasto ou investimento no modo ativo. */
   activeMonthCount: number;
   averageWindowLabel: string;
+  currentMonthIndex?: number;
   rule: FinancialRule | null;
   ruleLoading: boolean;
   onCreateRule: (data: CreateFinancialRuleInput) => Promise<FinancialRule>;
@@ -58,6 +61,7 @@ export const AnnualFinancialRuleSection = ({
   averageMonthCount,
   activeMonthCount,
   averageWindowLabel,
+  currentMonthIndex = -1,
   rule,
   ruleLoading,
   onCreateRule,
@@ -83,6 +87,11 @@ export const AnnualFinancialRuleSection = ({
     );
     return resolveAnnualRuleMoney(year, windowStats, averageMonthCount, activeMonthCount);
   }, [rule, yearData, windowMonths, creditCards, viewMode, averageMonthCount, activeMonthCount]);
+
+  const ruleChart = useMemo(() => {
+    if (!rule || yearData.length === 0) return null;
+    return buildFinancialRuleMonthlyChart(rule, yearData, viewMode, creditCards);
+  }, [rule, yearData, viewMode, creditCards]);
 
   const unmappedCategories = useMemo(() => {
     if (!rule || !settings.expenseCategories) return [];
@@ -222,20 +231,31 @@ export const AnnualFinancialRuleSection = ({
               </div>
             </div>
 
-            {ruleFigures && (
-              <FinancialRuleDisplay
-                rule={rule}
-                stats={ruleFigures.average ?? undefined}
-                yearStats={ruleFigures.year}
-                resgateHint={resgateHint ?? undefined}
-                viewMode={viewMode}
-                onEditMapping={handleEdit}
-                emptyStateMessage={
-                  ruleFigures.average
-                    ? isPlanned
-                      ? 'Registre lançamentos no período da média para ver as barras da regra. O total do ano continua abaixo.'
-                      : 'Marque lançamentos como recebidos, pagos ou investidos no período da média para ver as barras da regra. O total do ano continua abaixo.'
-                    : 'Nenhum mês com lançamentos neste período para calcular a média da regra. O total do ano continua abaixo.'
+            {ruleFigures && ruleChart && (
+              <AnnualChartTabs
+                currentMonthIndex={currentMonthIndex}
+                chart={ruleChart}
+                emptyMessage={
+                  isPlanned
+                    ? 'Registre lançamentos ao longo do ano para ver o gráfico da regra planejada.'
+                    : 'Marque lançamentos como recebidos, pagos ou investidos para ver o gráfico da regra.'
+                }
+                valuesContent={
+                  <FinancialRuleDisplay
+                    rule={rule}
+                    stats={ruleFigures.average ?? undefined}
+                    yearStats={ruleFigures.year}
+                    resgateHint={resgateHint ?? undefined}
+                    viewMode={viewMode}
+                    onEditMapping={handleEdit}
+                    emptyStateMessage={
+                      ruleFigures.average
+                        ? isPlanned
+                          ? 'Registre lançamentos no período da média para ver as barras da regra. O total do ano continua abaixo.'
+                          : 'Marque lançamentos como recebidos, pagos ou investidos no período da média para ver as barras da regra. O total do ano continua abaixo.'
+                        : 'Nenhum mês com lançamentos neste período para calcular a média da regra. O total do ano continua abaixo.'
+                    }
+                  />
                 }
               />
             )}

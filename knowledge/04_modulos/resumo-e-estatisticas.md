@@ -2,16 +2,16 @@
 type: modulo
 nome: Resumo e estatísticas
 status: Ativo
-versao: "1.3"
+versao: "1.4"
 owner: Development
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-17
 tags: [resumo, estatisticas, caixa, frontend]
 dependencias: [autenticacao]
 ---
 
 # Módulo — Resumo e estatísticas
 
-Documento-base em `knowledge/04_modulos/resumo-e-estatisticas.md`. Atualize quando as fórmulas do mês, o toggle ou a visão anual mudarem.
+Documento-base em `knowledge/04_modulos/resumo-e-estatisticas.md`. Atualize quando as fórmulas do mês, o toggle, a visão anual ou os gráficos por seção mudarem.
 
 Regras: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md).
 
@@ -34,10 +34,11 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Quatro métricas do mês: entradas, gastos, investimentos, saldo (RN-R01)
 - Toggle **Efetivados** / **Planejados**, persistido e compartilhado (RN-R02)
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
-- Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês (RN-R04)
-- Seções somente leitura abaixo da regra: categorias, tipo de gasto, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Desejos não entram no caixa (RN-R05)
-- Exportar PDF e CSV do ano e do modo ativos, sem desejos e sem gravar o arquivo (RN-R07)
-- Seletor de ano no lugar do seletor de mês; o mês fica guardado para a volta à visão Mensal
+- Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês de caixa (RN-R04)
+- Seções somente leitura abaixo da regra: entradas por tag, gastos por categoria/tipo, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Regra, Entradas, Gastos, Pagamento e Investimentos têm abas Valores | Gráficos (RN-R08). Desejos não entram no caixa (RN-R05)
+- Na visão Mensal, aba Resumo de Entradas/Gastos/Investimentos: lista + pizza lado a lado no desktop (RN-R09)
+- Exportar PDF e CSV do ano e do modo ativos, sem desejos, sem gráficos por seção e sem gravar o arquivo (RN-R07)
+- Seletor de mês/ano no header (clique no centro + setas); o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
 - Hint de entradas efetivadas com a tag histórica *Resgate de investimentos* (quando há valor)
 - Destacar o mês de hoje no eixo X quando o ano visto é o ano-calendário
@@ -61,7 +62,9 @@ frontend/src/
   components/MonthSummarySection.tsx           # bloco mensal (métricas + hospeda a regra)
   components/Statistics.tsx                    # média, total, gráfico e exportação do ano
   components/AnnualExportActions.tsx           # Exportar CSV e Exportar PDF
-  components/AnnualYearSections.tsx            # categorias, pagamento, investimentos, desejos
+  components/AnnualYearSections.tsx            # categorias, pagamento, investimentos, desejos (+ abas/gráficos)
+  components/AnnualChartTabs.tsx               # abas Valores | Gráficos + seletor
+  components/AnnualSectionChart.tsx            # LineChart das seções + tooltip ordenado
   components/YearNavigator.tsx                 # setas de ano no cabeçalho anual
   components/SummaryViewModeToggle.tsx         # Efetivados | Planejados
   components/layout/SummaryTotalsLegend.tsx    # texto do modo
@@ -70,12 +73,14 @@ frontend/src/
   utils/business/monthTotals.ts                # fórmulas
   utils/business/annualAverage.ts              # janela da média anual e meses com lançamento
   utils/business/annualBreakdown.ts            # categoria, tipo, pagamento e tag
+  utils/business/annualMonthlySeries.ts        # séries mês a mês dos gráficos por seção
   utils/business/annualExportDocument.ts       # modelo do PDF/CSV anual
   utils/business/annualExportCsv.ts
   utils/business/annualExportPdf.ts            # jspdf só no clique
   utils/business/__tests__/annualExportDocument.test.ts
   utils/business/__tests__/annualAverage.test.ts
   utils/business/__tests__/annualBreakdown.test.ts
+  utils/business/__tests__/annualMonthlySeries.test.ts
   utils/business/__tests__/monthTotals.test.ts
   services/financeQueries.ts                   # fetchMonthBundle / fetchYearData
   hooks/useSupabaseFinance.ts                  # yearQuery só com statisticsEnabled
@@ -91,6 +96,8 @@ frontend/src/
 | `annualExportDocument.ts` | Mesmas seções da tela, sem desejos. CSV e PDF só formatam esse modelo |
 | `annualAverage.ts` | Janela: 12 meses no ano encerrado; meses completos no ano corrente; zero no ano futuro. O divisor conta só os meses da janela com fluxo no modo ativo |
 | `annualBreakdown.ts` | Total dos 12 meses e média da janela por categoria, tipo, forma de pagamento e tag |
+| `annualMonthlySeries.ts` | Séries mês a mês + defaults/seletores (top 3, cartões agrupados, todas as tags) |
+| `AnnualChartTabs.tsx` / `AnnualSectionChart.tsx` | UI das abas e do gráfico; tooltip ordena do maior para o menor |
 | `useSummaryViewMode.ts` | Chave `tidy-summary-view-mode` |
 | `financeQueries.ts` | 12 `fetchMonthBundle` em paralelo para o ano |
 | `Index.tsx` | Nav **Mensal** / **Anual** na mesma rota `/` |
@@ -212,10 +219,12 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R01 | Quatro números; saldo colorido | `MonthSummarySection`, `Statistics` `StatCard` |
 | RN-R02 | Toggle compartilhado (resumo, regra, anual) | `useSummaryViewMode` |
 | RN-R03 | Pendências só no efetivado; “a receber” sem misturar tag de resgate | `calculatePendingMonthTotals` + UI oculta no planejado |
-| RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor de ano | `annualAverage.ts`, `Statistics`, `YearNavigator` |
+| RN-R04 | Média da janela em destaque e total dos 12 meses juntos; mês vazio fora do divisor; gráfico mês a mês; seletor mês/ano no header | `annualAverage.ts`, `Statistics`, `MonthNavigator`, `YearNavigator` |
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
-| RN-R06 | Seções anuais de categoria, pagamento (com soma dos cartões), tag e desejos | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
-| RN-R07 | PDF/CSV do ano e do modo ativos; desejos de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
+| RN-R06 | Seções anuais Entradas, Gastos, pagamento (com soma dos cartões), aportes e desejos; abas Valores | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
+| RN-R07 | PDF/CSV do ano e do modo ativos; desejos e gráficos por seção de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
+| RN-R08 | Gráficos por seção (Regra, Entradas, Gastos, Pagamento, Investimentos) | `annualMonthlySeries.ts`, `AnnualChartTabs`, `AnnualSectionChart`, `AnnualFinancialRuleSection` |
+| RN-R09 | Pizza ao lado do Resumo mensal (Entradas, Gastos, Investimentos) | `SummaryPieChart.tsx`, seções mensais |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |
 | RN-G08 | Tag de resgate = entrada normal (efetivado conta; planejado fora) | `getResgateInflowFromIncomes`; `isResgateIncome` |
 
@@ -275,7 +284,7 @@ Nenhuma env exclusiva. Precisa do mesmo `VITE_SUPABASE_*` (e sessão) que o rest
 
 | Item | Valor |
 | --- | --- |
-| Arquivos de teste | `monthTotals.test.ts`, `annualAverage.test.ts`, `annualBreakdown.test.ts`, `annualExportDocument.test.ts` |
+| Arquivos de teste | `monthTotals.test.ts`, `annualAverage.test.ts`, `annualBreakdown.test.ts`, `annualMonthlySeries.test.ts`, `annualExportDocument.test.ts` |
 | UI (`MonthSummarySection` / `Statistics`) | Nenhum spec |
 | Cobertura | Só as funções puras listadas abaixo — não inventar % |
 | Coleções / manuais | Jornada 2 em [`../01_produto/jornadas-de-usuario.md`](../01_produto/jornadas-de-usuario.md) |
@@ -315,6 +324,8 @@ npm test
 | 2026-10-14 | 1.1 | Exportação anual agregada em PDF e CSV (RN-R07) | DEV-150 | Technical Writer |
 | 2026-10-16 | 1.2 | Remove carteiras: sem `accountOperations` no `MonthData`; saldo do mês como única leitura | DEV-151 | Technical Writer |
 | 2026-10-16 | 1.3 | Gráfico anual: `BarChart` → `LineChart` (evolução mês a mês) | DEV-152 | Technical Writer |
+| 2026-10-17 | 1.4 | Abas Valores/Gráficos e séries mês a mês por seção (RN-R08) | DEV-153 | Technical Writer |
+| 2026-10-17 | 1.5 | Entradas no anual + rename Gastos; seletor mês/ano; pizza no Resumo mensal (RN-R06–R09) | DEV-154, DEV-155, DEV-156 | Technical Writer |
 
 ---
 

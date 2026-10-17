@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Visão do produto
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-17
 ---
 
 # Visão do produto
@@ -77,7 +77,7 @@ O **saldo do mês** usa o efetivado por padrão. Dá para alternar para planejad
 - Painel do mês: resumo, regra financeira, registros (entradas, gastos, investimentos, desejos)
 - Cartões de crédito com fatura mensal
 - Aportes como registro do hábito de investir (sem carteira de origem ou destino)
-- Visão anual (média e total juntos, gráfico mês a mês, seletor de ano e exportação do recorte anual)
+- Visão anual (média e total juntos, gráfico de caixa mês a mês, gráficos por seção com abas Valores/Gráficos, seletor de ano e exportação do recorte anual)
 - Personalização de tags, categorias, nome/cor de cartões, tema claro/escuro
 
 ---

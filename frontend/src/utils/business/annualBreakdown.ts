@@ -8,9 +8,15 @@
 
 import type { CreditCard, Expense, MonthData } from '@/types/domain';
 import { countActiveAverageMonths } from './annualAverage';
-import { calculateMonthTotals, isExpenseEffectivelyPaid, type SummaryViewMode } from './monthTotals';
+import {
+  calculateMonthTotals,
+  isExpenseEffectivelyPaid,
+  isResgateIncome,
+  type SummaryViewMode,
+} from './monthTotals';
 
 export const UNCLASSIFIED_INVESTMENT_LABEL = 'Sem classificação';
+export const UNCLASSIFIED_INCOME_LABEL = 'Sem classificação';
 
 const EMPTY_CATEGORY_LABEL = 'Sem categoria';
 const EMPTY_PAYMENT_LABEL = 'Sem forma de pagamento';
@@ -126,6 +132,44 @@ function investmentIdentity(tag: string): { key: string; label: string } {
     return { key: '__unclassified__', label: UNCLASSIFIED_INVESTMENT_LABEL };
   }
   return { key: trimmed, label: trimmed };
+}
+
+function incomeTagIdentity(tag: string): { key: string; label: string } {
+  const trimmed = tag.trim();
+  if (!trimmed || trimmed === '—' || trimmed === '-') {
+    return { key: '__unclassified_income__', label: UNCLASSIFIED_INCOME_LABEL };
+  }
+  return { key: trimmed, label: trimmed };
+}
+
+function incomeIncluded(
+  income: MonthData['incomes'][number],
+  mode: SummaryViewMode
+): boolean {
+  if (mode === 'planned') return !isResgateIncome(income);
+  return income.received === true;
+}
+
+/** Aportes/entradas do ano agrupados pela tag (mesmo divisor RN-R04). */
+export function buildAnnualIncomeRows(
+  yearData: readonly MonthData[],
+  mode: SummaryViewMode,
+  monthCount: number,
+  creditCards: CreditCard[] = []
+): AnnualMoneyRow[] {
+  const divisor = averageDivisor(yearData, mode, creditCards, monthCount);
+  const tags = new Map<string, Bucket>();
+
+  yearData.forEach((month, index) => {
+    const inWindow = index < monthCount;
+    for (const income of month.incomes) {
+      if (!incomeIncluded(income, mode)) continue;
+      const identity = incomeTagIdentity(income.tag);
+      addAmount(tags, identity.key, identity.label, income.value, inWindow);
+    }
+  });
+
+  return rowsFromBuckets(tags, divisor);
 }
 
 export function buildAnnualExpenseBreakdown(

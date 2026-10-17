@@ -144,8 +144,10 @@ describe('buildAnnualExportDocument', () => {
       today,
     });
 
-    const categories = document.tables.find((item) => item.title === 'Categorias');
-    expect(categories?.body.map((row) => row[0])).toEqual(['Moradia']);
+    const gastos = document.tables.find((item) => item.title === 'Gastos');
+    expect(gastos?.body.map((row) => row[0])).toEqual(['Moradia']);
+    expect(document.tables.map((item) => item.title)).toContain('Entradas');
+    expect(document.tables.map((item) => item.title)).not.toContain('Categorias');
     expect(document.tables.map((item) => item.title)).not.toContain('Desejos');
     expect(document.tables.some((item) => item.title === 'Por tipo')).toBe(true);
   });
@@ -252,7 +254,15 @@ describe('createAnnualExportPdf', () => {
     expect(pdf.getNumberOfPages()).toBeGreaterThan(0);
     expect(pdf.output('arraybuffer').byteLength).toBeGreaterThan(1000);
     expect(document.tables.map((item) => item.title)).toEqual(
-      expect.arrayContaining(['Resumo', 'Mês a mês', 'Categorias', 'Por tipo', 'Método de pagamento', 'Investimentos'])
+      expect.arrayContaining([
+        'Resumo',
+        'Mês a mês',
+        'Entradas',
+        'Gastos',
+        'Por tipo',
+        'Método de pagamento',
+        'Investimentos',
+      ])
     );
     expect(document.tables.map((item) => item.title)).not.toContain('Desejos');
   });
