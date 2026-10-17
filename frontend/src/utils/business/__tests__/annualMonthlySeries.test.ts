@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import type { CreditCard, Expense, FinancialRule, Investment, MonthData } from '@/types/domain';
+import type { CreditCard, Expense, FinancialRule, Income, Investment, MonthData } from '@/types/domain';
 import {
   ALL_SERIES_KEY,
   CARDS_GROUP_KEY,
   EXPENSE_SERIES_PALETTE,
+  INCOME_SERIES_PALETTE,
   INVESTMENT_SERIES_PALETTE,
   PAYMENT_SERIES_PALETTE,
   RULE_SERIES,
   TOP3_SERIES_KEY,
   buildCategoryMonthlyChart,
   buildFinancialRuleMonthlyChart,
+  buildIncomeChartOptions,
+  buildIncomeMonthlyChart,
   buildInvestmentMonthlyChart,
   buildPaymentMonthlyChart,
   topKeysByAverage,
@@ -110,6 +113,53 @@ describe('buildCategoryMonthlyChart', () => {
       { key: 'Mercado', label: 'Mercado', color: EXPENSE_SERIES_PALETTE[0] },
     ]);
     expect(chart.points[0].Mercado).toBe(80);
+  });
+});
+
+const income = (overrides: Partial<Income> = {}): Income => ({
+  id: 'inc1',
+  description: 'Salário',
+  value: 1000,
+  tag: 'Salário',
+  date: null,
+  received: true,
+  ...overrides,
+});
+
+describe('buildIncomeMonthlyChart', () => {
+  it('default top 3 pela média e série mensal por tag', () => {
+    const data = year([
+      {
+        incomes: [
+          income({ id: 's1', tag: 'Salário', value: 3000 }),
+          income({ id: 'f1', tag: 'Freelance', value: 800 }),
+          income({ id: 'e1', tag: 'Extra', value: 200 }),
+          income({ id: 'o1', tag: 'Outros', value: 10 }),
+        ],
+      },
+      {
+        incomes: [
+          income({ id: 's2', tag: 'Salário', value: 3000 }),
+          income({ id: 'f2', tag: 'Freelance', value: 800 }),
+          income({ id: 'e2', tag: 'Extra', value: 200 }),
+        ],
+      },
+    ]);
+
+    const chart = buildIncomeMonthlyChart(data, 'effective', [], 12, TOP3_SERIES_KEY);
+    expect(chart.series.map((s) => s.key)).toEqual(['Salário', 'Freelance', 'Extra']);
+    expect(chart.series.map((s) => s.color)).toEqual([
+      INCOME_SERIES_PALETTE[0],
+      INCOME_SERIES_PALETTE[1],
+      INCOME_SERIES_PALETTE[2],
+    ]);
+    expect(chart.points[0].Salário).toBe(3000);
+    expect(chart.points[1].Freelance).toBe(800);
+    expect(chart.hasData).toBe(true);
+
+    const options = buildIncomeChartOptions(data, 'effective', [], 12);
+    expect(options[0]).toEqual({ value: TOP3_SERIES_KEY, label: 'Top 3 (média)' });
+    expect(options.map((o) => o.value)).toContain('Salário');
   });
 });
 

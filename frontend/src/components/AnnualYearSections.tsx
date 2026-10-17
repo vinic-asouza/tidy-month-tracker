@@ -1,4 +1,4 @@
-import { CreditCard, Loader2, PiggyBank, Sparkles, Tags } from 'lucide-react';
+import { CreditCard, Loader2, PiggyBank, Sparkles, Tags, TrendingUp } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { AnnualChartTabs } from '@/components/AnnualChartTabs';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import type { CreditCard as CreditCardType, MonthData, WishItem } from '@/types/domain';
 import {
   buildAnnualExpenseBreakdown,
+  buildAnnualIncomeRows,
   buildAnnualInvestmentRows,
   sumCardPaymentRows,
   type AnnualMoneyRow,
@@ -16,6 +17,8 @@ import {
   TOP3_SERIES_KEY,
   buildCategoryChartOptions,
   buildCategoryMonthlyChart,
+  buildIncomeChartOptions,
+  buildIncomeMonthlyChart,
   buildInvestmentChartOptions,
   buildInvestmentMonthlyChart,
   buildPaymentChartOptions,
@@ -40,24 +43,27 @@ interface AnnualYearSectionsProps {
   currentMonthIndex?: number;
 }
 
-type MoneyTone = 'expense' | 'credit' | 'investment';
+type MoneyTone = 'expense' | 'credit' | 'investment' | 'income';
 
 const toneValueClass: Record<MoneyTone, string> = {
   expense: 'text-expense',
   credit: 'text-credit',
   investment: 'text-investment',
+  income: 'text-income',
 };
 
 const toneBarClass: Record<MoneyTone, string> = {
   expense: 'bg-expense',
   credit: 'bg-credit',
   investment: 'bg-investment',
+  income: 'bg-income',
 };
 
 const toneRankClass: Record<MoneyTone, string> = {
   expense: 'bg-expense text-expense-foreground',
   credit: 'bg-credit text-credit-foreground',
   investment: 'bg-investment text-investment-foreground',
+  income: 'bg-income text-income-foreground',
 };
 
 function formatAverage(average: number | null) {
@@ -282,10 +288,15 @@ export function AnnualYearSections({
   wishesLoading = false,
   currentMonthIndex = -1,
 }: AnnualYearSectionsProps) {
+  const [incomeSelection, setIncomeSelection] = useState(TOP3_SERIES_KEY);
   const [categorySelection, setCategorySelection] = useState(TOP3_SERIES_KEY);
   const [paymentSelection, setPaymentSelection] = useState(ALL_SERIES_KEY);
   const [investmentSelection, setInvestmentSelection] = useState(ALL_SERIES_KEY);
 
+  const incomes = useMemo(
+    () => buildAnnualIncomeRows(yearData, viewMode, monthCount, creditCards),
+    [yearData, viewMode, monthCount, creditCards]
+  );
   const expenses = useMemo(
     () => buildAnnualExpenseBreakdown(yearData, viewMode, creditCards, monthCount),
     [yearData, viewMode, creditCards, monthCount]
@@ -302,6 +313,10 @@ export function AnnualYearSections({
     wishGroups.conquered.length === 0 &&
     wishGroups.pending.length === 0 &&
     wishGroups.expired.length === 0;
+  const emptyIncomes =
+    viewMode === 'planned'
+      ? 'Nenhuma entrada registrada neste ano.'
+      : 'Nenhuma entrada efetivada neste ano.';
   const emptyExpenses =
     viewMode === 'planned'
       ? 'Nenhum gasto registrado neste ano.'
@@ -310,6 +325,10 @@ export function AnnualYearSections({
     viewMode === 'planned'
       ? 'Nenhum aporte registrado neste ano.'
       : 'Nenhum aporte efetivado neste ano.';
+  const emptyIncomeChart =
+    viewMode === 'planned'
+      ? 'Registre entradas ao longo do ano para ver o gráfico planejado.'
+      : 'Marque entradas como recebidas para ver o gráfico.';
   const emptyExpenseChart =
     viewMode === 'planned'
       ? 'Registre gastos ao longo do ano para ver o gráfico planejado.'
@@ -319,6 +338,18 @@ export function AnnualYearSections({
       ? 'Registre aportes ao longo do ano para ver o gráfico planejado.'
       : 'Marque aportes como investidos para ver o gráfico.';
 
+  const incomeOptions = useMemo(
+    () => buildIncomeChartOptions(yearData, viewMode, creditCards, monthCount),
+    [yearData, viewMode, creditCards, monthCount]
+  );
+  const safeIncomeSelection = incomeOptions.some((option) => option.value === incomeSelection)
+    ? incomeSelection
+    : TOP3_SERIES_KEY;
+  const incomeChart = useMemo(
+    () =>
+      buildIncomeMonthlyChart(yearData, viewMode, creditCards, monthCount, safeIncomeSelection),
+    [yearData, viewMode, creditCards, monthCount, safeIncomeSelection]
+  );
   const categoryOptions = useMemo(
     () => buildCategoryChartOptions(yearData, viewMode, creditCards, monthCount),
     [yearData, viewMode, creditCards, monthCount]
@@ -373,7 +404,35 @@ export function AnnualYearSections({
   return (
     <>
       <SectionSurface
-        title="Categorias"
+        title="Entradas"
+        subtitle="Classificação da entrada por tag."
+        icon={TrendingUp}
+        iconVariant="income"
+        actions={<SectionCornerFigures rows={incomes} tone="income" />}
+      >
+        <AnnualChartTabs
+          currentMonthIndex={currentMonthIndex}
+          emptyMessage={emptyIncomeChart}
+          chart={incomeChart}
+          selectOptions={incomeOptions}
+          selectValue={safeIncomeSelection}
+          onSelectChange={setIncomeSelection}
+          selectAriaLabel="Filtrar entradas do gráfico"
+          valuesContent={
+            incomes.length === 0 ? (
+              <EmptyLine>{emptyIncomes}</EmptyLine>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">{averageWindowLabel}</p>
+                <MoneyRows rows={incomes} tone="income" />
+              </div>
+            )
+          }
+        />
+      </SectionSurface>
+
+      <SectionSurface
+        title="Gastos"
         subtitle={averageWindowLabel}
         icon={Tags}
         iconVariant="expense"
@@ -386,7 +445,7 @@ export function AnnualYearSections({
           selectOptions={categoryOptions}
           selectValue={safeCategorySelection}
           onSelectChange={setCategorySelection}
-          selectAriaLabel="Filtrar categorias do gráfico"
+          selectAriaLabel="Filtrar gastos do gráfico"
           valuesContent={
             expenses.categories.length === 0 ? (
               <EmptyLine>{emptyExpenses}</EmptyLine>
