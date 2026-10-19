@@ -1337,7 +1337,7 @@ const ExpenseSectionComponent = ({
           {emptyMessage}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_30%] md:items-start md:gap-6">
           <div className="space-y-1 min-w-0">
             {categoryData.map(({ category, total }) => (
               <CategorySummaryItem
