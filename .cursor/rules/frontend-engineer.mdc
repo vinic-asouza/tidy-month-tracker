@@ -224,9 +224,7 @@ Antes de escrever código, verifique se a Issue contém:
 [ ] Contratos de API definidos ou existentes
 ```
 
-Se faltar informação crítica, **não implemente no escuro**.
-
-Aplique o **Gate de Decisão** (workflow §15.1): registre bloqueio no Linear, **pergunte no chat do Cursor**, aguarde a resposta, atualize o Linear com a decisão e só então implemente/conclua.
+Se faltar informação, **não invente regra de negócio**. Prefira **Decisão Assumida** (workflow §15.1 A): alinhar à KB/código/padrões/plano do SA, registrar na Issue e implementar. **Gate de Emergência** (§15.1 B) só se for impossível avançar com segurança.
 
 ---
 
@@ -379,7 +377,7 @@ Ao consumir API interna:
 - evite chamadas duplicadas desnecessárias;
 - evite expor secrets no frontend.
 
-Se o backend ainda não estiver implementado, registre bloqueio ou use mocks apenas se autorizado.
+Se o backend ainda não estiver implementado: em contínuo, o Backend deve ter rodado antes; se o escopo for só front com contrato definido, use mocks alinhados ao SA (Decisão Assumida registrada). Não pausar o chat.
 
 Mocks temporários devem ser removidos antes do handoff para review.
 
@@ -613,16 +611,14 @@ Bloqueie a execução se:
 - integração externa não estiver configurada;
 - houver impacto em billing/plano sem definição.
 
-Neste caso (obrigatório — workflow §15.1):
+**Padrão:** Decisão Assumida (§15.1 A) → registrar → continuar. Em contínuo, ao concluir: PR + Review (Tech Lead) sem pausar o chat.
 
-1. Não implemente no escuro e **não conclua** a execução.
+**Gate de Emergência (§15.1 B)** — só se for impossível avançar com segurança:
+
+1. Não implemente no escuro e **não conclua**.
 2. Atualize a Issue no Linear com bloqueio + perguntas + handoff `bloqueado`.
-3. **Pergunte no chat do Cursor** de forma objetiva (com opções quando possível) e **aguarde** a resposta.
-4. Após a resposta: registre a decisão no Linear e só então continue.
-5. Se a dúvida for de papel (não só do usuário), recomende também:
-   - Product Analyst;
-   - Software Architect;
-   - Backend Engineer.
+3. Pergunte no chat e aguarde.
+4. Após a resposta: registre a decisão, continue e retome o pipeline até Done.
 
 ---
 
@@ -642,7 +638,8 @@ Neste caso (obrigatório — workflow §15.1):
 - Validar integração com API.
 - Adicionar ou atualizar testes relevantes.
 - Atualizar a Issue no Linear ao concluir.
-- Aplicar Gate de Decisão (§15.1) quando houver dúvida bloqueante.
+- Preferir Decisão Assumida (§15.1 A); Gate de Emergência só quando inevitável.
+- Em contínuo: após concluir, seguir automaticamente para Review (Tech Lead).
 
 ### Nunca
 

@@ -1,9 +1,9 @@
 ---
 type: meta-workflow
 titulo: Ledger Flow
-ultima_atualizacao: 2026-08-24
-versao: "1.8"
-tags: [meta, ledger-flow, linear, cursor, workflow, agentes]
+ultima_atualizacao: 2026-10-19
+versao: "2.0"
+tags: [meta, ledger-flow, linear, cursor, workflow, agentes, execucao-continua]
 ---
 
 # Ledger Flow
@@ -15,10 +15,11 @@ Este documento define o **Ledger Flow**: como os agentes de IA do Cursor devem a
 O objetivo do workflow é garantir que:
 
 - O Linear seja a fonte de verdade para o ciclo de vida das demandas.
-- O Cursor execute as etapas usando agentes especializados.
+- O Cursor execute as etapas usando agentes especializados **de ponta a ponta, sem interrupções no chat**.
 - O histórico da demanda permaneça centralizado na própria Issue do Linear.
 - A base de conhecimento do repositório seja usada como contexto, não como local de registros temporários.
 - Atualizações permanentes de documentação sejam feitas apenas quando houver mudança relevante no produto, arquitetura, módulos, integrações, padrões, ADRs ou releases.
+- O usuário só seja chamado no chat em **Done** (resumo + PR) ou em **Gate de Emergência** (caso extremo e raro).
 
 ---
 
@@ -33,12 +34,13 @@ Isso inclui:
 - Refinamento de produto
 - Análise técnica
 - Plano de implementação
-- Decisões tomadas durante a execução
+- Decisões tomadas durante a execução (incluindo decisões assumidas)
 - Resultado de code review
 - Resultado de QA
-- Correções solicitadas
+- Correções solicitadas e re-execuções
 - Status final da demanda
 - Necessidade de atualização documental
+- Link da PR
 
 O repositório **não** deve receber arquivos como:
 
@@ -48,6 +50,110 @@ O repositório **não** deve receber arquivos como:
 - `code-review-[issue].md`
 
 Esses conteúdos pertencem à Issue do Linear.
+
+---
+
+## 2.1 Execução Contínua (modo padrão)
+
+### Regra de ouro
+
+Quando o usuário solicitar executar uma Issue (ex.: “executar”, “rodar o fluxo”, “desenvolver”, “implementar”, “processar Issue X”), o agente **orquestra todas as etapas até `Done` na mesma sessão**, sem pausar para confirmação entre papéis.
+
+Pipeline obrigatório (com skips inteligentes quando o escopo não exige a etapa):
+
+```
+Product Analyst
+→ Software Architect
+→ Backend Engineer (se houver escopo backend)
+→ Frontend Engineer (se houver escopo frontend)
+→ Tech Lead (Code Review)
+→ QA Analyst
+→ [se correções obrigatórias] Engineers → Review novamente (loop automático)
+→ Technical Writer (Document)
+→ Done
+```
+
+### Autorização implícita
+
+Pedir a execução da Issue **autoriza** automaticamente:
+
+- Assumir cada papel na ordem do pipeline
+- Mover status Linear conforme critérios do §16 (`Backlog` → `Todo` → `In Progress` → `Review` → `Document` → `Done`)
+- Criar branch, commits (se o usuário pedir commits no contexto da Issue ou se já houver política do projeto), push e **abrir/atualizar PR**
+- Loop Review → `In Progress` → Review quando houver correções obrigatórias
+- Concluir Document e mover para `Done`
+
+**Não autoriza** (reservado ao usuário após Done):
+
+- Merge da PR
+- Deploy/publicação em produção além do que o merge em `main` já implica no projeto
+- Ações destrutivas fora do escopo da Issue
+
+### Silêncio no chat durante o pipeline
+
+Enquanto a Issue **não** estiver em `Done`:
+
+- **Não** pedir “posso seguir para a próxima etapa?”
+- **Não** pedir confirmação de handoff, status, escopo já coberto pela KB, ou “quer que eu faça o review?”
+- Progresso, decisões e bloqueios operacionais vão para o **Linear**
+- O chat fica reservado para: (1) relatório final em Done; (2) Gate de Emergência (§15.1)
+
+### Handoff automático
+
+Ao concluir uma etapa com handoff `concluído` e critérios do §16 atendidos:
+
+1. Atualizar Linear (seção + handoff + status).
+2. **Imediatamente** carregar o MDC do próximo papel e continuar.
+3. Não esperar mensagem nova do usuário.
+
+Se o handoff for `requer ajustes` (Review):
+
+1. Mover para `In Progress`.
+2. Assumir o Engineer adequado.
+3. Corrigir → voltar a `Review` → Tech Lead → QA.
+4. Repetir até aprovação ou Gate de Emergência.
+
+### Eficiência (obrigatório)
+
+O orquestrador deve ser o mais eficiente possível:
+
+| Princípio | Comportamento |
+| --- | --- |
+| Skip inteligente | Pular Backend ou Frontend se o SA/PA indicarem escopo só de um lado; registrar o skip no Linear |
+| Uma leitura densa | No início, ler Issue + comentários + KB relevante; nas etapas seguintes, reler só o necessário |
+| Decisão assumida | Preferir resolver ambiguidade com KB/código/padrões e registrar no Linear (§15.1) |
+| Diff focado | Review e QA no que mudou na Issue, não no repositório inteiro |
+| PR cedo o bastante | Branch + PR prontos antes ou durante Review; atualizar a PR após correções e Document |
+| Sem retrabalho | Não reabrir refinamento se já estiver suficiente; não re-documentar o óbvio |
+| Paralelismo mental | Planejar backend→frontend em sequência coerente (contrato primeiro); não inventar APIs no front |
+
+### Relatório ao usuário — somente em Done
+
+Ao chegar em `Done`, **e só então**, retornar no chat:
+
+```markdown
+## Issue [ID] — Done
+
+### Resumo
+[o que foi entregue, 3–8 linhas]
+
+### Etapas executadas
+- Product Analyst: …
+- Software Architect: …
+- Backend / Frontend: … (ou skip)
+- Tech Lead: aprovado / loops de correção
+- QA: aprovado
+- Technical Writer: docs alterados ou justificativa
+
+### Pull Request
+[URL da PR]
+
+### Próximo passo (você)
+1. Validar manualmente a PR / ambiente de preview, **ou**
+2. Confirmar se deseja que eu realize o(s) merge(s).
+
+Não farei merge sem sua confirmação explícita.
+```
 
 ---
 
@@ -98,7 +204,7 @@ O Ledger Flow assume estas ferramentas. Se o projeto usar outras para Git, docum
 | Código | Git | GitHub ou outro host |
 | Conhecimento permanente | `knowledge/` | Convenção da árvore abaixo |
 
-O Ledger Flow **não** cobre documentação de usabilidade para o usuário final nem publicação em produção.
+O Ledger Flow **não** cobre documentação de usabilidade para o usuário final nem publicação em produção (merge/`main` fica a cargo do usuário após Done).
 
 A árvore `knowledge/01_produto/` … `knowledge/07_decisoes-tecnicas/` é a **convenção da KB do Ledger Flow**. Cada projeto preenche com o próprio conteúdo.
 
@@ -147,11 +253,18 @@ Ordem operacional esperada:
 Backlog → Todo → In Progress → Review → Document → Done
 ```
 
+Com loop permitido:
+
+```
+Review ⇄ In Progress   (somente por correções obrigatórias de Tech Lead ou QA)
+```
+
 Notas:
 
 - O refinamento de produto e análise técnica ocorrem com a Issue em `Backlog` (antes de `Todo`).
-- Em `Review`, atuam **Tech Lead** (code review) e **QA Analyst** (validação funcional), nesta ordem quando possível.
+- Em `Review`, atuam **Tech Lead** (code review) e **QA Analyst** (validação funcional), nesta ordem.
 - `Document` vem **antes** de `Done`: após reviews aprovados, o Technical Writer avalia a KB interna e só então a Issue é concluída.
+- Em execução contínua, as transições acima são feitas **pelo agente**, sem pedir autorização adicional no chat.
 
 Os nomes de categoria (`Started`, `Completed`, etc.) são da UI do Linear; os agentes operam pelos nomes dos status (`Review`, `Document`, `Done`, …).
 
@@ -163,13 +276,13 @@ Os nomes de categoria (`Started`, `Completed`, etc.) são da UI do Linear; os ag
 | --- | --- | --- |
 | Backlog | Product Analyst | Refinar valor de produto, escopo, critérios de aceite, regras de negócio e impactos |
 | Backlog | Software Architect | Refinar análise técnica, riscos, arquitetura, dependências e abordagem |
-| Todo | — | Issue pronta para desenvolvimento |
+| Todo | — | Issue pronta; em execução contínua, avançar imediatamente para `In Progress` |
 | In Progress | Backend Engineer | Implementar APIs, regras de negócio, integrações e lógica backend |
 | In Progress | Frontend Engineer | Implementar interface, UX/UI e integrações com APIs |
 | Review (Code Review) | Tech Lead | Revisar código, arquitetura, padrões, segurança e performance |
 | Review (QA) | QA Analyst | Validar requisitos, fluxos, edge cases e regressões |
 | Document | Technical Writer | Atualizar documentação técnica interna quando necessário |
-| Done | — | Issue concluída (reviews + documentação interna avaliados) |
+| Done | Orquestrador | Relatório no chat (resumo + PR); aguardar validação/merge do usuário |
 
 ---
 
@@ -181,7 +294,7 @@ Sempre que um agente estiver atuando sobre uma Issue, ele deve usar o MCP do Lin
 2. Ler título, descrição, comentários, labels, status e links relacionados.
 3. Atualizar a Issue com sua análise ou resultado.
 4. Adicionar comentários estruturados quando apropriado.
-5. Sugerir ou executar mudança de status quando a etapa estiver concluída.
+5. **Executar** mudança de status quando a etapa estiver concluída e os critérios do §16 forem cumpridos (execução contínua).
 6. Preservar histórico no próprio Linear.
 
 Os agentes não devem depender apenas do texto enviado no chat se houver uma Issue Linear associada.
@@ -213,7 +326,7 @@ Formato recomendado:
 - [risco 2]
 
 ### Próximo Passo
-[Indicação clara do próximo agente ou etapa]
+[Indicação clara do próximo agente ou etapa — o orquestrador segue automaticamente]
 ```
 
 Cada agente deve assinar sua seção com o nome do papel, não com nome pessoal.
@@ -233,9 +346,9 @@ Exemplos:
 
 A demanda nasce no Linear em `Backlog`, normalmente como uma ideia, bug, melhoria ou refatoração.
 
-Quando o usuário decidir executar a demanda, ele solicitará ao Cursor:
+**Modo contínuo (padrão):** ao pedir execução da Issue, o orquestrador inicia pelo Product Analyst (se ainda não houver refinamento suficiente) e segue o pipeline até Done.
 
-> Refinar esta Issue usando Product Analyst e Software Architect.
+**Modo pontual (exceção):** o usuário pode pedir só um papel (“atuar como Product Analyst”). Nesse caso, execute só essa etapa; ao concluir, registre o handoff no Linear e **indique no chat** que o fluxo contínuo pode ser retomado — sem executar as demais etapas a menos que o usuário peça.
 
 ### 8.2 Product Analyst
 
@@ -256,9 +369,10 @@ O Product Analyst deve:
    - Regras de negócio afetadas
    - Critérios de aceite
    - Riscos de produto
-   - Perguntas em aberto
+   - Lacunas resolvidas por decisão assumida (§15.1)
 4. Atualizar a própria Issue no Linear.
 5. Não criar arquivo de refinamento no repositório.
+6. Em execução contínua: handoff `concluído` → **seguir imediatamente** para Software Architect.
 
 ### 8.3 Software Architect
 
@@ -279,16 +393,19 @@ O Software Architect deve:
    - Estratégia de implementação
    - Requisitos de banco/API/infra se aplicável
    - Plano técnico de alto nível
+   - Escopo de execução: backend / frontend / ambos (para skips)
 4. Atualizar a própria Issue no Linear.
 5. Não criar arquivo de análise técnica no repositório.
+6. Em execução contínua: mover para `Todo` → `In Progress` e **seguir** para o Engineer adequado.
 
 ### 8.4 Saída do Refinamento
 
-Após Product Analyst e Software Architect concluírem suas análises:
+Após Product Analyst e Software Architect concluírem:
 
 - A Issue deve conter refinamento suficiente para desenvolvimento.
-- O agente deve mover a Issue para `Todo`, se autorizado pelo usuário e se não houver perguntas bloqueantes.
-- Caso existam perguntas bloqueantes, aplicar o **Gate de Decisão** (§15.1): registrar no Linear, perguntar no chat, aguardar resposta, atualizar Linear com a decisão — e **só então** concluir. A Issue permanece em `Backlog` até isso.
+- Em execução contínua: mover `Backlog` → `Todo` → `In Progress` sem pedir confirmação.
+- Ambiguidade: aplicar **Decisão Assumida** (§15.1) e seguir — não pausar o chat.
+- Só usar Gate de Emergência se for impossível avançar com segurança.
 
 ---
 
@@ -296,11 +413,14 @@ Após Product Analyst e Software Architect concluírem suas análises:
 
 ### 9.1 Entrada
 
-Quando o usuário mover a Issue para `In Progress`, ele poderá solicitar ao Cursor:
+Em execução contínua, a entrada em `In Progress` é automática após o refinamento.
 
-- Atuar como Backend Engineer
-- Atuar como Frontend Engineer
-- Ou ambos, dependendo da demanda
+Ordem padrão:
+
+1. Backend Engineer (se houver escopo backend)
+2. Frontend Engineer (se houver escopo frontend)
+3. Preparar/atualizar branch e PR
+4. Mover para `Review` e seguir Tech Lead → QA
 
 ### 9.2 Backend Engineer
 
@@ -308,18 +428,10 @@ O Backend Engineer deve:
 
 1. Ler a Issue no Linear via MCP.
 2. Identificar refinamentos de Product Analyst e Software Architect.
-3. Consultar a base de conhecimento relevante:
-   - Regras de negócio
-   - Arquitetura
-   - Módulos
-   - Integrações
-   - Padrões de API, banco e testes
+3. Consultar a base de conhecimento relevante.
 4. Implementar o backend necessário.
-5. Atualizar a Issue no Linear com:
-   - O que foi implementado
-   - Arquivos principais alterados
-   - Testes adicionados ou atualizados
-   - Pontos pendentes ou decisões tomadas
+5. Atualizar a Issue no Linear com o que foi implementado, arquivos, testes e decisões.
+6. Em execução contínua: se houver frontend, handoff automático para Frontend Engineer; senão, preparar PR e ir para Review.
 
 ### 9.3 Frontend Engineer
 
@@ -327,70 +439,64 @@ O Frontend Engineer deve:
 
 1. Ler a Issue no Linear via MCP.
 2. Identificar critérios de aceite e fluxos esperados.
-3. Consultar a base de conhecimento relevante:
-   - Produto
-   - Jornadas
-   - Módulos
-   - Padrões de código
-   - Padrões de API
+3. Consultar a base de conhecimento relevante.
 4. Implementar a interface necessária.
-5. Atualizar a Issue no Linear com:
-   - O que foi implementado
-   - Telas/componentes alterados
-   - Integrações feitas
-   - Estados tratados
-   - Pontos pendentes ou decisões tomadas
+5. Atualizar a Issue no Linear.
+6. Em execução contínua: preparar/atualizar PR, mover para `Review`, assumir Tech Lead.
+
+### 9.4 Pull Request
+
+Durante ou ao fim de `In Progress` (antes de concluir Review):
+
+- Garantir branch dedicada à Issue
+- Abrir ou atualizar a PR com resumo alinhado ao refinamento
+- Registrar o URL da PR na Issue Linear
+- Após correções do loop Review e após Document, atualizar a PR
+
+Não fazer merge. Merge só após confirmação explícita do usuário no chat pós-Done.
 
 ---
 
 ## 10. Fluxo de Review
 
-Quando a Issue estiver em `Review`, atuam Tech Lead e QA Analyst (nesta ordem, quando possível). O status único concentra code review e QA.
+Quando a Issue estiver em `Review`, atuam Tech Lead e QA Analyst (nesta ordem). O status único concentra code review e QA.
 
 ### 10.1 Code Review — Tech Lead
 
-O usuário solicitará atuação como Tech Lead.
+Em execução contínua, o orquestrador assume Tech Lead **sem** pedir ao usuário.
 
 O Tech Lead deve:
 
 1. Ler a Issue no Linear.
 2. Ler os refinamentos e histórico de implementação.
 3. Revisar o diff/código alterado.
-4. Validar:
-   - Arquitetura
-   - Padrões
-   - Segurança
-   - Performance
-   - Testabilidade
-   - Consistência com a base de conhecimento
-5. Atualizar a Issue no Linear com:
-   - Resultado da revisão
-   - Correções obrigatórias
-   - Sugestões opcionais
-   - Riscos remanescentes
-   - Status: aprovado ou requer ajustes
+4. Validar arquitetura, padrões, segurança, performance, testabilidade e consistência com a KB.
+5. Atualizar a Issue no Linear com resultado, correções obrigatórias, sugestões opcionais e riscos.
 
-Se houver correções obrigatórias, a Issue deve voltar para execução pelos Engineers (`In Progress`).
+**Se houver correções obrigatórias:**
+
+1. Handoff `requer ajustes`.
+2. Mover para `In Progress`.
+3. Assumir o Engineer adequado **imediatamente**.
+4. Após correção: voltar a `Review` e reavaliar (Tech Lead de novo, depois QA).
+
+**Se aprovado:** seguir imediatamente para QA Analyst (ainda em `Review`).
+
+Sugestões opcionais **não** interrompem o fluxo.
 
 ### 10.2 QA — QA Analyst
 
-Após code review aprovado, o usuário solicitará atuação como QA Analyst.
+Após code review aprovado, assumir QA **sem** pedir ao usuário.
 
 O QA Analyst deve:
 
 1. Ler a Issue no Linear.
-2. Validar critérios de aceite.
-3. Validar fluxos funcionais.
-4. Testar edge cases.
-5. Executar ou orientar testes de regressão.
-6. Atualizar a Issue no Linear com:
-   - Casos testados
-   - Resultado
-   - Bugs encontrados
-   - Evidências quando aplicável
-   - Status: aprovado ou requer ajustes
+2. Validar critérios de aceite, fluxos, edge cases e regressões relevantes.
+3. Atualizar a Issue no Linear com casos, resultado e evidências quando aplicável.
 
-Se houver falhas, a Issue deve voltar para execução pelos Engineers (`In Progress`).
+**Se houver falhas bloqueantes:** mesmo loop automático → `In Progress` → correção → `Review` (Tech Lead → QA).
+
+**Se aprovado:** mover para `Document` e assumir Technical Writer.
 
 Após Code Review e QA aprovados, a Issue segue para `Document` (não diretamente para `Done`).
 
@@ -404,7 +510,7 @@ Após aprovação de Code Review e QA, a Issue deve ser movida para `Document`.
 
 Neste estado, a implementação está aprovada funcionalmente e tecnicamente; falta avaliar (e atualizar, se necessário) a documentação permanente.
 
-Nesta etapa atua o **Technical Writer** (KB interna em `knowledge/`).
+Nesta etapa atua o **Technical Writer** (KB interna em `knowledge/`). Em execução contínua, assume imediatamente.
 
 #### Regra absoluta de status em Document
 
@@ -413,11 +519,11 @@ Enquanto a Issue estiver na etapa `Document`:
 - O status Linear **deve permanecer `Document`**.
 - É **proibido** regredir para `In Progress`, `Review`, `Todo` ou `Backlog`.
 - Atualizar a Issue (descrição, comentário, anexos) **não** autoriza mudar o status.
-- No MCP `save_issue`: **omitir** o campo `state`, salvo correção explícita de regressão (voltar para `Document`) ou conclusão autorizada para `Done`.
+- No MCP `save_issue`: **omitir** o campo `state`, salvo correção explícita de regressão (voltar para `Document`) ou conclusão para `Done`.
 - **Nunca** passar `state` pelo tipo genérico (`started`, `unstarted`, etc.) — o Linear pode resolver para o status padrão da categoria (em geral `In Progress`). Sempre usar o **nome exato**: `Document`, `Done`, etc.
 - Se ao ler a Issue o status tiver regredido para `In Progress` (ex.: automação Git/PR) **durante** Document, o agente deve **restaurar para `Document`** imediatamente e registrar o fato no comentário/handoff.
 
-Única transição válida a partir de `Document`: `Document` → `Done` (quando os critérios do §16 forem cumpridos e houver autorização).
+Única transição válida a partir de `Document`: `Document` → `Done` (quando os critérios do §16 forem cumpridos). Em execução contínua, essa transição é feita pelo agente ao concluir o Technical Writer.
 
 ### 11.2 Release notes de produção (`main`)
 
@@ -437,9 +543,13 @@ Não há GitHub Action para isto: o critério é de processo.
 
 ### 11.3 Done
 
-Após a etapa `Document` concluída (incluindo justificativa se nenhuma alteração documental for necessária), a Issue pode ser movida para `Done`.
+Após a etapa `Document` concluída (incluindo justificativa se nenhuma alteração documental for necessária):
 
-`Done` é o **estado final** do fluxo.
+1. Mover a Issue para `Done`.
+2. Garantir que a PR está atualizada (inclui docs/release notes se aplicável).
+3. **Retornar no chat** o relatório do §2.1 (resumo + PR + pedido de validação ou confirmação de merge).
+
+`Done` é o **estado final** do fluxo automático. Merge permanece decisão humana.
 
 ---
 
@@ -461,14 +571,12 @@ Ele deve:
    - ADRs (`knowledge/07_decisoes-tecnicas/`)
    - Release notes (`knowledge/releases/`) — **obrigatório** se a entrega for para `main` (§11.2)
 4. Atualizar os arquivos `.md` relevantes no repositório quando necessário.
-5. Atualizar a Issue no Linear com:
-   - Documentações revisadas
-   - Documentações alteradas
-   - Justificativa caso nenhuma alteração seja necessária
+5. Atualizar a Issue no Linear com documentações revisadas/alteradas ou justificativa.
+6. Em execução contínua: mover para `Done` e disparar o relatório no chat (§2.1 / §11.3).
 
 O Technical Writer não deve criar documentação temporária por issue.
 
-O Technical Writer **não altera** o status da Issue para `In Progress`. Preserva `Document` (§11.1).
+O Technical Writer **não altera** o status da Issue para `In Progress`. Preserva `Document` (§11.1) até a transição final para `Done`.
 
 ---
 
@@ -479,71 +587,90 @@ O Technical Writer **não altera** o status da Issue para `In Progress`. Preserv
 - Usar Linear MCP para ler a Issue quando houver Issue associada.
 - Registrar análises e decisões na própria Issue do Linear.
 - Consultar a base de conhecimento antes de decidir.
-- Respeitar o papel do agente invocado.
+- Em execução contínua: concluir a etapa e **assumir o próximo papel** sem esperar o usuário.
 - Manter o histórico centralizado no Linear.
-- Ser explícito sobre riscos, dúvidas e bloqueios.
+- Ser explícito sobre riscos e decisões assumidas.
 - Diferenciar correção obrigatória de sugestão opcional.
-- Seguir o **Gate de Decisão** (§15.1) quando houver dúvida bloqueante.
+- Preferir **Decisão Assumida** (§15.1) a interromper o chat.
+- Mover status Linear quando os critérios do §16 forem cumpridos (execução contínua).
 
 ### Nunca fazer
 
 - Criar arquivos temporários por Issue no repositório.
 - Duplicar histórico do Linear em arquivos `.md`.
-- Mover uma Issue de etapa sem estar autorizado ou sem cumprir os critérios.
+- Pausar o pipeline contínuo para pedir confirmação de etapa seguinte.
+- Mover status sem cumprir os critérios do §16.
 - **Regredir** Issue de `Document` (ou `Done`) para `In Progress` — nem por “começar a trabalhar”, nem ao atualizar descrição/comentário, nem por efeito colateral de PR/docs.
 - Passar `state` no MCP com tipo genérico (`started`) em vez do nome exato do status.
 - Ignorar refinamentos já feitos por agentes anteriores.
-- Implementar fora do escopo refinado sem sinalizar.
+- Implementar fora do escopo refinado sem registrar decisão/escopo.
 - Atualizar documentação permanente sem necessidade real.
-- Inventar decisão de produto, arquitetura ou aceite no lugar do usuário.
-- Concluir a etapa com perguntas bloqueantes só registradas no Linear, sem perguntar no chat.
+- Fazer merge da PR sem confirmação explícita do usuário no chat pós-Done.
+- Usar Gate de Emergência para dúvidas que a KB/código/padrões já resolvem.
 
 ---
 
-## 15.1 Gate de Decisão (dúvidas bloqueantes)
+## 15.1 Decisões no fluxo contínuo
 
-Quando uma **decisão importante** for necessária para avançar a etapa, o agente **não inventa** e **não conclui** a atuação. O canal para obter a resposta é o **chat do Cursor**; o Linear registra o bloqueio e, depois, a decisão tomada.
+No modo contínuo, o padrão é **não interromper o chat**. Ambiguidade se resolve com decisão assumida; o chat só para em emergência real.
 
-### O que é bloqueante
+### A) Decisão Assumida (padrão)
 
-É bloqueante qualquer dúvida sem a qual a etapa atual não pode ser fechada com qualidade, por exemplo:
+Quando houver dúvida mas for possível avançar com segurança:
 
-| Etapa | Exemplos de decisão bloqueante |
-| --- | --- |
-| Backlog (Product Analyst) | Escopo, problema, comportamento esperado, personas, regras de negócio, critérios de aceite |
-| Backlog (Software Architect) | Trade-off técnico com impacto de produto, ADR necessário, dependência externa/config, migration arriscada |
-| In Progress (Engineers) | Ambiguidade de escopo/contrato, regra indefinida, mudança fora do plano sem autorização |
-| Review (Tech Lead) | Aceitar risco residual, exception a padrão, escopo vs. implementação, ADR pendente |
-| Review (QA) | Comportamento esperado ambíguo, “aprovado com ressalvas”, ambiente/dados impossíveis de validar |
-| Document (Technical Writer) | Wording de produto na KB, o que documentar vs. omitir |
-
-Dúvidas **não bloqueantes** (melhoria opcional, follow-up, nitpick) podem ir só na Issue, sem parar o fluxo.
-
-### Protocolo obrigatório
-
-1. **Pare** a conclusão da etapa (não marque handoff como `concluído`; não recomende/mova status para a próxima etapa).
-2. **Registre no Linear** (via MCP) o progresso parcial + seção de perguntas bloqueantes + handoff com `Status: bloqueado` (ou `requer esclarecimento`).
-3. **Pergunte no chat do Cursor** de forma explícita, numerada e acionável — este é o canal em que o usuário responde.
-4. **Aguarde** a resposta do usuário no chat. Não continue a etapa como se a decisão já existisse.
-5. **Após a resposta:** atualize o Linear com as decisões tomadas (o que foi decidido, por quem/quando no fluxo, impacto no escopo/aceite).
-6. **Só então** conclua a análise/execução da etapa e faça o handoff definitivo.
-
-### Formato mínimo no chat (perguntas)
+1. Escolher a opção mais alinhada à KB, ao código existente, aos padrões e ao escopo já refinado.
+2. Preferir a opção **conservadora** (menor escopo, sem breaking change, sem inventar produto).
+3. Registrar na Issue:
 
 ```markdown
-## Decisão necessária — Issue [ID]
+## Decisão Assumida — [Agente] — [data]
 
-Não consigo concluir [etapa/papel] sem sua decisão.
+- **Dúvida:** …
+- **Opção escolhida:** …
+- **Alternativas descartadas:** …
+- **Fundamento:** [KB / código / padrão / critério de aceite]
+- **Impacto:** [escopo / aceite / implementação]
+```
+
+4. Continuar a etapa e o pipeline.
+
+Dúvidas não bloqueantes (nitpick, follow-up, melhoria opcional) vão só na Issue, sem parar nada.
+
+### B) Gate de Emergência (exceção rara)
+
+Interromper o chat **somente** se for impossível continuar com segurança, por exemplo:
+
+- Ação destrutiva irreversível ou perda de dados sem base clara
+- Credencial/segredo/ambiente indispensável e ausente
+- Conflito irreconciliável entre requisitos com impacto alto e sem base na KB
+- Pedido explícito do usuário para pausar
+
+**Não** é emergência: wording de UI, nome de campo, escolha entre duas abordagens equivalentes, “qual lib?”, detalhes cobertos por padrões do repo, escopo inferível da Issue + KB.
+
+### Protocolo do Gate de Emergência
+
+1. **Pare** a conclusão da etapa (handoff `bloqueado`).
+2. Registre no Linear o progresso parcial + perguntas + handoff bloqueado.
+3. Pergunte no chat de forma explícita, numerada e acionável.
+4. Aguarde a resposta.
+5. Atualize o Linear com a decisão.
+6. Retome o pipeline contínuo até Done.
+
+### Formato mínimo no chat (emergência)
+
+```markdown
+## Gate de Emergência — Issue [ID]
+
+Não consigo continuar com segurança sem sua decisão.
 
 ### Contexto (1–3 linhas)
-[por que isso bloqueia]
+[por que isso é emergência, não ambiguidade comum]
 
 ### Perguntas
 1. [pergunta objetiva] — opções: A) … / B) … / C) …
-2. …
 
-### Impacto se não decidir agora
-- [o que fica parado]
+### O que já está pronto
+- [etapas concluídas]
 ```
 
 ### Formato mínimo no Linear (após resposta)
@@ -558,14 +685,16 @@ Não consigo concluir [etapa/papel] sem sua decisão.
 
 ### Regras
 
-- Chat = obter a decisão. Linear = persistir bloqueio e decisão.
-- Não encerre a atuação com “perguntas em aberto” só no Linear sem espelhar as perguntas no chat.
-- Não mova status (§16) enquanto houver pergunta bloqueante sem resposta registrada.
-- Após registrar a decisão no Linear, o agente pode retomar e concluir o passo na mesma sessão (se o usuário já respondeu) ou na próxima atuação.
+- Chat durante o pipeline = só emergência ou Done.
+- Linear = persistir decisões assumidas, bloqueios e decisões do usuário.
+- Não mova status (§16) enquanto houver Gate de Emergência sem resposta.
+- Após a resposta, retomar e ir até Done na mesma sessão, se possível.
 
 ---
 
 ## 16. Critérios para Mudar Status no Linear
+
+Em execução contínua, cumprir o critério **é** autorização para mover.
 
 ### Para mover para `Todo`
 
@@ -573,8 +702,8 @@ Permitido quando:
 
 - Product Analyst concluiu refinamento.
 - Software Architect concluiu análise técnica.
-- Não há perguntas bloqueantes (se houve, foram resolvidas via Gate de Decisão §15.1 e registradas no Linear).
-- Critérios de aceite estão claros.
+- Não há Gate de Emergência aberto.
+- Critérios de aceite estão claros (incluindo decisões assumidas registradas).
 - Escopo e fora de escopo estão definidos.
 - Riscos principais estão registrados.
 
@@ -582,8 +711,8 @@ Permitido quando:
 
 Permitido quando:
 
-- Issue está refinada.
-- O usuário moveu ou autorizou mover para execução.
+- Issue está refinada (ou já estava).
+- Execução contínua em andamento **ou** usuário pediu implementação.
 - O agente executor entendeu escopo, critérios e abordagem.
 
 ### Para aprovar Code Review (ainda em `Review`)
@@ -612,6 +741,7 @@ Permitido quando:
 - Code Review aprovado.
 - QA aprovado.
 - Não há bugs bloqueantes abertos.
+- PR existe e está referenciada na Issue (quando houver código).
 
 ### Para permanecer em `Document` (obrigatório)
 
@@ -630,6 +760,13 @@ Permitido quando:
 - Caso nada tenha sido alterado, a justificativa foi registrada no Linear.
 - A Issue ainda está (ou foi restaurada) em `Document` antes da transição para `Done`.
 - Se a entrega for merge em `main`: existe arquivo novo em `knowledge/releases/` e o índice foi atualizado (§11.2).
+- PR atualizada com o estado final.
+
+Após `Done`: relatório no chat (§2.1). **Não** mergear sem confirmação.
+
+### Loop Review → In Progress
+
+Permitido quando Tech Lead ou QA registrarem correções **obrigatórias**. Sugestões opcionais não disparam o loop.
 
 ---
 
@@ -644,7 +781,7 @@ Formato recomendado:
 
 **Status:** [concluído / requer ajustes / bloqueado]
 
-**Próximo agente recomendado:** [Software Architect / Backend Engineer / Frontend Engineer / Tech Lead / QA Analyst / Technical Writer]
+**Próximo agente recomendado:** [Software Architect / Backend Engineer / Frontend Engineer / Tech Lead / QA Analyst / Technical Writer / Done]
 
 **Motivo:** [por que este é o próximo passo]
 
@@ -653,7 +790,14 @@ Formato recomendado:
 - [item 2]
 ```
 
-Quando o status for `bloqueado` por falta de decisão, o próximo passo imediato é **aguardar resposta do usuário no chat** (Gate de Decisão §15.1), não o próximo agente.
+Em execução contínua:
+
+| Handoff | Ação do orquestrador |
+| --- | --- |
+| `concluído` | Assumir próximo agente / mover status / continuar |
+| `requer ajustes` | Voltar Engineers (`In Progress`), corrigir, retornar ao Review |
+| `bloqueado` | Somente Gate de Emergência — perguntar no chat |
+
 ---
 
 ## 18. Fonte de Verdade por Tipo de Informação
@@ -665,6 +809,7 @@ Quando o status for `bloqueado` por falta de decisão, o próximo passo imediato
 | Histórico de review | Linear |
 | Histórico de QA | Linear |
 | Implementação | Git / código |
+| PR | Git host (URL também na Issue) |
 | Conhecimento permanente do produto | Repositório `knowledge/*.md` |
 | Arquitetura permanente | Repositório `knowledge/*.md` |
 | Regras de negócio permanentes | Repositório `knowledge/*.md` |
@@ -674,29 +819,17 @@ Quando o status for `bloqueado` por falta de decisão, o próximo passo imediato
 ## 19. Resumo Operacional
 
 ```
-Backlog
+[Usuário pede executar Issue]
 → Product Analyst atualiza Issue no Linear
 → Software Architect atualiza Issue no Linear
-→ Issue vai para Todo
-
-Todo
-→ Issue pronta para execução
-
-In Progress
-→ Backend Engineer / Frontend Engineer implementam
-→ Agentes atualizam Issue no Linear com resumo da execução
-
-Review
-→ Tech Lead faz code review
-→ QA Analyst faz validação
-→ Correções voltam para Engineers (In Progress) se necessário
-
-Document
-→ Technical Writer atualiza docs internas se necessário
-→ Se a PR vai para `main`: gera `knowledge/releases/vX.Y.Z-YYYY-MM-DD.md` + índice (§11.2)
-
-Done
-→ Issue concluída (estado final do fluxo)
+→ Todo → In Progress (automático)
+→ Backend e/ou Frontend (skip se não houver escopo)
+→ Branch + PR
+→ Review: Tech Lead → QA
+→ Loop automático se correções obrigatórias
+→ Document: Technical Writer (+ release notes se PR → main)
+→ Done
+→ Chat: resumo + PR + pedir validação manual ou confirmação de merge
 ```
 
 ---
@@ -757,10 +890,10 @@ Exemplo:
 ```md
 Ao concluir sua atuação, atualize a Issue no Linear com:
 - Resumo do que foi analisado ou implementado
-- Decisões tomadas
+- Decisões tomadas (incluindo assumidas)
 - Riscos ou problemas encontrados
 - Próximo passo recomendado
-- Status sugerido
+- Status sugerido (em contínuo: o orquestrador aplica)
 ```
 
 ### 20.5 Handoff vira parte obrigatória dos MDCs
@@ -774,17 +907,23 @@ Próximo agente recomendado:
 Pontos de atenção:
 ```
 
-### 20.6 Gate de Decisão nos MDCs
+Em execução contínua, `concluído` / `requer ajustes` dispara a próxima ação automaticamente.
+
+### 20.6 Decisões e Gate nos MDCs
 
 Todo MDC deve instruir o agente a:
 
 ```md
-Se surgir decisão bloqueante:
+Ambiguidade resolvível:
+1. Decisão Assumida (KB/código/padrões).
+2. Registrar no Linear.
+3. Continuar o pipeline.
+
+Só se for Gate de Emergência (§15.1 B):
 1. Não concluir a etapa.
-2. Registrar bloqueio + perguntas no Linear.
-3. Perguntar no chat do Cursor e aguardar resposta do usuário.
-4. Atualizar o Linear com a decisão.
-5. Só então concluir e fazer handoff definitivo.
+2. Registrar bloqueio no Linear.
+3. Perguntar no chat e aguardar.
+4. Atualizar Linear e retomar até Done.
 ```
 
 Detalhe: workflow §15.1.
@@ -794,3 +933,15 @@ Detalhe: workflow §15.1.
 MDCs e templates do Ledger Flow **não** devem citar nome, domínio, tenant ou stack de um produto específico.
 
 Stack, pastas de código, papéis de usuário e integrações vêm da KB e do código **do repositório atual** (`knowledge/03_arquitetura/`, `knowledge/05_padroes/`, `knowledge/06_integracoes/`). Se a KB ainda não existir, descreva o que o código mostra e registre a lacuna documental — não copie o contexto de outro projeto.
+
+### 20.8 Orquestração contínua
+
+Quando a sessão for execução de Issue (não um papel pontual):
+
+```md
+1. Carregar MDC do papel atual.
+2. Executar até handoff concluído / requer ajustes / bloqueado.
+3. Se concluído: próximo papel sem pausar o chat.
+4. Se requer ajustes: Engineer → Review em loop.
+5. Se Done: relatório §2.1 no chat (único retorno esperado ao usuário).
+```

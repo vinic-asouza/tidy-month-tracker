@@ -40,7 +40,7 @@ Sempre que estiver atuando sobre uma Issue, você deve:
 5. Atualizar apenas arquivos `.md` permanentes necessários.
 6. Não criar arquivos temporários por Issue.
 7. Registrar na Issue o que foi revisado e atualizado.
-8. Indicar se a Issue está pronta para `Done` (se autorizado).
+8. Em execução contínua: ao concluir Document, mover para `Done` e disparar o relatório no chat (workflow §2.1 / §11.3).
 
 Você pode alterar arquivos de documentação permanente.
 
@@ -474,23 +474,23 @@ Sem o arquivo de release, a PR para `main` não está pronta. Não invente tag, 
 
 ---
 
-## 11. Quando Bloquear (Gate de Decisão)
+## 11. Decisões em Document (fluxo contínuo)
 
-Bloqueie se:
+**Padrão:** Decisão Assumida (§15.1 A) — documentar o comportamento evidenciado pelo código + Issue; registrar escolhas de wording na Issue; continuar.
 
-- a Issue não possui informações suficientes sobre o que foi implementado;
-- o código/diff não está disponível;
-- há divergência entre Issue e implementação;
-- documentação existente está inconsistente e não há clareza sobre o comportamento correto;
-- mudança exige decisão de produto ou arquitetura antes de documentar;
-- não há acesso aos arquivos necessários.
+Ao concluir (docs atualizados ou justificativa de “sem alteração”):
 
-Neste caso (obrigatório — workflow §15.1):
+1. Preservar `Document` até o momento da transição.
+2. Mover para `Done` (critérios §16).
+3. Atualizar a PR se necessário (release notes / KB).
+4. Retornar no chat o relatório §2.1 (resumo + PR + validação/merge). **Não** mergear.
 
-1. **Não conclua** Document nem recomende `Done`.
+**Gate de Emergência (§15.1 B)** — só se for impossível documentar com segurança:
+
+1. **Não conclua** Document nem mova para `Done`.
 2. Registre bloqueio + perguntas no Linear.
-3. **Pergunte no chat do Cursor** e **aguarde** a resposta.
-4. Após a resposta: registre a decisão no Linear e só então documente/conclua.
+3. Pergunte no chat e aguarde.
+4. Após a resposta: registre a decisão, documente, vá a Done e emita o relatório.
 
 ---
 
@@ -506,7 +506,8 @@ Neste caso (obrigatório — workflow §15.1):
 - Manter documentação clara, concisa e reutilizável.
 - Usar termos do glossário.
 - Preservar estrutura dos documentos existentes.
-- Aplicar Gate de Decisão (§15.1) quando houver dúvida bloqueante antes de concluir Document.
+- Preferir Decisão Assumida (§15.1 A); Gate de Emergência só quando inevitável.
+- Em contínuo: ao concluir → `Done` + relatório no chat (resumo + PR); nunca mergear sem confirmação.
 
 ### Nunca
 
@@ -516,7 +517,8 @@ Neste caso (obrigatório — workflow §15.1):
 - Documentar detalhe efêmero.
 - Alterar comportamento/documentação de produto sem evidência.
 - Aprovar QA ou code review.
-- Concluir Document com decisão bloqueante só no Linear, sem perguntar no chat.
+- Pausar o pipeline contínuo para pedir “posso ir para Done?”.
+- Fazer merge da PR sem confirmação explícita do usuário.
 - **Mover ou deixar a Issue sair de `Document` para `In Progress`** (nem ao “iniciar” a documentação, nem ao atualizar a Issue via MCP).
 - Passar `state: "started"` (ou outro tipo genérico) no `save_issue` — use nome exato ou omita `state`.
 
@@ -546,7 +548,7 @@ Você não deve:
 ### Status Linear (obrigatório)
 
 1. Ao iniciar: confirme que a Issue está em `Document`. Se estiver em `In Progress` por regressão indevida, restaure `state: "Document"` e registre.
-2. Ao atualizar a Issue (`save_issue` / comentário): **não envie `state`**, exceto para restaurar `Document` ou (se autorizado e Document concluído) mover para `Done`.
+2. Ao atualizar a Issue (`save_issue` / comentário): **não envie `state`**, exceto para restaurar `Document` ou (Document concluído, critérios §16 ok) mover para `Done`.
 3. Ao finalizar: a Issue deve continuar em `Document` até autorização explícita para `Done`.
 
 ---

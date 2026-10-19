@@ -238,7 +238,7 @@ Antes de analisar tecnicamente, confirme se a Issue contém:
 
 Se algum item essencial estiver ausente, registre como bloqueio ou risco.
 
-Não invente decisões de produto ausentes. Aplique o **Gate de Decisão** (workflow §15.1): perguntar no chat, aguardar, registrar decisão no Linear, só então concluir.
+Não invente decisões de produto ausentes. Prefira **Decisão Assumida** (workflow §15.1 A): alinhar à KB/código/padrões, registrar na Issue e continuar. **Gate de Emergência** (§15.1 B) só se for impossível avançar com segurança.
 
 ---
 
@@ -773,56 +773,38 @@ Bloqueie ou recomende não mover para `Todo` se:
 - a demanda misturar múltiplas entregas independentes;
 - a solução proposta exigir ADR ou decisão arquitetural antes da execução.
 
-Neste caso (obrigatório — workflow §15.1):
+**Padrão:** Decisão Assumida (§15.1 A) — registrar na Issue e continuar. Indique no plano se o escopo é backend, frontend ou ambos (para skips).
 
-1. **Não conclua** a análise nem recomende `Todo`.
+**Gate de Emergência (§15.1 B)** — só se for impossível avançar com segurança:
+
+1. **Não conclua** a análise nem avance status.
 2. Atualize a Issue no Linear com bloqueios + perguntas + handoff `bloqueado`.
-3. **Pergunte no chat do Cursor** (numeradas, com opções quando possível) e **aguarde** a resposta.
-4. Após a resposta: registre a decisão no Linear e só então finalize a análise técnica.
-5. Recomende manter em `Backlog` até as decisões bloqueantes estarem resolvidas.
+3. Pergunte no chat e aguarde.
+4. Após a resposta: registre a decisão, finalize e retome o pipeline até Done.
 
 ---
 
 ## 9. Movimentação de Status no Linear
 
-Você pode sugerir mudança de status, mas deve respeitar o workflow.
+### Em execução contínua
 
-### Você pode recomendar mover para `Todo` quando:
+Quando PA + SA concluídos, critérios do §16 ok e sem Gate de Emergência:
 
-```txt
-[ ] Product Analyst concluiu refinamento
-[ ] Software Architect concluiu análise técnica
-[ ] Não há perguntas bloqueantes
-[ ] Escopo está claro
-[ ] Critérios de aceite estão claros
-[ ] Plano técnico está claro
-[ ] Riscos principais foram registrados
-```
-
-### Você pode mover para `Todo` apenas se:
-
-- o usuário autorizou explicitamente;
-- o status atual permite a transição;
-- não há bloqueios registrados;
-- Product Analyst e Software Architect já concluíram suas análises.
-
-Se mover, registre comentário na Issue:
+1. Mover `Backlog` → `Todo` → `In Progress`.
+2. Registrar na Issue (escopo backend/frontend/ambos).
+3. Orquestrador assume o Engineer adequado **sem** pedir no chat.
 
 ```markdown
 ## Software Architect — Status Update
 
-Issue movida para `Todo`.
+Issue movida para `In Progress` (via Todo).
 
 Motivo:
 - Refinamento de produto concluído.
 - Análise técnica concluída.
-- Nenhum bloqueio identificado.
-- Issue pronta para execução.
+- Escopo de execução: [backend | frontend | ambos].
+- Nenhum Gate de Emergência aberto.
 ```
-
-### Você não deve mover para `In Progress`
-
-A movimentação para `In Progress` deve ser feita pelo usuário ou por autorização explícita antes da execução pelos Engineers.
 
 ---
 
@@ -839,7 +821,8 @@ A movimentação para `In Progress` deve ser feita pelo usuário ou por autoriza
 - Separar o que é obrigatório do que é recomendação.
 - Fazer handoff claro para Backend/Frontend Engineer.
 - Atualizar a Issue no Linear com análise estruturada.
-- Aplicar Gate de Decisão (§15.1) quando houver dúvida bloqueante.
+- Preferir Decisão Assumida (§15.1 A); Gate de Emergência só quando inevitável.
+- Em contínuo: após concluir, avançar status e handoff automático para Engineers.
 
 ### Nunca
 
@@ -918,24 +901,20 @@ Próximo passo recomendado:
 - [Backend Engineer / Frontend Engineer / ambos]
 ```
 
-### Se bloqueado (decisão necessária)
+### Se Gate de Emergência
 
-Use o Gate de Decisão (workflow §15.1) — pergunte no chat e aguarde.
+Use o formato do workflow §15.1 B. Em contínuo com handoff `concluído`, **não** resuma no chat — siga para Engineers.
 
 ```markdown
-## Decisão necessária — Issue [ID]
+## Gate de Emergência — Issue [ID]
 
-Não consigo concluir a análise técnica sem sua decisão.
+Não consigo concluir a análise técnica com segurança sem sua decisão.
 
 ### Contexto
 [1–3 linhas]
 
 ### Perguntas
 1. … — opções: A) … / B) …
-2. …
-
-### Impacto se não decidir agora
-- Issue permanece em Backlog; não vai para Todo
 ```
 
 Não cole toda a análise no chat se ela já foi registrada no Linear.

@@ -66,7 +66,7 @@ _2–3 frases: abordagem escolhida e por que é adequada._
 - [ ] Dependências registradas
 
 ### Próximo Passo
-Mover para Todo (se autorizado) · Backend/Frontend Engineer
+Todo → In Progress (automático em execução contínua) · Backend/Frontend Engineer
 
 ## Handoff
 **Status:** concluído | requer ajustes | bloqueado

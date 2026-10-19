@@ -1,5 +1,5 @@
 ---
-description: "Ledger Flow: Linear é fonte de verdade operacional; knowledge/ só para KB permanente; agentes atualizam Issues via MCP com handoff; decisões bloqueantes vão no chat antes de concluir. Aplica-se a toda sessão."
+description: "Ledger Flow: execução contínua ponta a ponta até Done; Linear é fonte de verdade; knowledge/ só KB permanente; handoff automático entre papéis; chat só em Done (resumo+PR) ou Gate de Emergência. Aplica-se a toda sessão."
 alwaysApply: true
 ---
 
@@ -21,17 +21,32 @@ Não assuma nome, domínio, stack ou tenants de outro produto. Use a KB e o cód
 | Código | Git |
 | Conhecimento permanente | `knowledge/` |
 
+## Execução contínua (padrão)
+
+Quando o usuário pedir executar/rodar/desenvolver/processar uma Issue:
+
+1. Orquestrar **todas** as etapas até `Done` na mesma sessão, sem pedir confirmação entre papéis.
+2. Pipeline: PA → SA → Backend (se houver) → Frontend (se houver) → Tech Lead → QA → (loop automático se correções obrigatórias) → Technical Writer → Done.
+3. Mover status Linear automaticamente quando os critérios do workflow §16 forem cumpridos.
+4. Skip inteligente de Backend/Frontend conforme escopo do SA.
+5. Criar/atualizar PR durante a execução; **nunca** mergear sem confirmação explícita pós-Done.
+6. **Silêncio no chat** durante o pipeline — progresso e decisões vão no Linear.
+7. Em `Done`, retornar no chat: resumo do que foi feito + URL da PR + pedir validação manual **ou** confirmação se deseja os merges.
+
+Modo pontual (exceção): se o usuário pedir só um papel, execute só esse papel.
+
 ## Regras absolutas
 
 1. Com Issue associada: **ler e atualizar no Linear via MCP** — não depender só do chat.
 2. **Nunca** criar arquivos temporários por Issue (`refinamento-*`, `qa-report-*`, `analise-tecnica-*`, pastas `knowledge/refinamentos/`, etc.).
 3. Atualizar `knowledge/` **somente** quando houver mudança permanente (produto, regra, arquitetura, módulo, integração, padrão, ADR ou release notes).
-4. Respeitar o papel solicitado; não pular etapas do workflow.
-5. Não mover status Linear sem autorização / critérios do workflow §16.
-6. **Gate de Decisão (workflow §15.1):** se precisar de decisão importante para concluir a etapa, **pergunte no chat do Cursor**, registre o bloqueio no Linear, **aguarde a resposta**, atualize o Linear com a decisão e **só então** conclua. Não invente a decisão; não feche a etapa com perguntas bloqueantes só no Linear.
+4. Em execução contínua: ao concluir uma etapa, **assumir o próximo papel imediatamente** (carregar o MDC correspondente).
+5. Mover status Linear quando os critérios do workflow §16 forem cumpridos (execução contínua autoriza as transições até Done).
+6. **Decisões (workflow §15.1):** preferir **Decisão Assumida** (KB/código/padrões → registrar no Linear → continuar). **Gate de Emergência** (perguntar no chat) só se for impossível avançar com segurança. Não pausar por ambiguidade comum.
 7. **Status em Document:** a Issue **permanece em `Document`** durante o Technical Writer. É proibido regredir para `In Progress`. Em `save_issue`, omitir `state` (exceto restaurar `Document` ou concluir para `Done`); nunca usar tipo genérico `started`. Se detectar regressão (ex.: automação Git/PR), restaurar `Document` imediatamente (workflow §11.1).
 8. **KB do projeto atual:** a árvore `knowledge/01_produto/` … `knowledge/07_decisoes-tecnicas/` é convenção do Ledger Flow. Consulte o que existir neste repositório. Não invente produto, regras ou stack se o arquivo ainda não existir.
 9. **Time Linear:** neste produto o fluxo usa **somente** o time **Development**. Não usar Marketing. Em `save_issue` / `list_issues`, identifique o time Development. Nunca `state: started` genérico.
+10. **Merge:** proibido sem confirmação explícita do usuário no chat após Done.
 
 ## Formato mínimo na Issue
 

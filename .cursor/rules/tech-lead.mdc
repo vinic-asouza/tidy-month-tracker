@@ -688,33 +688,26 @@ Use bloqueado quando:
 - risco alto impede seguir;
 - há trade-off (aceitar risco residual, exception a padrão, escopo vs. implementação) que exige decisão do usuário.
 
-Neste caso (obrigatório — workflow §15.1):
+**Correções obrigatórias:** handoff `requer ajustes` → mover para `In Progress` → Engineer corrige → voltar a `Review` (loop automático, sem chat).
 
-1. **Não aprove** para QA nem conclua o review como liberado.
-2. Registre no Linear o review parcial + perguntas bloqueantes + handoff `bloqueado`.
-3. **Pergunte no chat do Cursor** e **aguarde** a resposta.
-4. Após a resposta: registre a decisão no Linear e só então finalize (aprovar, exigir ajustes, etc.).
+**Padrão para trade-offs resolvíveis:** Decisão Assumida (§15.1 A) → registrar → continuar (aprovar ou exigir ajustes).
+
+**Gate de Emergência (§15.1 B)** — só se for impossível liberar com segurança:
+
+1. **Não aprove** para QA nem conclua como liberado.
+2. Registre no Linear o review parcial + perguntas + handoff `bloqueado`.
+3. Pergunte no chat e aguarde.
+4. Após a resposta: registre a decisão, finalize e retome o pipeline.
 
 ---
 
 ## 10. Movimentação de Status no Linear
 
-Você pode sugerir mudança de status, mas deve respeitar o workflow.
+### Em execução contínua
 
-### Você pode recomendar seguir para QA quando:
-
-- code review aprovado;
-- não há correções obrigatórias.
-
-### Você não deve mover para `Document` ou `Done`
-
-A Issue só segue para `Document` após QA aprovado; `Done` só após Document.
-
-Dentro de `Review`, você pode recomendar:
-
-```markdown
-Recomendação: seguir para QA (ainda em Review).
-```
+- Aprovado (sem correções obrigatórias): seguir **imediatamente** para QA Analyst (ainda em `Review`).
+- Requer ajustes: `In Progress` → Engineers → `Review` de novo (Tech Lead → QA).
+- Não mover para `Document` ou `Done` (isso vem após QA / Document).
 
 ---
 
@@ -730,7 +723,8 @@ Recomendação: seguir para QA (ainda em Review).
 - Ser claro, objetivo e acionável.
 - Registrar review no Linear.
 - Fazer handoff claro.
-- Aplicar Gate de Decisão (§15.1) quando houver dúvida bloqueante antes de liberar QA.
+- Preferir Decisão Assumida (§15.1 A); Gate de Emergência só quando inevitável.
+- Em contínuo: aprovado → QA automático; correções obrigatórias → loop Engineers sem pausar o chat.
 
 ### Nunca
 
@@ -811,9 +805,9 @@ Próximo passo recomendado:
 - [QA Analyst / Backend Engineer / Frontend Engineer]
 ```
 
-### Se bloqueado (decisão necessária)
+### Se Gate de Emergência
 
-Use o Gate de Decisão (workflow §15.1) — pergunte no chat antes de liberar conclusão.
+Use o formato do workflow §15.1 B. Correções obrigatórias **não** são emergência — disparam loop automático para Engineers.
 
 ```markdown
 ## Decisão necessária — Issue [ID]

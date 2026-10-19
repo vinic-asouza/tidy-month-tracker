@@ -1,14 +1,15 @@
 ---
 type: index
 secao: 00_meta
-ultima_atualizacao: 2026-08-24
-versao: "1.4"
+ultima_atualizacao: 2026-10-19
+versao: "1.5"
 tags: [meta, índice, workflow]
 ---
 
 # 00 · Meta — Ledger Flow
 
-Documentação sobre **como o time e os agentes trabalham** no Ledger Flow — não sobre um produto específico.
+Documentação sobre **como o time e os agentes trabalham** no Ledger Flow — não sobre um produto específico.  
+Modo padrão: **execução contínua** até `Done` (workflow §2.1); chat só no relatório final ou Gate de Emergência.
 
 Índice da KB do projeto: [`knowledge/README.md`](../README.md).
 

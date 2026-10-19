@@ -1,7 +1,7 @@
 ---
 type: index
 titulo: Base de conhecimento
-ultima_atualizacao: 2026-08-24
+ultima_atualizacao: 2026-10-19
 ---
 
 # Base de conhecimento
@@ -17,7 +17,7 @@ Time Linear do fluxo: **Development** (não usar Marketing). `main` = produção
 
 | Arquivo | Uso |
 | --- | --- |
-| [00_meta/linear-cursor-workflow.md](00_meta/linear-cursor-workflow.md) | Fonte de verdade do Ledger Flow |
+| [00_meta/linear-cursor-workflow.md](00_meta/linear-cursor-workflow.md) | Fonte de verdade do Ledger Flow (execução contínua até Done) |
 | [00_meta/mapa-de-agentes.md](00_meta/mapa-de-agentes.md) | Etapa Linear → agente → output |
 | [00_meta/templates/](00_meta/templates/) | Estruturas para colar na Issue / docs permanentes |
 
