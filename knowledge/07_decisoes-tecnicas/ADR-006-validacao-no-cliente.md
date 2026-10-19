@@ -2,14 +2,17 @@
 type: adr
 id: ADR-006
 titulo: Regras de valor e percentual no cliente
-status: Aceito
+status: Parcialmente substituída
 data: 2026-08-23
 autor: Development
 decisores: [Development]
 tags: [seguranca, banco]
+substituida_por: ADR-008
 ---
 
 # ADR-006 — Regras de valor e percentual no cliente
+
+> **Status:** parcialmente substituída por [ADR-008](./ADR-008-checks-integridade-lancamentos.md) (DEV-143): valor > 0, `year_month` e coerência de parcelas agora têm CHECK no Postgres. Validação de UX no cliente e listas dinâmicas (categoria/método) permanecem como nesta ADR.
 
 ## Contexto e problema
 
@@ -17,7 +20,7 @@ Valor > 0, soma 100% da regra, formulários: dá para pôr CHECK no Postgres ou 
 
 **Problema técnico:** PostgREST aceita o que o schema aceitar; a anon key é pública (ADR-003).
 
-**Por que registrar:** um cliente adulterado pode gravar `0` ou regra inválida **se** não houver CHECK. Aceito no beta; P4 no roadmap.
+**Por que registrar:** um cliente adulterado pode gravar `0` ou regra inválida **se** não houver CHECK. Aceito no beta; P4 no roadmap (antecipado em DEV-143 / ADR-008).
 
 ## Forças
 
