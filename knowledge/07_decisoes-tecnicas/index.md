@@ -20,6 +20,7 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | [ADR-006](./ADR-006-validacao-no-cliente.md) | Regras de valor/percentual no cliente | Aceito* | segurança, banco |
 | [ADR-007](./ADR-007-remover-carteiras.md) | Remover carteiras do produto e do schema | Aceito | produto, banco |
 | [ADR-009](./ADR-009-cartao-por-id.md) | Gasto no cartão casa pelo **credit_card_id** | Aceito | dados, integridade |
+| [ADR-010](./ADR-010-rpcs-atomicas-series.md) | RPCs atômicas para séries e rename | Aceito | banco, integridade |
 
 \* ADR-008 (CHECKs de lançamentos / DEV-143) entra via PR #17 e marca ADR-006 como parcialmente substituída.
 
