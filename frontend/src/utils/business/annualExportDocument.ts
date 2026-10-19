@@ -18,6 +18,7 @@ import {
 } from '@/utils/business/annualAverage';
 import {
   buildAnnualExpenseBreakdown,
+  buildAnnualIncomeRows,
   buildAnnualInvestmentRows,
   sumCardPaymentRows,
   type AnnualMoneyRow,
@@ -277,6 +278,12 @@ export function buildAnnualExportDocument(
     ['Saldo', average?.balance ?? null, totals.balance, true],
   ];
 
+  const incomes = buildAnnualIncomeRows(
+    input.yearData,
+    input.mode,
+    averageWindow.monthCount,
+    cards
+  );
   const expenses = buildAnnualExpenseBreakdown(
     input.yearData,
     input.mode,
@@ -290,6 +297,10 @@ export function buildAnnualExportDocument(
     cards
   );
   const cardTotal = sumCardPaymentRows(expenses.paymentMethods);
+  const incomeEmpty =
+    input.mode === 'planned'
+      ? 'Nenhuma entrada registrada neste ano.'
+      : 'Nenhuma entrada efetivada neste ano.';
   const expenseEmpty = emptyExpensesMessage(input.mode);
   const modeLabel = input.mode === 'planned' ? 'Planejados' : 'Efetivados';
 
@@ -319,7 +330,8 @@ export function buildAnnualExportDocument(
       notes: [],
     },
     buildRuleTable(input, averageWindow.monthCount, activeMonthCount),
-    pairTable('Categorias', expenses.categories, expenseEmpty),
+    pairTable('Entradas', incomes, incomeEmpty),
+    pairTable('Gastos', expenses.categories, expenseEmpty),
   ];
 
   if (expenses.categories.length > 0) {

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { CreditCard, Expense, Investment, MonthData } from '@/types/domain';
+import type { CreditCard, Expense, Income, Investment, MonthData } from '@/types/domain';
+import { RESGATE_INCOME_TAG } from '@/types/finance';
 import {
+  UNCLASSIFIED_INCOME_LABEL,
   UNCLASSIFIED_INVESTMENT_LABEL,
   buildAnnualExpenseBreakdown,
+  buildAnnualIncomeRows,
   buildAnnualInvestmentRows,
   sumCardPaymentRows,
 } from '../annualBreakdown';
@@ -209,6 +212,65 @@ describe('sumCardPaymentRows', () => {
     const data = year([{ expenses: [expense({ id: 'nubank', value: 90, paymentMethod: 'Nubank' })] }]);
     const { paymentMethods } = buildAnnualExpenseBreakdown(data, 'planned', [card], 0);
     expect(sumCardPaymentRows(paymentMethods)).toMatchObject({ total: 90, average: null });
+  });
+});
+
+const income = (overrides: Partial<Income> = {}): Income => ({
+  id: 'inc1',
+  description: 'Salário',
+  value: 1000,
+  tag: 'Salário',
+  date: null,
+  received: true,
+  ...overrides,
+});
+
+describe('buildAnnualIncomeRows', () => {
+  it('agrupa por tag e junta entrada sem classificação', () => {
+    const data = year([
+      {
+        incomes: [
+          income({ id: 'a', value: 2000, tag: 'Salário' }),
+          income({ id: 'b', value: 100, tag: '   ' }),
+          income({ id: 'c', value: 50, tag: 'Freelance', received: false }),
+        ],
+      },
+    ]);
+
+    const planned = buildAnnualIncomeRows(data, 'planned', 12);
+    expect(planned).toEqual([
+      { key: 'Salário', label: 'Salário', total: 2000, average: 2000 },
+      {
+        key: '__unclassified_income__',
+        label: UNCLASSIFIED_INCOME_LABEL,
+        total: 100,
+        average: 100,
+      },
+      { key: 'Freelance', label: 'Freelance', total: 50, average: 50 },
+    ]);
+
+    const effective = buildAnnualIncomeRows(data, 'effective', 12);
+    expect(effective.map((row) => [row.label, row.total])).toEqual([
+      ['Salário', 2000],
+      [UNCLASSIFIED_INCOME_LABEL, 100],
+    ]);
+  });
+
+  it('exclui resgate no planejado e inclui no efetivado quando recebido', () => {
+    const data = year([
+      {
+        incomes: [
+          income({ id: 'sal', value: 1000, tag: 'Salário' }),
+          income({ id: 'res', value: 300, tag: RESGATE_INCOME_TAG, received: true }),
+        ],
+      },
+    ]);
+
+    expect(buildAnnualIncomeRows(data, 'planned', 12).map((r) => r.label)).toEqual(['Salário']);
+    expect(buildAnnualIncomeRows(data, 'effective', 12).map((r) => [r.label, r.total])).toEqual([
+      ['Salário', 1000],
+      [RESGATE_INCOME_TAG, 300],
+    ]);
   });
 });
 

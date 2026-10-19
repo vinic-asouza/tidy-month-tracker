@@ -2,16 +2,16 @@
 type: modulo
 nome: Regra financeira
 status: Ativo
-versao: "1.1"
+versao: "1.2"
 owner: Development
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-17
 tags: [regra-financeira, 50-30-20, frontend, supabase]
 dependencias: [autenticacao]
 ---
 
 # Módulo — Regra financeira
 
-Documento-base em `knowledge/04_modulos/regra-financeira.md`. Atualize quando buckets, base de renda, mapeamento de categorias, não classificado ou o toggle efetivado/planejado mudarem.
+Documento-base em `knowledge/04_modulos/regra-financeira.md`. Atualize quando buckets, base de renda, mapeamento de categorias, não classificado, o toggle efetivado/planejado ou o gráfico anual da regra mudarem.
 
 Regras: [`../02_regras-de-negocio/regras-por-modulo/regra-financeira.md`](../02_regras-de-negocio/regras-por-modulo/regra-financeira.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). Hospedagem na UI: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md). Categorias de gasto: [`gastos.md`](./gastos.md). Aportes: [`investimentos.md`](./investimentos.md). Tag histórica de resgate: [`entradas.md`](./entradas.md) (RN-G08).
 
@@ -39,7 +39,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 - Gastos na regra: só os do modo ativo; cartão no efetivado via `isExpenseEffectivelyPaid` (RN-F03, RN-F05)
 - **Não classificado:** gasto do modo ativo cuja categoria não está no mapping; alerta + CTA; rodapé classificados + não classificado (RN-F04)
 - Mesmo toggle do resumo (`viewMode` efetivado/planejado) (RN-F05)
-- Visão anual: duas agregações (`calculateAnnualFinancialRuleStatsByMode`). `resolveAnnualRuleMoney` escala só o R$ da janela (`scaleFinancialRuleMoney`) e guarda o total dos 12 meses. Sem janela ou sem mês com lançamento, a média fica nula (RN-F07). A UI anual mostra a média em destaque, o total do ano ao lado e as barras só da janela. A visão Mensal não recebe o total do ano.
+- Visão anual: duas agregações (`calculateAnnualFinancialRuleStatsByMode`). `resolveAnnualRuleMoney` escala só o R$ da janela (`scaleFinancialRuleMoney`) e guarda o total dos 12 meses. Sem janela ou sem mês com lançamento, a média fica nula (RN-F07). A UI anual (`AnnualFinancialRuleSection`) tem abas **Valores** (média/total + barras) e **Gráficos** (evolução mês a mês dos buckets; Não classificado se houver valor) — RN-R08 no módulo de resumo. A visão Mensal não recebe o total do ano.
 - Hint quando a base efetivada inclui entradas com tag de resgate (`getResgateInflowFromIncomes`)
 
 ### O que este módulo NÃO FAZ
@@ -303,6 +303,7 @@ npm test --workspace=frontend
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-10-14 | 1.1 | A visão Anual lê a regra no pai, para a exportação e a seção usarem a mesma query | DEV-150 | Technical Writer |
+| 2026-10-17 | 1.2 | Abas Valores/Gráficos na regra anual (evolução dos buckets) | DEV-153 | Technical Writer |
 
 ---
 

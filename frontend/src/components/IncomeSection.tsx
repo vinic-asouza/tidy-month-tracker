@@ -41,6 +41,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sectionSurfaceClass } from '@/components/layout/SectionSurface';
 import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
+import { SummaryPieChart } from '@/components/SummaryPieChart';
 import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
@@ -1069,16 +1070,25 @@ const IncomeSectionComponent = ({
           )}
         </div>
       ) : (
-        <div className="space-y-1">
-          {groupedByCategory.map(({ category, total: categoryTotal }) => (
-            <CategorySummaryItem
-              key={category}
-              category={category}
-              total={categoryTotal}
-              groupTotal={total}
-              shouldAnimate={shouldAnimate}
-            />
-          ))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_30%] md:items-start md:gap-6">
+          <div className="space-y-1 min-w-0">
+            {groupedByCategory.map(({ category, total: categoryTotal }) => (
+              <CategorySummaryItem
+                key={category}
+                category={category}
+                total={categoryTotal}
+                groupTotal={total}
+                shouldAnimate={shouldAnimate}
+              />
+            ))}
+          </div>
+          <SummaryPieChart
+            tone="income"
+            data={groupedByCategory.map(({ category, total: categoryTotal }) => ({
+              name: category,
+              value: categoryTotal,
+            }))}
+          />
         </div>
       )}
 
