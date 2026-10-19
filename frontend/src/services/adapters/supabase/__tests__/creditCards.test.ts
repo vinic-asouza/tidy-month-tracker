@@ -112,8 +112,8 @@ describe('createCreditCard', () => {
 });
 
 describe('updateCreditCard', () => {
-  it('propaga o rename para payment_method dos gastos', async () => {
-    mock.enqueue({ data: { name: 'Nubank' } }, { data: null }, {}, {});
+  it('propaga o rename para o rótulo payment_method dos gastos associados por credit_card_id', async () => {
+    mock.enqueue({ data: { name: 'Nubank' } }, { data: null }, {}, {}, {});
 
     await updateCreditCard({
       id: 'card-1',
@@ -121,10 +121,21 @@ describe('updateCreditCard', () => {
       updates: { name: 'Nubank Ultravioleta' },
     });
 
-    const [expenseUpdate] = mock.getOperationsFor('expenses', 'update');
+    const [expenseUpdate, legacyUpdate] = mock.getOperationsFor('expenses', 'update');
     expect(expenseUpdate.payload).toEqual({ payment_method: 'Nubank Ultravioleta' });
     expect(expenseUpdate.filters).toEqual([
       { method: 'eq', args: ['user_id', 'user-1'] },
+      { method: 'eq', args: ['credit_card_id', 'card-1'] },
+    ]);
+
+    // Legados (sem credit_card_id): sincroniza o rótulo e já associa ao cartão
+    expect(legacyUpdate.payload).toEqual({
+      payment_method: 'Nubank Ultravioleta',
+      credit_card_id: 'card-1',
+    });
+    expect(legacyUpdate.filters).toEqual([
+      { method: 'eq', args: ['user_id', 'user-1'] },
+      { method: 'is', args: ['credit_card_id', null] },
       { method: 'eq', args: ['payment_method', 'Nubank'] },
     ]);
 
@@ -188,26 +199,49 @@ describe('updateCreditCard', () => {
 });
 
 describe('canDeleteCreditCard', () => {
-  it('é false quando existem gastos no cartão', async () => {
+  it('é false quando existem gastos associados por credit_card_id', async () => {
     mock.enqueue({ count: 4 });
 
-    await expect(canDeleteCreditCard('Nubank', 'user-1')).resolves.toBe(false);
+    await expect(canDeleteCreditCard('card-1', 'Nubank', 'user-1')).resolves.toBe(false);
 
-    const [query] = mock.getOperationsFor('expenses', 'select');
-    expect(query.filters).toContainEqual({
+    const queries = mock.getOperationsFor('expenses', 'select');
+    expect(queries).toHaveLength(1);
+    expect(queries[0].filters).toContainEqual({
       method: 'eq',
-      args: ['payment_method', 'Nubank'],
+      args: ['credit_card_id', 'card-1'],
     });
   });
 
-  it('é true quando não há gastos no cartão', async () => {
-    mock.enqueue({ count: 0 });
-    await expect(canDeleteCreditCard('Nubank', 'user-1')).resolves.toBe(true);
+  it('é false quando só há gasto legado (sem credit_card_id) com o nome do cartão', async () => {
+    mock.enqueue({ count: 0 }, { count: 2 });
+
+    await expect(canDeleteCreditCard('card-1', 'Nubank', 'user-1')).resolves.toBe(false);
+
+    const [, legacy] = mock.getOperationsFor('expenses', 'select');
+    expect(legacy.filters).toEqual([
+      { method: 'eq', args: ['user_id', 'user-1'] },
+      { method: 'is', args: ['credit_card_id', null] },
+      { method: 'eq', args: ['payment_method', 'Nubank'] },
+    ]);
   });
 
-  it('propaga erro da contagem', async () => {
+  it('é true quando não há gastos por id nem legados por nome', async () => {
+    mock.enqueue({ count: 0 }, { count: 0 });
+    await expect(canDeleteCreditCard('card-1', 'Nubank', 'user-1')).resolves.toBe(true);
+  });
+
+  it('propaga erro da contagem por id', async () => {
     mock.enqueue({ error: { message: 'count falhou' } });
-    await expect(canDeleteCreditCard('Nubank', 'user-1')).rejects.toThrow('count falhou');
+    await expect(canDeleteCreditCard('card-1', 'Nubank', 'user-1')).rejects.toThrow(
+      'count falhou'
+    );
+  });
+
+  it('propaga erro da contagem legada', async () => {
+    mock.enqueue({ count: 0 }, { error: { message: 'legacy falhou' } });
+    await expect(canDeleteCreditCard('card-1', 'Nubank', 'user-1')).rejects.toThrow(
+      'legacy falhou'
+    );
   });
 });
 

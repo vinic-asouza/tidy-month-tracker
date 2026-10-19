@@ -13,6 +13,8 @@ import {
 } from '../creditCards';
 import type { CreditCard, MonthData } from '@/types/domain';
 
+const NUBANK = { id: 'c1', name: 'Nubank' };
+
 const mockMonthData = (overrides: Partial<MonthData> = {}): MonthData => ({
   incomes: [],
   expenses: [],
@@ -58,6 +60,78 @@ describe('isCreditCardExpense', () => {
       )
     ).toBe(false);
   });
+
+  it('detecta por creditCardId mesmo com rótulo divergente', () => {
+    expect(
+      isCreditCardExpense(
+        {
+          id: '1',
+          type: 'variable',
+          category: 'C',
+          description: 'X',
+          paymentMethod: 'Nome antigo',
+          creditCardId: 'c1',
+          value: 10,
+          paid: false,
+        },
+        cards
+      )
+    ).toBe(true);
+  });
+
+  it('com creditCardId de cartão inexistente não cai no fallback por nome', () => {
+    expect(
+      isCreditCardExpense(
+        {
+          id: '1',
+          type: 'variable',
+          category: 'C',
+          description: 'X',
+          paymentMethod: 'Nubank',
+          creditCardId: 'cartao-removido',
+          value: 10,
+          paid: false,
+        },
+        cards
+      )
+    ).toBe(false);
+  });
+
+  it('usa fallback por nome para legado (creditCardId null)', () => {
+    expect(
+      isCreditCardExpense(
+        {
+          id: '1',
+          type: 'variable',
+          category: 'C',
+          description: 'X',
+          paymentMethod: 'Nubank',
+          creditCardId: null,
+          value: 10,
+          paid: false,
+        },
+        cards
+      )
+    ).toBe(true);
+  });
+
+  it('Pix com creditCardId null segue não sendo cartão', () => {
+    expect(
+      isCreditCardExpense(
+        {
+          id: '1',
+          type: 'variable',
+          category: 'C',
+          description: 'X',
+          paymentMethod: 'Pix',
+          creditCardId: null,
+          value: 10,
+          paid: false,
+        },
+        cards
+      )
+    ).toBe(false);
+  });
 });
 
 describe('getCreditCardInvoiceExpenses', () => {
@@ -84,9 +158,50 @@ describe('getCreditCardInvoiceExpenses', () => {
         },
       ],
     });
-    const result = getCreditCardInvoiceExpenses('Nubank', data);
+    const result = getCreditCardInvoiceExpenses(NUBANK, data);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('1');
+  });
+
+  it('prioriza creditCardId: não inclui gasto de outro cartão com mesmo rótulo', () => {
+    const data = mockMonthData({
+      expenses: [
+        {
+          id: 'mine',
+          type: 'variable',
+          category: 'C',
+          description: 'Meu',
+          paymentMethod: 'Rótulo qualquer',
+          creditCardId: 'c1',
+          value: 10,
+          paid: false,
+        },
+        {
+          id: 'other',
+          type: 'variable',
+          category: 'C',
+          description: 'Outro cartão',
+          paymentMethod: 'Nubank',
+          creditCardId: 'c2',
+          value: 20,
+          paid: false,
+        },
+        {
+          id: 'legacy',
+          type: 'variable',
+          category: 'C',
+          description: 'Legado',
+          paymentMethod: 'Nubank',
+          creditCardId: null,
+          value: 30,
+          paid: false,
+        },
+      ],
+    });
+    expect(getCreditCardInvoiceExpenses(NUBANK, data).map((e) => e.id).sort()).toEqual([
+      'legacy',
+      'mine',
+    ]);
   });
 
   it('ordena por data decrescente, sem data por último', () => {
@@ -123,7 +238,7 @@ describe('getCreditCardInvoiceExpenses', () => {
         },
       ],
     });
-    expect(getCreditCardInvoiceExpenses('Nubank', data).map((e) => e.id)).toEqual([
+    expect(getCreditCardInvoiceExpenses(NUBANK, data).map((e) => e.id)).toEqual([
       'new',
       'old',
       'nodate',
@@ -155,7 +270,35 @@ describe('getCreditCardInvoiceSummary', () => {
         },
       ],
     });
-    expect(getCreditCardInvoiceSummary('Nubank', data)).toEqual({ total: 350, count: 2 });
+    expect(getCreditCardInvoiceSummary(NUBANK, data)).toEqual({ total: 350, count: 2 });
+  });
+
+  it('soma por creditCardId mesmo quando o rótulo diverge do nome atual', () => {
+    const data = mockMonthData({
+      expenses: [
+        {
+          id: '1',
+          type: 'variable',
+          category: 'C',
+          description: 'A',
+          paymentMethod: 'Nome antigo',
+          creditCardId: 'c1',
+          value: 100,
+          paid: false,
+        },
+        {
+          id: '2',
+          type: 'variable',
+          category: 'C',
+          description: 'B',
+          paymentMethod: 'Nubank',
+          creditCardId: 'c1',
+          value: 50,
+          paid: false,
+        },
+      ],
+    });
+    expect(getCreditCardInvoiceSummary(NUBANK, data)).toEqual({ total: 150, count: 2 });
   });
 });
 
@@ -173,7 +316,7 @@ describe('getCreditCardUsagePercent', () => {
 describe('groupInvoiceExpensesByCategory', () => {
   it('agrupa e ordena por total decrescente', () => {
     const expenses = getCreditCardInvoiceExpenses(
-      'Nubank',
+      NUBANK,
       mockMonthData({
         expenses: [
           {

@@ -26,7 +26,10 @@ export interface Expense {
   type: 'fixed' | 'variable' | 'installment';
   category: string;
   description: string;
+  /** Rótulo denormalizado (nome do cartão ou método padrão). */
   paymentMethod: string;
+  /** Fonte de verdade da associação com cartão de crédito (DEV-144). */
+  creditCardId?: string | null;
   value: number;
   paid: boolean;
   date?: string | null;

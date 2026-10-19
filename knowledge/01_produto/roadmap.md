@@ -54,7 +54,7 @@ Não bloqueiam a primeira campanha.
 
 **P3 — hardening**
 
-- Vínculo de gasto ao cartão por ID (`credit_card_id`), não só por nome
+- ~~Vínculo de gasto ao cartão por ID (`credit_card_id`)~~ — **feito** em DEV-144 / ADR-009
 - Confirmação se o valor do gasto na conquista divergir muito do desejo
 - Endurecimentos Supabase advisors (WARN): `search_path` em funções, REVOKE EXECUTE de `handle_new_user` para anon/authenticated, leaked-password protection no Auth
 

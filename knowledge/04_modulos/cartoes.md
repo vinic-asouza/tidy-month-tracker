@@ -11,15 +11,15 @@ dependencias: [autenticacao, gastos]
 
 # Módulo — Cartões
 
-Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento da fatura (`credit_card_monthly_status`) ou o match por **nome** mudarem.
+Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento da fatura (`credit_card_monthly_status`) ou o match por **`credit_card_id`** mudarem.
 
-Regras: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de-negocio/regras-por-modulo/cartoes.md). Match gasto↔cartão: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md). Gastos: [`gastos.md`](./gastos.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). ADR do match por nome: [`../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md`](../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md).
+Regras: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de-negocio/regras-por-modulo/cartoes.md). Match gasto↔cartão: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md). Gastos: [`gastos.md`](./gastos.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). ADR: [`../07_decisoes-tecnicas/ADR-009-cartao-por-id.md`](../07_decisoes-tecnicas/ADR-009-cartao-por-id.md).
 
 ---
 
 ## Overview
 
-Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fatura do mês**: soma dos gastos daquele nome, marcar paga e desmarcar. Sem este módulo o caixa efetivado não sabe quando o cartão “fechou”.
+Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fatura do mês**: soma dos gastos com `credit_card_id` daquele cartão (fallback por nome só em legado), marcar paga e desmarcar. Sem este módulo o caixa efetivado não sabe quando o cartão “fechou”.
 
 **Responsabilidade única:** persistir `credit_cards` + `credit_card_monthly_status` (status pago/não pago da fatura do mês).
 
@@ -33,9 +33,9 @@ Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fat
 
 - CRUD de cartão: nome, cor (`CARD_COLORS`), `dueDay` e `creditLimit` opcionais (RN-C01)
 - Recusar nome duplicado na UI (case-insensitive); no rename, o adapter também bloqueia nome exato já usado
-- Excluir só se **nenhum** gasto (qualquer mês) tiver `payment_method` = nome do cartão (RN-C01)
-- Renomear propaga `expenses.payment_method` old → new
-- Chip / fatura = soma de **todos** os gastos com aquele nome no mês (RN-C02)
+- Excluir só se **nenhum** gasto (qualquer mês) tiver `credit_card_id` = id do cartão (ou legado por nome) (RN-C01)
+- Renomear sincroniza rótulo `payment_method` nos gastos do id; associação permanece pelo id
+- Chip / fatura = soma de **todos** os gastos daquele cartão no mês via id (RN-C02)
 - Pagar fatura: `PayInvoiceDialog` confirma o total; grava `credit_card_monthly_status.paid = true` (sem carteira, Saldo Livre nem data) (RN-C03)
 - Desmarcar: `UnpayInvoiceConfirmDialog` e volta `paid = false` (RN-C04)
 - Alerta de vencimento só no **mês corrente**, fatura pendente, janela `CREDIT_CARD_DUE_ALERT_DAYS = 3` (RN-C05)

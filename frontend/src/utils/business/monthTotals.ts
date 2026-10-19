@@ -5,6 +5,7 @@
 
 import type { CreditCard, Expense, Income, MonthData } from '@/types/domain';
 import { RESGATE_INCOME_TAG } from '@/types/finance';
+import { getExpenseCreditCard } from './creditCards';
 
 export type SummaryViewMode = 'effective' | 'planned';
 
@@ -15,7 +16,7 @@ export function isExpenseEffectivelyPaid(
   creditCards: CreditCard[],
   cardMonthlyStatuses?: Record<string, boolean>
 ): boolean {
-  const linkedCard = creditCards.find((c) => c.name === expense.paymentMethod);
+  const linkedCard = getExpenseCreditCard(expense, creditCards);
   if (linkedCard && cardMonthlyStatuses) {
     return cardMonthlyStatuses[linkedCard.id] || false;
   }

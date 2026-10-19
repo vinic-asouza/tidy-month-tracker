@@ -97,12 +97,12 @@ export const CreditCardInvoiceDialog = ({
   }, [viewMode]);
 
   const expenses = useMemo(
-    () => (card ? getCreditCardInvoiceExpenses(card.name, monthData) : []),
+    () => (card ? getCreditCardInvoiceExpenses(card, monthData) : []),
     [card, monthData]
   );
 
   const summary = useMemo(
-    () => (card ? getCreditCardInvoiceSummary(card.name, monthData) : { total: 0, count: 0 }),
+    () => (card ? getCreditCardInvoiceSummary(card, monthData) : { total: 0, count: 0 }),
     [card, monthData]
   );
 

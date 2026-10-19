@@ -51,6 +51,7 @@ import { SectionTotalsHeader } from '@/components/layout/SectionTotalsHeader';
 import { SummaryPieChart } from '@/components/SummaryPieChart';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
+import { getExpenseCreditCard } from '@/utils/business/creditCards';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
 import { toast } from 'sonner';
@@ -145,7 +146,11 @@ const ExpenseForm = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState(initialData?.category || '');
   const [description, setDescription] = useState(initialData?.description || '');
-  const [paymentMethod, setPaymentMethod] = useState(initialData?.paymentMethod || '');
+  const [paymentMethod, setPaymentMethod] = useState(
+    (initialData ? getExpenseCreditCard(initialData, creditCards)?.name : undefined) ??
+      initialData?.paymentMethod ??
+      ''
+  );
   const [value, setValue] = useState(
     isWishConquerFlow
       ? ''
@@ -211,7 +216,9 @@ const ExpenseForm = ({
 
     if (hasError) return;
 
-    const isCardPayment = creditCards.some((c) => c.name === paymentMethod);
+    // DEV-144: associação por id; paymentMethod permanece como rótulo (nome do cartão)
+    const selectedCard = creditCards.find((c) => c.name === paymentMethod);
+    const isCardPayment = selectedCard !== undefined;
     const paid = isWishConquerFlow ? !isCardPayment : (initialData?.paid ?? false);
 
     setIsSubmitting(true);
@@ -221,6 +228,7 @@ const ExpenseForm = ({
         category,
         description: description.trim(),
         paymentMethod,
+        creditCardId: selectedCard?.id ?? null,
         value: numValue,
         date: itemDate,
         paid,
@@ -441,8 +449,9 @@ const PAYMENT_METHOD_ICONS: Record<string, { Icon: React.ComponentType<{ classNa
 };
 
 // Payment method style: cartão (gradiente) ou não-cartão (retorna ícone + classe para badge redonda)
-const getPaymentMethodStyle = (paymentMethod: string, creditCards: CreditCardType[]) => {
-  const creditCard = creditCards.find(c => c.name === paymentMethod);
+const getPaymentMethodStyle = (expense: Expense, creditCards: CreditCardType[]) => {
+  const paymentMethod = expense.paymentMethod;
+  const creditCard = getExpenseCreditCard(expense, creditCards);
   if (creditCard) {
     const gradientMap: Record<string, string> = {
       'violet': 'bg-gradient-to-br from-violet-500 to-purple-600 text-white',
@@ -498,7 +507,7 @@ const ExpenseItem = ({
     ? `${expense.currentInstallment}/${expense.totalInstallments}`
     : null;
 
-  const style = getPaymentMethodStyle(expense.paymentMethod, creditCards);
+  const style = getPaymentMethodStyle(expense, creditCards);
   const PaymentIcon = !style.isCard && style.iconConfig ? style.iconConfig.Icon : null;
   const isPaid = isLinkedToCard ? isCardPaid : expense.paid;
 
@@ -712,7 +721,7 @@ const sortExpenses = (
   const sorted = [...expenses];
   const getSortDate = (e: Expense) => e.date ?? (e.createdAt ? e.createdAt.split('T')[0] : '');
   const isExpensePending = (expense: Expense): boolean => {
-    const card = creditCards.find((c) => c.name === expense.paymentMethod);
+    const card = getExpenseCreditCard(expense, creditCards);
     if (card) {
       return getCardPaidStatus ? !getCardPaidStatus(card.id) : true;
     }
@@ -729,8 +738,8 @@ const sortExpenses = (
     case 'payment':
       // Sort by payment method, with credit cards last
       return sorted.sort((a, b) => {
-        const aIsCard = creditCards.some(c => c.name === a.paymentMethod);
-        const bIsCard = creditCards.some(c => c.name === b.paymentMethod);
+        const aIsCard = getExpenseCreditCard(a, creditCards) !== undefined;
+        const bIsCard = getExpenseCreditCard(b, creditCards) !== undefined;
 
         if (aIsCard && !bIsCard) return 1;
         if (!aIsCard && bIsCard) return -1;
@@ -983,19 +992,13 @@ const ExpenseSectionComponent = ({
 
   // Check if expense is linked to a credit card
   const isExpenseLinkedToCard = (expense: Expense): boolean => {
-    return creditCards.some(c => c.name === expense.paymentMethod);
-  };
-
-  // Get card ID from payment method
-  const getCardIdFromPaymentMethod = (paymentMethod: string): string | null => {
-    const card = creditCards.find(c => c.name === paymentMethod);
-    return card?.id || null;
+    return getExpenseCreditCard(expense, creditCards) !== undefined;
   };
 
   // Check if expense's card is paid
   const isExpenseCardPaid = (expense: Expense): boolean => {
     if (!getCardPaidStatus) return false;
-    const cardId = getCardIdFromPaymentMethod(expense.paymentMethod);
+    const cardId = getExpenseCreditCard(expense, creditCards)?.id ?? null;
     return cardId ? getCardPaidStatus(cardId) : false;
   };
 
@@ -1034,6 +1037,7 @@ const ExpenseSectionComponent = ({
     category: draft.category ?? '',
     description: draft.description ?? '',
     paymentMethod: draft.paymentMethod ?? '',
+    creditCardId: draft.creditCardId ?? null,
     value: draft.value ?? 0,
     paid: draft.paid ?? false,
     date: draft.date,

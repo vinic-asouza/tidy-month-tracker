@@ -46,8 +46,8 @@ interface MonthRecordsSectionProps {
   addCreditCard: (card: Omit<CreditCard, 'id'>) => Promise<boolean> | boolean;
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<boolean> | boolean;
   deleteCreditCard: (id: string) => void;
-  getCreditCardTotal: (cardName: string) => number;
-  canDeleteCard: (cardName: string) => Promise<boolean>;
+  getCreditCardTotal: (card: CreditCard) => number;
+  canDeleteCard: (card: CreditCard) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
   payCardInvoice: (cardId: string) => Promise<boolean>;

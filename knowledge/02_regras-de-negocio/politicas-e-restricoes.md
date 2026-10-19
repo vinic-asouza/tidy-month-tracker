@@ -47,9 +47,9 @@ Formulários e UX (valor ≤ 0, percentuais da regra no wizard) continuam **no c
 
 ---
 
-## Cartão identificado pelo nome
+## Cartão identificado pelo ID
 
-Gasto no cartão casa com o cartão pelo **nome** (`paymentMethod` = `creditCard.name`), não por ID. Renomear o cartão atualiza os gastos. Dois cartões com o mesmo nome colidem. Migração para `credit_card_id` é P3 no [`../01_produto/roadmap.md`](../01_produto/roadmap.md). ADR: [`../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md`](../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md).
+Gasto no cartão casa pelo **`credit_card_id`** (FK). `payment_method` é rótulo denormalizado (nome do cartão ou método padrão). Fallback por nome só para legados sem id. Renomear sincroniza o rótulo; a associação não depende do nome. ADR: [`../07_decisoes-tecnicas/ADR-009-cartao-por-id.md`](../07_decisoes-tecnicas/ADR-009-cartao-por-id.md) (substitui ADR-005).
 
 ---
 

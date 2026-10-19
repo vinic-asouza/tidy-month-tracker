@@ -30,20 +30,44 @@ function sortExpensesByDate(a: Expense, b: Expense): number {
   return a.description.localeCompare(b.description, 'pt-BR');
 }
 
+/** Referência mínima de cartão para associação com gastos (DEV-144). */
+export type CreditCardRef = Pick<CreditCard, 'id' | 'name'>;
+
+/**
+ * Gasto pertence ao cartão?
+ * Fonte de verdade: `creditCardId`. Fallback por nome apenas para registros legados
+ * (sem `creditCardId`), preservando o comportamento anterior ao DEV-144.
+ */
+export function isExpenseOfCard(expense: Expense, card: CreditCardRef): boolean {
+  if (expense.creditCardId) return expense.creditCardId === card.id;
+  return expense.paymentMethod === card.name;
+}
+
+/** Resolve o cartão do gasto: por `creditCardId`; fallback por nome para legados. */
+export function getExpenseCreditCard(
+  expense: Expense,
+  creditCards: CreditCard[]
+): CreditCard | undefined {
+  if (expense.creditCardId) {
+    return creditCards.find((c) => c.id === expense.creditCardId);
+  }
+  return creditCards.find((c) => c.name === expense.paymentMethod);
+}
+
 export function getCreditCardInvoiceExpenses(
-  cardName: string,
+  card: CreditCardRef,
   monthData: MonthData
 ): Expense[] {
   return monthData.expenses
-    .filter((e) => e.paymentMethod === cardName)
+    .filter((e) => isExpenseOfCard(e, card))
     .sort(sortExpensesByDate);
 }
 
 export function getCreditCardInvoiceSummary(
-  cardName: string,
+  card: CreditCardRef,
   monthData: MonthData
 ): CreditCardInvoiceSummary {
-  const expenses = getCreditCardInvoiceExpenses(cardName, monthData);
+  const expenses = getCreditCardInvoiceExpenses(card, monthData);
   return {
     total: expenses.reduce((sum, e) => sum + e.value, 0),
     count: expenses.length,
@@ -51,7 +75,7 @@ export function getCreditCardInvoiceSummary(
 }
 
 export function isCreditCardExpense(expense: Expense, creditCards: CreditCard[]): boolean {
-  return creditCards.some((c) => c.name === expense.paymentMethod);
+  return getExpenseCreditCard(expense, creditCards) !== undefined;
 }
 
 export function getCreditCardByName(
@@ -62,10 +86,10 @@ export function getCreditCardByName(
 }
 
 export function getCreditCardInvoicePaymentAmount(
-  cardName: string,
+  card: CreditCardRef,
   monthData: MonthData
 ): number {
-  return getCreditCardInvoiceSummary(cardName, monthData).total;
+  return getCreditCardInvoiceSummary(card, monthData).total;
 }
 
 export function getCreditCardUsagePercent(

@@ -14,6 +14,22 @@ async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
 }
 
+/**
+ * DEV-144: `payment_method` é só o rótulo denormalizado; `credit_card_id` é a fonte de verdade.
+ * Ao alterar a forma de pagamento sem informar `creditCardId` (método não-cartão), zera o vínculo.
+ */
+function creditCardColumnFromUpdates(
+  updates: Partial<Pick<Expense, 'paymentMethod' | 'creditCardId'>>
+): { credit_card_id?: string | null } {
+  if (updates.paymentMethod !== undefined) {
+    return { credit_card_id: updates.creditCardId ?? null };
+  }
+  if (updates.creditCardId !== undefined) {
+    return { credit_card_id: updates.creditCardId };
+  }
+  return {};
+}
+
 async function ensureRemainingInstallmentsExist(
   userId: string,
   expenseId: string
@@ -21,7 +37,7 @@ async function ensureRemainingInstallmentsExist(
   const { data: e, error: fetchError } = await supabase
     .from('expenses')
     .select(
-      'id, base_expense_id, year_month, type, category, description, payment_method, value, date, current_installment, total_installments'
+      'id, base_expense_id, year_month, type, category, description, payment_method, credit_card_id, value, date, current_installment, total_installments'
     )
     .eq('id', expenseId)
     .eq('user_id', userId)
@@ -58,6 +74,7 @@ async function ensureRemainingInstallmentsExist(
       category: e.category,
       description: e.description,
       payment_method: e.payment_method,
+      credit_card_id: e.credit_card_id ?? null,
       value: Number(e.value),
       paid: false,
       date: itemDate,
@@ -110,6 +127,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
         category: expenseData.category,
         description: expenseData.description,
         payment_method: expenseData.paymentMethod,
+        credit_card_id: expenseData.creditCardId ?? null,
         value: expenseData.value,
         paid: expenseData.paid || false,
         date: itemDate,
@@ -134,6 +152,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           category: expenseData.category,
           description: expenseData.description,
           payment_method: expenseData.paymentMethod,
+          credit_card_id: expenseData.creditCardId ?? null,
           value: expenseData.value,
           paid: false,
           date: itemDate,
@@ -167,6 +186,7 @@ export async function createExpense(params: CreateExpenseParams): Promise<Expens
           category: expenseData.category,
           description: expenseData.description,
           payment_method: expenseData.paymentMethod,
+          credit_card_id: expenseData.creditCardId ?? null,
           value: expenseData.value,
           paid: false,
           date: itemDate,
@@ -243,6 +263,7 @@ function buildTypeChangeRow(
   if (updates.category !== undefined) row.category = updates.category;
   if (updates.description !== undefined) row.description = updates.description;
   if (updates.paymentMethod !== undefined) row.payment_method = updates.paymentMethod;
+  Object.assign(row, creditCardColumnFromUpdates(updates));
   if (updates.value !== undefined) row.value = updates.value;
   if (updates.paid !== undefined) row.paid = updates.paid;
   if (updates.date !== undefined) row.date = updates.date;
@@ -271,7 +292,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
   const { data: currentExpense, error: fetchError } = await supabase
     .from('expenses')
     .select(
-      'id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, value, date'
+      'id, base_expense_id, repeat_all_months, type, year_month, category, description, payment_method, credit_card_id, value, date'
     )
     .eq('id', id)
     .eq('user_id', userId)
@@ -303,6 +324,10 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
     const description = (updates.description ?? currentExpense.description) as string;
     const paymentMethod = (updates.paymentMethod ??
       currentExpense.payment_method) as string;
+    const creditCardId =
+      updates.paymentMethod !== undefined
+        ? (updates.creditCardId ?? null)
+        : (updates.creditCardId ?? currentExpense.credit_card_id ?? null);
     const value = Number(updates.value ?? currentExpense.value);
     const itemDate =
       updates.date !== undefined
@@ -319,6 +344,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           category,
           description,
           payment_method: paymentMethod,
+          credit_card_id: creditCardId,
           value,
           paid: false,
           date: itemDate,
@@ -354,6 +380,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           category,
           description,
           payment_method: paymentMethod,
+          credit_card_id: creditCardId,
           value,
           paid: false,
           date: itemDate,
@@ -389,6 +416,10 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           category: updates.category ?? currentExpense.category,
           description: updates.description ?? currentExpense.description,
           payment_method: updates.paymentMethod ?? currentExpense.payment_method,
+          credit_card_id:
+            updates.paymentMethod !== undefined
+              ? (updates.creditCardId ?? null)
+              : (updates.creditCardId ?? currentExpense.credit_card_id ?? null),
           value: updates.value ?? Number(currentExpense.value),
           paid: false,
           date: updates.date !== undefined ? updates.date : currentDate,
@@ -416,6 +447,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
   if (updates.category !== undefined) row.category = updates.category;
   if (updates.description !== undefined) row.description = updates.description;
   if (updates.paymentMethod !== undefined) row.payment_method = updates.paymentMethod;
+  Object.assign(row, creditCardColumnFromUpdates(updates));
   if (updates.value !== undefined) row.value = updates.value;
   if (updates.paid !== undefined) row.paid = updates.paid;
   if (updates.repeatAllMonths !== undefined) row.repeat_all_months = updates.repeatAllMonths;
@@ -441,6 +473,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       if (updates.category !== undefined) sharedRow.category = updates.category;
       if (updates.description !== undefined) sharedRow.description = updates.description;
       if (updates.paymentMethod !== undefined) sharedRow.payment_method = updates.paymentMethod;
+      Object.assign(sharedRow, creditCardColumnFromUpdates(updates));
       if (updates.value !== undefined) sharedRow.value = updates.value;
       if (updates.paid !== undefined) sharedRow.paid = updates.paid;
       if (updates.date !== undefined) sharedRow.date = updates.date;

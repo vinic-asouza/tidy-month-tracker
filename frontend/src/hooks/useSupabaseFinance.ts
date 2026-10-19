@@ -32,6 +32,7 @@ import {
 } from '@/utils/business/yearDataSync';
 import { calculateRemainingMonths, getYearRefreshMonths } from '@/utils/business/repeatMonths';
 import { calculateRemainingInstallments } from '@/utils/business/installments';
+import { isExpenseOfCard } from '@/utils/business/creditCards';
 import { startSaveTiming } from '@/utils/perf/saveTiming';
 import * as incomesService from '@/services/incomes';
 import * as expensesService from '@/services/expenses';
@@ -725,19 +726,19 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
   );
 
   const getCreditCardTotal = useCallback(
-    (cardName: string): number => {
+    (card: Pick<CreditCard, 'id' | 'name'>): number => {
       return expenses
-        .filter((e) => e.paymentMethod === cardName)
+        .filter((e) => isExpenseOfCard(e, card))
         .reduce((sum, e) => sum + e.value, 0);
     },
     [expenses]
   );
 
   const canDeleteCard = useCallback(
-    async (cardName: string): Promise<boolean> => {
+    async (card: Pick<CreditCard, 'id' | 'name'>): Promise<boolean> => {
       if (!user) return true;
       try {
-        return await creditCardsService.canDeleteCreditCard(cardName, user.id);
+        return await creditCardsService.canDeleteCreditCard(card.id, card.name, user.id);
       } catch {
         return false;
       }

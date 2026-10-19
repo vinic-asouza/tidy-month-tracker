@@ -82,13 +82,24 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
       throwIfError(dupError);
       if (existingCard) throw new Error('Já existe um cartão com este nome');
 
+      // DEV-144: associação por id; payment_method é só o rótulo denormalizado.
       const { error: expenseError } = await supabase
         .from('expenses')
         .update({ payment_method: newName })
         .eq('user_id', userId)
-        .eq('payment_method', oldName);
+        .eq('credit_card_id', id);
 
       throwIfError(expenseError);
+
+      // Legados sem credit_card_id (nome antigo): sincroniza o rótulo e já associa ao cartão.
+      const { error: legacyExpenseError } = await supabase
+        .from('expenses')
+        .update({ payment_method: newName, credit_card_id: id })
+        .eq('user_id', userId)
+        .is('credit_card_id', null)
+        .eq('payment_method', oldName);
+
+      throwIfError(legacyExpenseError);
     }
   }
 
@@ -120,18 +131,34 @@ export async function deleteCreditCard(id: string, userId: string): Promise<void
   throwIfError(error);
 }
 
+/**
+ * DEV-144: o cartão só pode ser excluído sem gastos vinculados.
+ * Vínculo = `credit_card_id`; fallback por `payment_method` (nome) apenas para
+ * gastos legados ainda sem `credit_card_id`.
+ */
 export async function canDeleteCreditCard(
+  cardId: string,
   cardName: string,
   userId: string
 ): Promise<boolean> {
-  const { count, error } = await supabase
+  const { count: byIdCount, error: byIdError } = await supabase
     .from('expenses')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .eq('credit_card_id', cardId);
+
+  throwIfError(byIdError);
+  if ((byIdCount ?? 0) > 0) return false;
+
+  const { count: legacyCount, error: legacyError } = await supabase
+    .from('expenses')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('credit_card_id', null)
     .eq('payment_method', cardName);
 
-  throwIfError(error);
-  return (count ?? 0) === 0;
+  throwIfError(legacyError);
+  return (legacyCount ?? 0) === 0;
 }
 
 export async function getCardMonthlyStatus(

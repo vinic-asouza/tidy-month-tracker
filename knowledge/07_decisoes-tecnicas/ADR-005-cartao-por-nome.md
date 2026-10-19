@@ -2,14 +2,17 @@
 type: adr
 id: ADR-005
 titulo: Gasto no cartão casa pelo nome
-status: Aceito
+status: Substituída
 data: 2026-08-23
 autor: Development
 decisores: [Development]
 tags: [dados, integridade]
+substituida_por: ADR-009
 ---
 
 # ADR-005 — Gasto no cartão casa pelo nome
+
+> **Status:** substituída por [ADR-009](./ADR-009-cartao-por-id.md) (DEV-144). Histórico do MVP por nome.
 
 ## Contexto e problema
 

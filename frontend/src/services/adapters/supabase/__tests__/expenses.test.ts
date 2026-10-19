@@ -32,6 +32,7 @@ function expenseRow(overrides: Record<string, unknown> = {}) {
     category: 'Mercado',
     description: 'Compras',
     payment_method: 'Pix',
+    credit_card_id: null,
     value: 250,
     paid: false,
     date: '2026-03-10',
@@ -79,6 +80,63 @@ describe('createExpense', () => {
       paid: true,
     });
     expect(inserts[0].payload).not.toHaveProperty('account_id');
+  });
+
+  it('DEV-144: grava credit_card_id quando o pagamento é cartão', async () => {
+    mock.enqueue({ data: expenseRow({ payment_method: 'Nubank', credit_card_id: 'card-1' }) });
+
+    const created = await createExpense(
+      createParams({ paymentMethod: 'Nubank', creditCardId: 'card-1' })
+    );
+
+    const [insert] = mock.getOperationsFor('expenses', 'insert');
+    expect(insert.payload).toMatchObject({
+      payment_method: 'Nubank',
+      credit_card_id: 'card-1',
+    });
+    expect(created.creditCardId).toBe('card-1');
+  });
+
+  it('DEV-144: grava credit_card_id null quando o pagamento não é cartão', async () => {
+    mock.enqueue({ data: expenseRow() });
+
+    await createExpense(createParams({ paymentMethod: 'Pix' }));
+
+    const [insert] = mock.getOperationsFor('expenses', 'insert');
+    expect(insert.payload).toMatchObject({ payment_method: 'Pix', credit_card_id: null });
+  });
+
+  it('DEV-144: propaga credit_card_id para clones do fixo e parcelas', async () => {
+    mock.enqueue(
+      { data: expenseRow({ type: 'fixed', repeat_all_months: true }) },
+      {},
+      { data: expenseRow({ type: 'installment', current_installment: 1, total_installments: 2 }) },
+      {}
+    );
+
+    await createExpense(
+      createParams({
+        type: 'fixed',
+        repeatAllMonths: true,
+        paymentMethod: 'Nubank',
+        creditCardId: 'card-1',
+      })
+    );
+    await createExpense(
+      createParams({
+        type: 'installment',
+        currentInstallment: 1,
+        totalInstallments: 2,
+        paymentMethod: 'Nubank',
+        creditCardId: 'card-1',
+      })
+    );
+
+    const inserts = mock.getOperationsFor('expenses', 'insert');
+    const clones = inserts[1].payload as Array<Record<string, unknown>>;
+    const installments = inserts[3].payload as Array<Record<string, unknown>>;
+    expect(clones.every((row) => row.credit_card_id === 'card-1')).toBe(true);
+    expect(installments.every((row) => row.credit_card_id === 'card-1')).toBe(true);
   });
 
   it('propaga o erro do insert raiz', async () => {
@@ -236,6 +294,44 @@ describe('updateExpense', () => {
     const updates = mock.getOperationsFor('expenses', 'update');
     expect(updates).toHaveLength(1);
     expect(updates[0].payload).toEqual({ value: 300 });
+  });
+
+  it('DEV-144: trocar para cartão atualiza payment_method e credit_card_id', async () => {
+    mock.enqueue({ data: expenseRow({ id: 'exp-1' }) }, {});
+
+    await updateExpense({
+      id: 'exp-1',
+      userId: 'user-1',
+      updates: { paymentMethod: 'Nubank', creditCardId: 'card-1' },
+    });
+
+    const [update] = mock.getOperationsFor('expenses', 'update');
+    expect(update.payload).toEqual({ payment_method: 'Nubank', credit_card_id: 'card-1' });
+  });
+
+  it('DEV-144: trocar de cartão para método não-cartão zera credit_card_id', async () => {
+    mock.enqueue(
+      { data: expenseRow({ id: 'exp-1', payment_method: 'Nubank', credit_card_id: 'card-1' }) },
+      {}
+    );
+
+    await updateExpense({
+      id: 'exp-1',
+      userId: 'user-1',
+      updates: { paymentMethod: 'Pix' },
+    });
+
+    const [update] = mock.getOperationsFor('expenses', 'update');
+    expect(update.payload).toEqual({ payment_method: 'Pix', credit_card_id: null });
+  });
+
+  it('DEV-144: atualização sem forma de pagamento não toca em credit_card_id', async () => {
+    mock.enqueue({ data: expenseRow({ id: 'exp-1', credit_card_id: 'card-1' }) }, {});
+
+    await updateExpense({ id: 'exp-1', userId: 'user-1', updates: { description: 'Novo' } });
+
+    const [update] = mock.getOperationsFor('expenses', 'update');
+    expect(update.payload).toEqual({ description: 'Novo' });
   });
 
   it('não dispara update quando não há campos alterados', async () => {

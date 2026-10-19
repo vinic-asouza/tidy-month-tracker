@@ -66,8 +66,8 @@ interface CreditCardStripProps {
   onAdd: (card: Omit<CreditCard, 'id'>) => Promise<boolean> | boolean;
   onUpdate: (id: string, updates: Partial<CreditCard>) => Promise<boolean> | boolean;
   onDelete: (id: string) => void;
-  getCardTotal: (cardName: string) => number;
-  canDeleteCard: (cardName: string) => Promise<boolean>;
+  getCardTotal: (card: CreditCard) => number;
+  canDeleteCard: (card: CreditCard) => Promise<boolean>;
   cardNameExists: (name: string, excludeId?: string) => boolean;
   getCardPaidStatus: (cardId: string) => boolean;
   payCardInvoice: (cardId: string) => Promise<boolean>;
@@ -143,9 +143,9 @@ const CreditCardStripComponent = ({
           return colorOrderA - colorOrderB;
         });
       case 'highest':
-        return sorted.sort((a, b) => getCardTotal(b.name) - getCardTotal(a.name));
+        return sorted.sort((a, b) => getCardTotal(b) - getCardTotal(a));
       case 'lowest':
-        return sorted.sort((a, b) => getCardTotal(a.name) - getCardTotal(b.name));
+        return sorted.sort((a, b) => getCardTotal(a) - getCardTotal(b));
       case 'dueDate':
         return sorted.sort((a, b) => {
           const daysA = getDaysUntilDueForSort(a.dueDay, currentMonth);
@@ -162,7 +162,7 @@ const CreditCardStripComponent = ({
 
   const sortedCards = useMemo(() => sortCards(creditCards), [creditCards, sortOption, getCardTotal, currentMonth]);
 
-  const totalInvoices = creditCards.reduce((sum, card) => sum + getCardTotal(card.name), 0);
+  const totalInvoices = creditCards.reduce((sum, card) => sum + getCardTotal(card), 0);
   const paidCount = creditCards.filter((c) => getCardPaidStatus(c.id)).length;
 
   const resetForm = () => {
@@ -225,7 +225,7 @@ const CreditCardStripComponent = ({
   const handleDeleteAttempt = async (card: CreditCard) => {
     setCheckingDelete(true);
     try {
-      const canDelete = await canDeleteCard(card.name);
+      const canDelete = await canDeleteCard(card);
       if (!canDelete) {
         setDeleteError(
           `Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Remova os gastos primeiro.`
@@ -284,7 +284,7 @@ const CreditCardStripComponent = ({
   };
 
   const renderCardChip = (card: CreditCard) => {
-    const total = getCardTotal(card.name);
+    const total = getCardTotal(card);
     const colorClass = getColorClass(card.color);
     const isPaid = getCardPaidStatus(card.id);
     const usagePercent = getCreditCardUsagePercent(total, card.creditLimit);
@@ -638,7 +638,7 @@ const CreditCardStripComponent = ({
         open={!!payDialogCard}
         onOpenChange={(open) => !open && setPayDialogCard(null)}
         card={payDialogCard}
-        invoiceTotal={payDialogCard ? getCardTotal(payDialogCard.name) : 0}
+        invoiceTotal={payDialogCard ? getCardTotal(payDialogCard) : 0}
         onConfirm={async () => {
           if (!payDialogCard) return false;
           const success = await payCardInvoice(payDialogCard.id);

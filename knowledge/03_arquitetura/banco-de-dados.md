@@ -21,7 +21,7 @@ Projeto em uso: `tidy-tracker`, ID `yoinjsmlntehikilqoxx`, região `us-east-2` (
 | `profiles` | Trigger no signup; frontend quase não lê |
 | `finance_settings` | Tags, categorias, métodos de pagamento |
 | `incomes` | Entradas; `received` |
-| `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `payment_method` (nome do cartão) |
+| `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `credit_card_id` (FK opcional); `payment_method` (rótulo) |
 | `investments` | Aportes; `invested` |
 | `credit_cards` | Cartões; limite e `due_day` opcionais |
 | `credit_card_monthly_status` | Fatura paga por cartão/mês |
@@ -37,6 +37,7 @@ Lançamentos mensais usam `year_month` (`YYYY-MM`). Séries: `base_*_id`. Parcel
 ## Integridade relevante
 
 - Lançamentos (`incomes`, `expenses`, `investments`) não têm FK para carteira nem operação. Séries usam `base_*_id` (**ON DELETE CASCADE**).
+- `expenses.credit_card_id` → `credit_cards(id)` **ON DELETE SET NULL** (DEV-144 / ADR-009). Delete de cartão com gastos continua bloqueado na app.
 - Ordem da migration DEV-151: desvincular `incomes.source_operation_id` **antes** de dropar `account_operations`, para o CASCADE antigo não apagar entradas históricas *Resgate de investimentos* (elas viram entradas normais).
 
 **CHECKs de lançamentos (DEV-143 / [ADR-008](../07_decisoes-tecnicas/ADR-008-checks-integridade-lancamentos.md)):** `value > 0` e `year_month ~ '^\d{4}-\d{2}$'` em `incomes` / `expenses` / `investments`; coerência de parcelas em `expenses` quando `type = 'installment'`. Soma 100% da regra: CHECK em `financial_rule`. **Só na app:** categoria ∈ settings; método ∈ defaults ∪ cartões. Migration: `add_financial_integrity_checks_dev_143.sql`.

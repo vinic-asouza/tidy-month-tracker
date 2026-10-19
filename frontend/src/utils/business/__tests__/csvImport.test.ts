@@ -206,6 +206,36 @@ describe('buildReviewRows + parcela', () => {
     expect(rows[0].totalInstallments).toBe(12);
   });
 
+  it('DEV-144: propaga defaultCreditCardId para todas as linhas (origem cartão)', () => {
+    const rows = buildReviewRows({
+      mapped: [
+        { sourceIndex: 0, dateRaw: '01/09/2026', valueRaw: '10,00', descriptionRaw: 'Padaria' },
+        { sourceIndex: 1, dateRaw: '02/09/2026', valueRaw: '-5,00', descriptionRaw: 'Estorno' },
+        { sourceIndex: 2, dateRaw: '', valueRaw: '1,00', descriptionRaw: 'Sem data' },
+      ],
+      uiYearMonth: '2026-09',
+      defaultCategory: 'Outros',
+      defaultPaymentMethod: 'Nubank',
+      defaultCreditCardId: 'card-nubank',
+      existingExpenses: [],
+    });
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.creditCardId === 'card-nubank')).toBe(true);
+  });
+
+  it('DEV-144: creditCardId é null quando a origem é conta', () => {
+    const rows = buildReviewRows({
+      mapped: [
+        { sourceIndex: 0, dateRaw: '01/09/2026', valueRaw: '10,00', descriptionRaw: 'Padaria' },
+      ],
+      uiYearMonth: '2026-09',
+      defaultCategory: 'Outros',
+      defaultPaymentMethod: 'Pix',
+      existingExpenses: [],
+    });
+    expect(rows[0].creditCardId).toBeNull();
+  });
+
   it('C6: descrição sem N/M + coluna Parcela 1/2 → Novo parcelado', () => {
     const rows = buildReviewRows({
       mapped: [

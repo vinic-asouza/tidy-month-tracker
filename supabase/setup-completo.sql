@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   type TEXT NOT NULL CHECK (type IN ('fixed', 'variable', 'installment')),
   category TEXT NOT NULL,
   description TEXT NOT NULL,
-  payment_method TEXT NOT NULL,
+  payment_method TEXT NOT NULL, -- Rótulo denormalizado (nome do cartão ou método padrão)
+  credit_card_id UUID NULL REFERENCES public.credit_cards(id) ON DELETE SET NULL, -- DEV-144: fonte de verdade da associação com cartão
   value DECIMAL(15,2) NOT NULL,
   paid BOOLEAN NOT NULL DEFAULT false,
   repeat_all_months BOOLEAN NOT NULL DEFAULT false,
@@ -358,6 +359,7 @@ CREATE INDEX IF NOT EXISTS idx_credit_cards_user_id ON public.credit_cards(user_
 CREATE INDEX IF NOT EXISTS idx_incomes_user_id_year_month ON public.incomes(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_id_year_month ON public.expenses(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_id_payment_method ON public.expenses(user_id, payment_method);
+CREATE INDEX IF NOT EXISTS idx_expenses_user_id_credit_card_id ON public.expenses(user_id, credit_card_id);
 CREATE INDEX IF NOT EXISTS idx_investments_user_id_year_month ON public.investments(user_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_finance_settings_user_id ON public.finance_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_card_monthly_status_user_card_month ON public.credit_card_monthly_status(user_id, credit_card_id, year_month);
