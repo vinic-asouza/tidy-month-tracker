@@ -21,7 +21,7 @@ Projeto em uso: `tidy-tracker`, ID `yoinjsmlntehikilqoxx`, região `us-east-2` (
 | `profiles` | Trigger no signup; frontend quase não lê |
 | `finance_settings` | Tags, categorias, métodos de pagamento |
 | `incomes` | Entradas; `received` |
-| `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `payment_method` (nome do cartão) |
+| `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `credit_card_id` (FK opcional); `payment_method` (rótulo) |
 | `investments` | Aportes; `invested` |
 | `credit_cards` | Cartões; limite e `due_day` opcionais |
 | `credit_card_monthly_status` | Fatura paga por cartão/mês |
@@ -37,9 +37,10 @@ Lançamentos mensais usam `year_month` (`YYYY-MM`). Séries: `base_*_id`. Parcel
 ## Integridade relevante
 
 - Lançamentos (`incomes`, `expenses`, `investments`) não têm FK para carteira nem operação. Séries usam `base_*_id` (**ON DELETE CASCADE**).
+- `expenses.credit_card_id` → `credit_cards(id)` **ON DELETE SET NULL** (DEV-144 / ADR-009). Delete de cartão com gastos continua bloqueado na app.
 - Ordem da migration DEV-151: desvincular `incomes.source_operation_id` **antes** de dropar `account_operations`, para o CASCADE antigo não apagar entradas históricas *Resgate de investimentos* (elas viram entradas normais).
 
-Valor > 0 e soma 100% da regra **não** estão todos garantidos por CHECK no banco (política P4). Não confiar só no Postgres para isso.
+Valor > 0 e soma 100% da regra: ver DEV-143 / ADR-008 (PR #17) e CHECK da regra financeira.
 
 ---
 

@@ -19,7 +19,7 @@ Regras: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de-
 
 ## Overview
 
-Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartão como pagas e alimenta a fatura quando a forma de pagamento é o **nome** de um cartão. Sem este módulo o resumo não tem lado “saiu”.
+Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartão como pagas e alimenta a fatura quando o gasto tem **`credit_card_id`** (rótulo em `payment_method`). Sem este módulo o resumo não tem lado “saiu”.
 
 **Responsabilidade única:** persistir e editar linhas na tabela `expenses` (incluindo categorias em `finance_settings.expense_categories`) e o toggle de efetivação `paid` (gasto não-cartão; no cartão vale a fatura paga). Inclui o wizard de **importação CSV assistida** (parse no browser; gravação só após confirmação).
 
@@ -35,7 +35,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 - Três tipos: `fixed`, `variable`, `installment` (RN-X01)
 - Nascer `paid = false`; categoria, forma de pagamento, descrição e valor `> 0` obrigatórios (RN-X02)
 - Não-cartão: marcar pago / desmarcar pelo toggle (só `paid`; sem diálogo nem carteira) (RN-X03)
-- Cartão: sem toggle de pago no item; status visual e caixa efetivado vêm da fatura (`credit_card_monthly_status`); match por `paymentMethod === creditCard.name` (RN-X04)
+- Cartão: sem toggle de pago no item; status visual e caixa efetivado vêm da fatura (`credit_card_monthly_status`); match por `creditCardId` (fallback nome só legado) (RN-X04 / ADR-009)
 - Parcelas: gera o restante da série (`installments.ts`), **pode cruzar o ano**; excluir “este mês” deixa buraco; excluir “todas” pela série `base_expense_id` (RN-X05)
 - Fixo com `repeatAllMonths`: mesmos 11 meses do ano civil que entradas (RN-G05); `paid` não se copia
 - CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso em **qualquer** mês (RN-X06 / RN-G06)
