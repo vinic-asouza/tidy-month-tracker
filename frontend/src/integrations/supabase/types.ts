@@ -432,7 +432,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_expense_with_series: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      create_income_with_series: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      create_investment_with_series: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      rename_credit_card: {
+        Args: { p_card_id: string; p_new_name: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

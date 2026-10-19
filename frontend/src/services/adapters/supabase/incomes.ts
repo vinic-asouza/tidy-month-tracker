@@ -22,14 +22,14 @@ export async function getIncomes(userId: string, yearMonth: string): Promise<Inc
   return (data || []).map(toIncome);
 }
 
+/** DEV-145: criação atômica (raiz + clones) via RPC `create_income_with_series`. */
 export async function createIncome(params: CreateIncomeParams): Promise<Income> {
   const userId = await resolveUserId(params.userId);
   const { yearMonth, displayOrder = 0, ...incomeData } = params;
   const itemDate = incomeData.date ?? new Date().toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from('incomes')
-    .insert({
+  const { data, error } = await supabase.rpc('create_income_with_series', {
+    p_payload: {
       user_id: userId,
       year_month: yearMonth,
       description: incomeData.description,
@@ -39,34 +39,11 @@ export async function createIncome(params: CreateIncomeParams): Promise<Income> 
       received: incomeData.received ?? false,
       repeat_all_months: incomeData.repeatAllMonths || false,
       display_order: displayOrder,
-    })
-    .select('*')
-    .single();
+    },
+  });
 
   throwIfError(error);
-  const createdIncome = toIncome(data!);
-
-  if (incomeData.repeatAllMonths) {
-    const remainingMonths = calculateRemainingMonths(yearMonth);
-    if (remainingMonths.length > 0) {
-      const rows = remainingMonths.map((month) => ({
-        user_id: userId,
-        year_month: month,
-        description: incomeData.description,
-        value: incomeData.value,
-        tag: incomeData.tag,
-        date: itemDate,
-        received: false,
-        repeat_all_months: true,
-        base_income_id: createdIncome.id,
-        display_order: 0,
-      }));
-      const { error: copyError } = await supabase.from('incomes').insert(rows);
-      throwIfError(copyError);
-    }
-  }
-
-  return createdIncome;
+  return toIncome(data as unknown as Parameters<typeof toIncome>[0]);
 }
 
 export async function updateIncome(params: UpdateIncomeParams): Promise<void> {

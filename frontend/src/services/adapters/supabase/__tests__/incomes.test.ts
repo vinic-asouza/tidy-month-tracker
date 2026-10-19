@@ -53,62 +53,42 @@ beforeEach(() => {
   mock.clear();
 });
 
-describe('createIncome', () => {
-  it('persiste a receita no insert raiz sem campos de carteira', async () => {
+describe('createIncome (DEV-145: RPC atômica)', () => {
+  it('chama create_income_with_series com o payload em snake_case', async () => {
     mock.enqueue({ data: incomeRow({ received: true }) });
 
-    await createIncome(createParams({ received: true }));
+    const created = await createIncome(createParams({ received: true, displayOrder: 2 }));
 
-    const [insert] = mock.getOperationsFor('incomes', 'insert');
-    expect(insert.payload).toMatchObject({
-      user_id: 'user-1',
-      year_month: '2026-03',
-      received: true,
+    const calls = mock.getRpcCalls('create_income_with_series');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args).toEqual({
+      p_payload: {
+        user_id: 'user-1',
+        year_month: '2026-03',
+        description: 'Salário',
+        value: 5000,
+        tag: 'Salário',
+        date: '2026-03-05',
+        received: true,
+        repeat_all_months: false,
+        display_order: 2,
+      },
     });
-    expect(insert.payload).not.toHaveProperty('account_id');
-    expect(insert.payload).not.toHaveProperty('source_operation_id');
+    expect(created.id).toBe('inc-root');
+    expect(mock.getOperationsFor('incomes')).toHaveLength(0);
   });
 
-  it('clona para os demais meses do ano com received false', async () => {
-    mock.enqueue(
-      { data: incomeRow({ repeat_all_months: true, received: true }) },
-      {}
-    );
+  it('envia repeat_all_months (clones gerados na RPC, sem insert no cliente)', async () => {
+    mock.enqueue({ data: incomeRow({ repeat_all_months: true }) });
 
-    await createIncome(createParams({ repeatAllMonths: true, received: true }));
+    await createIncome(createParams({ repeatAllMonths: true }));
 
-    const inserts = mock.getOperationsFor('incomes', 'insert');
-    expect(inserts).toHaveLength(2);
-
-    const clones = inserts[1].payload as Array<Record<string, unknown>>;
-    // `calculateRemainingMonths` cobre o ano civil inteiro menos o mês atual.
-    expect(clones).toHaveLength(11);
-    expect(clones.map((row) => row.year_month)).not.toContain('2026-03');
-    expect(clones.every((row) => row.received === false)).toBe(true);
-    expect(clones.every((row) => !('account_id' in row))).toBe(true);
-    expect(clones.every((row) => row.base_income_id === 'inc-root')).toBe(true);
-    expect(clones.every((row) => row.repeat_all_months === true)).toBe(true);
+    expect(mock.getRpcCalls()[0].args?.p_payload).toMatchObject({ repeat_all_months: true });
+    expect(mock.getOperationsFor('incomes', 'insert')).toHaveLength(0);
   });
 
-  it('não clona quando repeatAllMonths é false', async () => {
-    mock.enqueue({ data: incomeRow() });
-
-    await createIncome(createParams());
-
-    expect(mock.getOperationsFor('incomes', 'insert')).toHaveLength(1);
-  });
-
-  it('propaga o erro do insert raiz', async () => {
-    mock.enqueue({ error: { message: 'insert falhou' } });
-
-    await expect(createIncome(createParams())).rejects.toThrow('insert falhou');
-  });
-
-  it('propaga o erro do insert dos clones', async () => {
-    mock.enqueue(
-      { data: incomeRow({ repeat_all_months: true }) },
-      { error: { message: 'clones falharam' } }
-    );
+  it('propaga o erro da RPC', async () => {
+    mock.enqueue({ error: { message: 'clones falharam' } });
 
     await expect(createIncome(createParams({ repeatAllMonths: true }))).rejects.toThrow(
       'clones falharam'
@@ -120,8 +100,8 @@ describe('createIncome', () => {
 
     await createIncome(createParams({ description: '' }));
 
-    const [insert] = mock.getOperationsFor('incomes', 'insert');
-    expect((insert.payload as Record<string, unknown>).description).toBe('');
+    const [call] = mock.getRpcCalls();
+    expect((call.args?.p_payload as Record<string, unknown>).description).toBe('');
   });
 
   it('resolve o usuário via auth quando userId não é informado', async () => {
@@ -130,8 +110,8 @@ describe('createIncome', () => {
 
     await createIncome(createParams({ userId: undefined }));
 
-    const [insert] = mock.getOperationsFor('incomes', 'insert');
-    expect((insert.payload as Record<string, unknown>).user_id).toBe('user-auth');
+    const [call] = mock.getRpcCalls();
+    expect((call.args?.p_payload as Record<string, unknown>).user_id).toBe('user-auth');
   });
 });
 

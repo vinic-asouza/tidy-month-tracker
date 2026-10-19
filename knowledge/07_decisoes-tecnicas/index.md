@@ -31,4 +31,4 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | Express incompleto (sem desejos) | Consequência da ADR-001; [`../03_arquitetura/api-design.md`](../03_arquitetura/api-design.md) |
 | Sem CI / Prettier | [`../05_padroes/`](../05_padroes/README.md) |
 
-Próxima ADR: **ADR-010** (ou ADR-008 se PR #17 ainda não mergeou — coordenar numeração no merge). Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
+Próxima ADR: **ADR-011** (coordenar ADR-008 / DEV-143 na PR #17 se ainda aberta). Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.

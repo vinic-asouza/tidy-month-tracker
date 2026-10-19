@@ -25,51 +25,27 @@ export async function getInvestments(
   return (data || []).map(toInvestment);
 }
 
+/** DEV-145: criação atômica (raiz + clones) via RPC `create_investment_with_series`. */
 export async function createInvestment(params: CreateInvestmentParams): Promise<Investment> {
   const userId = await resolveUserId(params.userId);
   const { yearMonth, displayOrder = 0, ...investmentData } = params;
   const itemDate = investmentData.date ?? new Date().toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from('investments')
-    .insert({
+  const { data, error } = await supabase.rpc('create_investment_with_series', {
+    p_payload: {
       user_id: userId,
       year_month: yearMonth,
       description: investmentData.description,
       value: investmentData.value,
       tag: investmentData.tag,
       date: itemDate,
-      invested: false,
       repeat_all_months: investmentData.repeatAllMonths || false,
       display_order: displayOrder,
-    })
-    .select('*')
-    .single();
+    },
+  });
 
   throwIfError(error);
-  const createdInvestment = toInvestment(data!);
-
-  if (investmentData.repeatAllMonths) {
-    const remainingMonths = calculateRemainingMonths(yearMonth);
-    if (remainingMonths.length > 0) {
-      const rows = remainingMonths.map((month) => ({
-        user_id: userId,
-        year_month: month,
-        description: investmentData.description,
-        value: investmentData.value,
-        tag: investmentData.tag,
-        date: itemDate,
-        invested: false,
-        repeat_all_months: true,
-        base_investment_id: createdInvestment.id,
-        display_order: 0,
-      }));
-      const { error: copyError } = await supabase.from('investments').insert(rows);
-      throwIfError(copyError);
-    }
-  }
-
-  return createdInvestment;
+  return toInvestment(data as unknown as Parameters<typeof toInvestment>[0]);
 }
 
 export async function updateInvestment(params: UpdateInvestmentParams): Promise<void> {

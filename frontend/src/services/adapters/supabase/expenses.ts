@@ -100,113 +100,37 @@ export async function getExpenses(userId: string, yearMonth: string): Promise<Ex
   return (data || []).map(toExpense);
 }
 
-async function rollbackExpenseSeries(userId: string, baseExpenseId: string): Promise<void> {
-  const { error } = await supabase
-    .from('expenses')
-    .delete()
-    .eq('user_id', userId)
-    .or(`id.eq.${baseExpenseId},base_expense_id.eq.${baseExpenseId}`);
-
-  throwIfError(error);
-}
-
+/**
+ * DEV-145: criação atômica via RPC `create_expense_with_series` (SECURITY INVOKER).
+ * Raiz + clones (fixo repetido) / parcelas restantes são gravados na mesma transação
+ * Postgres; não há rollback manual no cliente.
+ */
 export async function createExpense(params: CreateExpenseParams): Promise<Expense> {
   const userId = await resolveUserId(params.userId);
   const { yearMonth, displayOrder = 0, ...expenseData } = params;
   const itemDate = expenseData.date ?? new Date().toISOString().slice(0, 10);
 
-  let createdExpense: Expense | null = null;
+  const { data, error } = await supabase.rpc('create_expense_with_series', {
+    p_payload: {
+      user_id: userId,
+      year_month: yearMonth,
+      type: expenseData.type,
+      category: expenseData.category,
+      description: expenseData.description,
+      payment_method: expenseData.paymentMethod,
+      credit_card_id: expenseData.creditCardId ?? null,
+      value: expenseData.value,
+      paid: expenseData.paid || false,
+      date: itemDate,
+      repeat_all_months: expenseData.repeatAllMonths || false,
+      current_installment: expenseData.currentInstallment ?? null,
+      total_installments: expenseData.totalInstallments ?? null,
+      display_order: displayOrder,
+    },
+  });
 
-  try {
-    const { data, error } = await supabase
-      .from('expenses')
-      .insert({
-        user_id: userId,
-        year_month: yearMonth,
-        type: expenseData.type,
-        category: expenseData.category,
-        description: expenseData.description,
-        payment_method: expenseData.paymentMethod,
-        credit_card_id: expenseData.creditCardId ?? null,
-        value: expenseData.value,
-        paid: expenseData.paid || false,
-        date: itemDate,
-        repeat_all_months: expenseData.repeatAllMonths || false,
-        current_installment: expenseData.currentInstallment ?? null,
-        total_installments: expenseData.totalInstallments ?? null,
-        display_order: displayOrder,
-      })
-      .select('*')
-      .single();
-
-    throwIfError(error);
-    createdExpense = toExpense(data!);
-
-    if (expenseData.type === 'fixed' && expenseData.repeatAllMonths) {
-      const remainingMonths = calculateRemainingMonths(yearMonth);
-      if (remainingMonths.length > 0) {
-        const rows = remainingMonths.map((month) => ({
-          user_id: userId,
-          year_month: month,
-          type: expenseData.type,
-          category: expenseData.category,
-          description: expenseData.description,
-          payment_method: expenseData.paymentMethod,
-          credit_card_id: expenseData.creditCardId ?? null,
-          value: expenseData.value,
-          paid: false,
-          date: itemDate,
-          repeat_all_months: true,
-          base_expense_id: createdExpense.id,
-          display_order: 0,
-        }));
-        const { error: copyError } = await supabase.from('expenses').insert(rows);
-        throwIfError(copyError);
-      }
-    }
-
-    if (
-      isValidInstallmentExpense({
-        type: expenseData.type,
-        currentInstallment: expenseData.currentInstallment,
-        totalInstallments: expenseData.totalInstallments,
-      } as Expense)
-    ) {
-      const installments = calculateRemainingInstallments(
-        yearMonth,
-        expenseData.currentInstallment!,
-        expenseData.totalInstallments!
-      );
-
-      if (installments.length > 0) {
-        const rows = installments.map((inst) => ({
-          user_id: userId,
-          year_month: inst.yearMonth,
-          type: expenseData.type,
-          category: expenseData.category,
-          description: expenseData.description,
-          payment_method: expenseData.paymentMethod,
-          credit_card_id: expenseData.creditCardId ?? null,
-          value: expenseData.value,
-          paid: false,
-          date: itemDate,
-          base_expense_id: createdExpense.id,
-          current_installment: inst.installmentNumber,
-          total_installments: expenseData.totalInstallments,
-          display_order: 0,
-        }));
-        const { error: instError } = await supabase.from('expenses').insert(rows);
-        throwIfError(instError);
-      }
-    }
-
-    return createdExpense;
-  } catch (error) {
-    if (createdExpense) {
-      await rollbackExpenseSeries(userId, createdExpense.id);
-    }
-    throw error;
-  }
+  throwIfError(error);
+  return toExpense(data as unknown as Parameters<typeof toExpense>[0]);
 }
 
 async function promoteSeriesRootIfNeeded(
