@@ -17,12 +17,11 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | [ADR-003](./ADR-003-rls-chave-anon.md) | Isolamento por RLS; anon key no cliente | Aceito | segurança, banco |
 | [ADR-004](./ADR-004-auth-sempre-supabase.md) | Identidade sempre Supabase Auth | Aceito | segurança, auth |
 | [ADR-005](./ADR-005-cartao-por-nome.md) | Gasto no cartão casa pelo **nome** | Substituída (ADR-009) | dados, integridade |
-| [ADR-006](./ADR-006-validacao-no-cliente.md) | Regras de valor/percentual no cliente | Aceito* | segurança, banco |
+| [ADR-006](./ADR-006-validacao-no-cliente.md) | Regras de valor/percentual no cliente | Parcialmente substituída (ADR-008) | segurança, banco |
 | [ADR-007](./ADR-007-remover-carteiras.md) | Remover carteiras do produto e do schema | Aceito | produto, banco |
+| [ADR-008](./ADR-008-checks-integridade-lancamentos.md) | CHECKs de integridade em lançamentos | Aceito | segurança, banco |
 | [ADR-009](./ADR-009-cartao-por-id.md) | Gasto no cartão casa pelo **credit_card_id** | Aceito | dados, integridade |
 | [ADR-010](./ADR-010-rpcs-atomicas-series.md) | RPCs atômicas para séries e rename | Aceito | banco, integridade |
-
-\* ADR-008 (CHECKs de lançamentos / DEV-143) entra via PR #17 e marca ADR-006 como parcialmente substituída.
 
 ## Não entra aqui
 
@@ -32,4 +31,4 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | Express incompleto (sem desejos) | Consequência da ADR-001; [`../03_arquitetura/api-design.md`](../03_arquitetura/api-design.md) |
 | Sem CI / Prettier | [`../05_padroes/`](../05_padroes/README.md) |
 
-Próxima ADR: **ADR-011** (coordenar ADR-008 / DEV-143 na PR #17 se ainda aberta). Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
+Próxima ADR: **ADR-011**. Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
