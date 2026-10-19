@@ -6,7 +6,7 @@ ultima_atualizacao: 2026-10-19
 
 # Roadmap
 
-Estado do produto e direção **documentada**. Sem datas inventadas. Arquitetura: [`../03_arquitetura/`](../03_arquitetura/README.md). ADRs (P3 cartão por ID, P4 CHECK): [`../07_decisoes-tecnicas/`](../07_decisoes-tecnicas/index.md).
+Estado do produto e direção **documentada**. Sem datas inventadas. Arquitetura: [`../03_arquitetura/`](../03_arquitetura/README.md). ADRs (P3 cartão por ID; CHECKs de lançamento = ADR-008 / DEV-143): [`../07_decisoes-tecnicas/`](../07_decisoes-tecnicas/index.md).
 
 Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 
@@ -60,7 +60,7 @@ Não bloqueiam a primeira campanha.
 
 **P4 e lacunas de mercado** (contínuo)
 
-- Constraints no banco para valores e percentuais da regra (hoje validação forte no client)
+- ~~Constraints no banco para valores~~ — **feito** em DEV-143 / ADR-008 (`value > 0`, `year_month`, parcelas); soma 100% da regra já tinha CHECK
 - Exportação CSV/PDF além do recorte anual agregado (DEV-150 / v0.8.0). Visão Mensal, lançamento linha a linha, e-mail e arquivo dos dois modos continuam fora
 - PWA (objeção “não tem app”)
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)

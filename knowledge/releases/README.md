@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.12.0 | 2026-10-19 | Em PR | [v0.12.0-2026-10-19.md](./v0.12.0-2026-10-19.md) |
 | v0.11.1 | 2026-10-19 | Publicado | [v0.11.1-2026-10-19.md](./v0.11.1-2026-10-19.md) |
 | v0.11.0 | 2026-10-17 | Publicado | [v0.11.0-2026-10-17.md](./v0.11.0-2026-10-17.md) |
 | v0.10.0 | 2026-10-16 | Publicado | [v0.10.0-2026-10-16.md](./v0.10.0-2026-10-16.md) |

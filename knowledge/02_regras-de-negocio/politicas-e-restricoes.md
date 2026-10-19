@@ -43,7 +43,7 @@ Registro com participação ativa continua sendo política (visão do produto): 
 
 ## Validações
 
-Regras de valor, percentuais da regra e formulários são aplicadas **no cliente**. O plano pré-lançamento registra risco de MVP: constraints no Postgres (valor > 0, soma 100%) são P4, não garantia atual. ADR: [`../07_decisoes-tecnicas/ADR-006-validacao-no-cliente.md`](../07_decisoes-tecnicas/ADR-006-validacao-no-cliente.md).
+Formulários e UX (valor ≤ 0, percentuais da regra no wizard) continuam **no cliente**. O Postgres também garante: `value > 0`, `year_month` YYYY-MM e coerência de parcelas em lançamentos (DEV-143); soma 100% em `financial_rule`. Categoria ∈ settings e método ∈ defaults ∪ cartões **permanecem só na app**. ADRs: [`../07_decisoes-tecnicas/ADR-008-checks-integridade-lancamentos.md`](../07_decisoes-tecnicas/ADR-008-checks-integridade-lancamentos.md) (vigente), [`../07_decisoes-tecnicas/ADR-006-validacao-no-cliente.md`](../07_decisoes-tecnicas/ADR-006-validacao-no-cliente.md) (parcialmente substituída).
 
 ---
 
