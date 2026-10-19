@@ -59,52 +59,16 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
   if (updates.name !== undefined) {
     if (!newName) throw new Error('Nome do cartão é obrigatório');
 
-    const { data: currentCard, error: fetchError } = await supabase
-      .from('credit_cards')
-      .select('name')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
-
-    throwIfError(fetchError);
-    if (!currentCard) throw new Error('Cartão não encontrado');
-
-    const oldName = currentCard.name;
-    if (oldName !== newName) {
-      const { data: existingCard, error: dupError } = await supabase
-        .from('credit_cards')
-        .select('id')
-        .eq('user_id', userId)
-        .ilike('name', newName)
-        .neq('id', id)
-        .maybeSingle();
-
-      throwIfError(dupError);
-      if (existingCard) throw new Error('Já existe um cartão com este nome');
-
-      // DEV-144: associação por id; payment_method é só o rótulo denormalizado.
-      const { error: expenseError } = await supabase
-        .from('expenses')
-        .update({ payment_method: newName })
-        .eq('user_id', userId)
-        .eq('credit_card_id', id);
-
-      throwIfError(expenseError);
-
-      // Legados sem credit_card_id (nome antigo): sincroniza o rótulo e já associa ao cartão.
-      const { error: legacyExpenseError } = await supabase
-        .from('expenses')
-        .update({ payment_method: newName, credit_card_id: id })
-        .eq('user_id', userId)
-        .is('credit_card_id', null)
-        .eq('payment_method', oldName);
-
-      throwIfError(legacyExpenseError);
-    }
+    // DEV-145: rename atômico (cartão + rótulo payment_method dos gastos) via RPC.
+    // A RPC valida posse (auth.uid()), duplicidade (lower(name)) e é no-op se o nome não muda.
+    const { error: renameError } = await supabase.rpc('rename_credit_card', {
+      p_card_id: id,
+      p_new_name: newName,
+    });
+    throwIfError(renameError);
   }
 
   const row: Record<string, unknown> = {};
-  if (updates.name !== undefined) row.name = newName;
   if (updates.color !== undefined) row.color = updates.color;
   if (updates.paid !== undefined) row.paid = updates.paid;
   if (updates.dueDay !== undefined) row.due_day = updates.dueDay;

@@ -94,10 +94,17 @@ export type SupabaseMockBuilder = {
   ): Promise<TResult1 | TResult2>;
 };
 
+/** Chamada a `supabase.rpc(fn, args)` (DEV-145). */
+export interface MockRpcCall {
+  fn: string;
+  args: Record<string, unknown> | undefined;
+}
+
 export interface SupabaseMock {
   /** Objeto injetado no lugar de `supabase`. */
   supabase: {
     from(table: string): SupabaseMockBuilder;
+    rpc(fn: string, args?: Record<string, unknown>): Promise<QueryResult>;
     auth: {
       getUser(): Promise<{
         data: { user: { id: string } | null };
@@ -121,6 +128,8 @@ export interface SupabaseMock {
   getOperations(): MockOperation[];
   /** Operações de uma tabela, opcionalmente filtradas por tipo. */
   getOperationsFor(table: string, op?: MockOpKind): MockOperation[];
+  /** Chamadas `rpc()` na ordem em que ocorreram, opcionalmente filtradas por função. */
+  getRpcCalls(fn?: string): MockRpcCall[];
   /** Quantidade de resultados ainda não consumidos (útil para detectar sobra). */
   pendingResults(): number;
 }
@@ -131,6 +140,7 @@ export function createSupabaseMock(): SupabaseMock {
   const queue: MockResult[] = [];
   const calls: MockCall[] = [];
   const operations: MockOperation[] = [];
+  const rpcCalls: MockRpcCall[] = [];
   let authUser: { id: string } | null = { ...DEFAULT_AUTH_USER };
   let authError: { message: string } | null = null;
 
@@ -226,6 +236,10 @@ export function createSupabaseMock(): SupabaseMock {
   return {
     supabase: {
       from: (table: string) => createBuilder(table),
+      rpc: (fn: string, args?: Record<string, unknown>) => {
+        rpcCalls.push({ fn, args });
+        return Promise.resolve(nextResult());
+      },
       auth: {
         getUser: () => Promise.resolve({ data: { user: authUser }, error: authError }),
         getSession: () =>
@@ -242,6 +256,7 @@ export function createSupabaseMock(): SupabaseMock {
       queue.length = 0;
       calls.length = 0;
       operations.length = 0;
+      rpcCalls.length = 0;
       authUser = { ...DEFAULT_AUTH_USER };
       authError = null;
     },
@@ -249,6 +264,7 @@ export function createSupabaseMock(): SupabaseMock {
       authUser = user;
       authError = error;
     },
+    getRpcCalls: (fn) => rpcCalls.filter((entry) => (fn ? entry.fn === fn : true)),
     getCalls: () => [...calls],
     getOperations: () => [...operations],
     getOperationsFor: (table, op) =>

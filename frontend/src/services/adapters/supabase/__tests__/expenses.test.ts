@@ -66,170 +66,86 @@ beforeEach(() => {
   mock.clear();
 });
 
-describe('createExpense', () => {
-  it('persiste o gasto no insert raiz sem campos de carteira', async () => {
+describe('createExpense (DEV-145: RPC atômica)', () => {
+  it('chama create_expense_with_series com o payload em snake_case', async () => {
     mock.enqueue({ data: expenseRow({ paid: true }) });
 
-    await createExpense(createParams({ paid: true }));
+    const created = await createExpense(createParams({ paid: true, displayOrder: 3 }));
 
-    const inserts = mock.getOperationsFor('expenses', 'insert');
-    expect(inserts).toHaveLength(1);
-    expect(inserts[0].payload).toMatchObject({
-      user_id: 'user-1',
-      year_month: '2026-03',
-      paid: true,
+    const calls = mock.getRpcCalls('create_expense_with_series');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args).toEqual({
+      p_payload: {
+        user_id: 'user-1',
+        year_month: '2026-03',
+        type: 'variable',
+        category: 'Mercado',
+        description: 'Compras',
+        payment_method: 'Pix',
+        credit_card_id: null,
+        value: 250,
+        paid: true,
+        date: '2026-03-10',
+        repeat_all_months: false,
+        current_installment: null,
+        total_installments: null,
+        display_order: 3,
+      },
     });
-    expect(inserts[0].payload).not.toHaveProperty('account_id');
+    expect(created.id).toBe('exp-root');
+    expect(created.paid).toBe(true);
+    // Sem multi-insert/rollback no cliente: tudo acontece dentro da RPC.
+    expect(mock.getOperationsFor('expenses')).toHaveLength(0);
   });
 
-  it('DEV-144: grava credit_card_id quando o pagamento é cartão', async () => {
+  it('DEV-144: envia credit_card_id quando o pagamento é cartão', async () => {
     mock.enqueue({ data: expenseRow({ payment_method: 'Nubank', credit_card_id: 'card-1' }) });
 
     const created = await createExpense(
       createParams({ paymentMethod: 'Nubank', creditCardId: 'card-1' })
     );
 
-    const [insert] = mock.getOperationsFor('expenses', 'insert');
-    expect(insert.payload).toMatchObject({
+    const [call] = mock.getRpcCalls('create_expense_with_series');
+    expect(call.args?.p_payload).toMatchObject({
       payment_method: 'Nubank',
       credit_card_id: 'card-1',
     });
     expect(created.creditCardId).toBe('card-1');
   });
 
-  it('DEV-144: grava credit_card_id null quando o pagamento não é cartão', async () => {
-    mock.enqueue({ data: expenseRow() });
+  it('envia repeat_all_months para fixo (clones são gerados na RPC)', async () => {
+    mock.enqueue({ data: expenseRow({ type: 'fixed', repeat_all_months: true }) });
 
-    await createExpense(createParams({ paymentMethod: 'Pix' }));
+    await createExpense(createParams({ type: 'fixed', repeatAllMonths: true }));
 
-    const [insert] = mock.getOperationsFor('expenses', 'insert');
-    expect(insert.payload).toMatchObject({ payment_method: 'Pix', credit_card_id: null });
+    expect(mock.getRpcCalls()).toHaveLength(1);
+    expect(mock.getRpcCalls()[0].args?.p_payload).toMatchObject({
+      type: 'fixed',
+      repeat_all_months: true,
+    });
+    expect(mock.getOperationsFor('expenses', 'insert')).toHaveLength(0);
   });
 
-  it('DEV-144: propaga credit_card_id para clones do fixo e parcelas', async () => {
-    mock.enqueue(
-      { data: expenseRow({ type: 'fixed', repeat_all_months: true }) },
-      {},
-      { data: expenseRow({ type: 'installment', current_installment: 1, total_installments: 2 }) },
-      {}
-    );
-
-    await createExpense(
-      createParams({
-        type: 'fixed',
-        repeatAllMonths: true,
-        paymentMethod: 'Nubank',
-        creditCardId: 'card-1',
-      })
-    );
-    await createExpense(
-      createParams({
-        type: 'installment',
-        currentInstallment: 1,
-        totalInstallments: 2,
-        paymentMethod: 'Nubank',
-        creditCardId: 'card-1',
-      })
-    );
-
-    const inserts = mock.getOperationsFor('expenses', 'insert');
-    const clones = inserts[1].payload as Array<Record<string, unknown>>;
-    const installments = inserts[3].payload as Array<Record<string, unknown>>;
-    expect(clones.every((row) => row.credit_card_id === 'card-1')).toBe(true);
-    expect(installments.every((row) => row.credit_card_id === 'card-1')).toBe(true);
-  });
-
-  it('propaga o erro do insert raiz', async () => {
-    mock.enqueue({ error: { message: 'insert falhou' } });
-
-    await expect(createExpense(createParams())).rejects.toThrow('insert falhou');
-    expect(mock.getOperationsFor('expenses', 'delete')).toHaveLength(0);
-  });
-
-  it('clona um gasto fixo repetido para os demais meses do ano com paid false', async () => {
-    mock.enqueue(
-      { data: expenseRow({ type: 'fixed', repeat_all_months: true }) },
-      {}
-    );
-
-    await createExpense(
-      createParams({ type: 'fixed', repeatAllMonths: true, paid: true })
-    );
-
-    const inserts = mock.getOperationsFor('expenses', 'insert');
-    expect(inserts).toHaveLength(2);
-
-    const clones = inserts[1].payload as Array<Record<string, unknown>>;
-    // `calculateRemainingMonths` cobre o ano civil inteiro menos o mês atual,
-    // portanto 11 clones para 2026-03 (jan, fev e abr–dez).
-    expect(clones).toHaveLength(11);
-    expect(clones.map((row) => row.year_month)).not.toContain('2026-03');
-    expect(clones.every((row) => row.paid === false)).toBe(true);
-    expect(clones.every((row) => !('account_id' in row))).toBe(true);
-    expect(clones.every((row) => row.base_expense_id === 'exp-root')).toBe(true);
-    expect(clones.every((row) => row.repeat_all_months === true)).toBe(true);
-  });
-
-  it('não dispara insert de clones quando o gasto fixo não é repetido', async () => {
-    mock.enqueue({ data: expenseRow({ type: 'fixed' }) });
-
-    await createExpense(createParams({ type: 'fixed', repeatAllMonths: false }));
-
-    expect(mock.getOperationsFor('expenses', 'insert')).toHaveLength(1);
-  });
-
-  it('gera as parcelas restantes com paid false', async () => {
-    mock.enqueue(
-      {
-        data: expenseRow({
-          type: 'installment',
-          current_installment: 1,
-          total_installments: 3,
-        }),
-      },
-      {}
-    );
-
-    await createExpense(
-      createParams({
-        type: 'installment',
-        currentInstallment: 1,
-        totalInstallments: 3,
-        paid: true,
-      })
-    );
-
-    const inserts = mock.getOperationsFor('expenses', 'insert');
-    expect(inserts).toHaveLength(2);
-
-    const installments = inserts[1].payload as Array<Record<string, unknown>>;
-    expect(installments).toHaveLength(2);
-    expect(installments.map((row) => row.year_month)).toEqual(['2026-04', '2026-05']);
-    expect(installments.map((row) => row.current_installment)).toEqual([2, 3]);
-    expect(installments.every((row) => row.paid === false)).toBe(true);
-    expect(installments.every((row) => !('account_id' in row))).toBe(true);
-    expect(installments.every((row) => row.total_installments === 3)).toBe(true);
-    expect(installments.every((row) => row.base_expense_id === 'exp-root')).toBe(true);
-  });
-
-  it('não gera parcelas quando a atual já é a última', async () => {
+  it('envia parcelas atual/total para parcelado (parcelas restantes geradas na RPC)', async () => {
     mock.enqueue({
-      data: expenseRow({ type: 'installment', current_installment: 3, total_installments: 3 }),
+      data: expenseRow({ type: 'installment', current_installment: 1, total_installments: 3 }),
     });
 
-    await createExpense(
-      createParams({ type: 'installment', currentInstallment: 3, totalInstallments: 3 })
+    const created = await createExpense(
+      createParams({ type: 'installment', currentInstallment: 1, totalInstallments: 3 })
     );
 
-    expect(mock.getOperationsFor('expenses', 'insert')).toHaveLength(1);
+    expect(mock.getRpcCalls()[0].args?.p_payload).toMatchObject({
+      type: 'installment',
+      current_installment: 1,
+      total_installments: 3,
+    });
+    expect(created.currentInstallment).toBe(1);
+    expect(created.totalInstallments).toBe(3);
   });
 
-  it('faz rollback da série e propaga o erro quando o insert das parcelas falha', async () => {
-    mock.enqueue(
-      { data: expenseRow({ type: 'installment', current_installment: 1, total_installments: 3 }) },
-      { error: { message: 'parcelas falharam' } },
-      {}
-    );
+  it('propaga o erro da RPC sem tentar rollback manual', async () => {
+    mock.enqueue({ error: { message: 'parcelas falharam' } });
 
     await expect(
       createExpense(
@@ -237,26 +153,7 @@ describe('createExpense', () => {
       )
     ).rejects.toThrow('parcelas falharam');
 
-    const deletes = mock.getOperationsFor('expenses', 'delete');
-    expect(deletes).toHaveLength(1);
-    expect(deletes[0].filters).toEqual([
-      { method: 'eq', args: ['user_id', 'user-1'] },
-      { method: 'or', args: ['id.eq.exp-root,base_expense_id.eq.exp-root'] },
-    ]);
-  });
-
-  it('faz rollback quando o insert dos clones do fixo repetido falha', async () => {
-    mock.enqueue(
-      { data: expenseRow({ type: 'fixed', repeat_all_months: true }) },
-      { error: { message: 'clones falharam' } },
-      {}
-    );
-
-    await expect(
-      createExpense(createParams({ type: 'fixed', repeatAllMonths: true }))
-    ).rejects.toThrow('clones falharam');
-
-    expect(mock.getOperationsFor('expenses', 'delete')).toHaveLength(1);
+    expect(mock.getOperationsFor('expenses', 'delete')).toHaveLength(0);
   });
 
   it('resolve o usuário via auth quando userId não é informado', async () => {
@@ -265,8 +162,8 @@ describe('createExpense', () => {
 
     await createExpense(createParams({ userId: undefined }));
 
-    const [insert] = mock.getOperationsFor('expenses', 'insert');
-    expect((insert.payload as Record<string, unknown>).user_id).toBe('user-auth');
+    const [call] = mock.getRpcCalls();
+    expect((call.args?.p_payload as Record<string, unknown>).user_id).toBe('user-auth');
   });
 
   it('falha quando não há usuário autenticado e userId não é informado', async () => {
@@ -275,6 +172,7 @@ describe('createExpense', () => {
     await expect(createExpense(createParams({ userId: undefined }))).rejects.toThrow(
       'Usuário não autenticado'
     );
+    expect(mock.getRpcCalls()).toHaveLength(0);
   });
 });
 

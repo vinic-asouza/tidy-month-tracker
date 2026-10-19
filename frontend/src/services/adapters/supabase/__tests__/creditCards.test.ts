@@ -112,70 +112,65 @@ describe('createCreditCard', () => {
 });
 
 describe('updateCreditCard', () => {
-  it('propaga o rename para o rótulo payment_method dos gastos associados por credit_card_id', async () => {
-    mock.enqueue({ data: { name: 'Nubank' } }, { data: null }, {}, {}, {});
+  it('DEV-145: rename usa a RPC rename_credit_card (cartão + gastos atômicos)', async () => {
+    mock.enqueue({});
 
     await updateCreditCard({
       id: 'card-1',
       userId: 'user-1',
-      updates: { name: 'Nubank Ultravioleta' },
+      updates: { name: '  Nubank Ultravioleta  ' },
     });
 
-    const [expenseUpdate, legacyUpdate] = mock.getOperationsFor('expenses', 'update');
-    expect(expenseUpdate.payload).toEqual({ payment_method: 'Nubank Ultravioleta' });
-    expect(expenseUpdate.filters).toEqual([
-      { method: 'eq', args: ['user_id', 'user-1'] },
-      { method: 'eq', args: ['credit_card_id', 'card-1'] },
+    expect(mock.getRpcCalls('rename_credit_card')).toEqual([
+      {
+        fn: 'rename_credit_card',
+        args: { p_card_id: 'card-1', p_new_name: 'Nubank Ultravioleta' },
+      },
     ]);
-
-    // Legados (sem credit_card_id): sincroniza o rótulo e já associa ao cartão
-    expect(legacyUpdate.payload).toEqual({
-      payment_method: 'Nubank Ultravioleta',
-      credit_card_id: 'card-1',
-    });
-    expect(legacyUpdate.filters).toEqual([
-      { method: 'eq', args: ['user_id', 'user-1'] },
-      { method: 'is', args: ['credit_card_id', null] },
-      { method: 'eq', args: ['payment_method', 'Nubank'] },
-    ]);
-
-    const [cardUpdate] = mock.getOperationsFor('credit_cards', 'update');
-    expect(cardUpdate.payload).toEqual({ name: 'Nubank Ultravioleta' });
-  });
-
-  it('não toca nos gastos quando o nome não muda', async () => {
-    mock.enqueue({ data: { name: 'Nubank' } }, {});
-
-    await updateCreditCard({ id: 'card-1', userId: 'user-1', updates: { name: 'Nubank' } });
-
+    // Sem updates manuais em expenses/credit_cards: a RPC cuida de tudo.
     expect(mock.getOperationsFor('expenses', 'update')).toHaveLength(0);
+    expect(mock.getOperationsFor('credit_cards', 'update')).toHaveLength(0);
   });
 
-  it('rejeita rename para um nome já existente', async () => {
-    mock.enqueue({ data: { name: 'Nubank' } }, { data: { id: 'card-2' } });
+  it('DEV-145: propaga conflito de nome vindo da RPC', async () => {
+    mock.enqueue({ error: { message: 'Já existe um cartão com este nome' } });
 
     await expect(
       updateCreditCard({ id: 'card-1', userId: 'user-1', updates: { name: 'Inter' } })
     ).rejects.toThrow('Já existe um cartão com este nome');
 
-    expect(mock.getOperationsFor('expenses', 'update')).toHaveLength(0);
     expect(mock.getOperationsFor('credit_cards', 'update')).toHaveLength(0);
   });
 
-  it('rejeita rename para nome vazio', async () => {
+  it('DEV-145: propaga cartão inexistente vindo da RPC', async () => {
+    mock.enqueue({ error: { message: 'Cartão não encontrado' } });
+
+    await expect(
+      updateCreditCard({ id: 'card-x', userId: 'user-1', updates: { name: 'Novo' } })
+    ).rejects.toThrow('Cartão não encontrado');
+  });
+
+  it('rejeita rename para nome vazio sem chamar a RPC', async () => {
     await expect(
       updateCreditCard({ id: 'card-1', userId: 'user-1', updates: { name: '  ' } })
     ).rejects.toThrow('Nome do cartão é obrigatório');
 
     expect(mock.getOperations()).toHaveLength(0);
+    expect(mock.getRpcCalls()).toHaveLength(0);
   });
 
-  it('falha quando o cartão não existe', async () => {
-    mock.enqueue({ data: null });
+  it('rename + outros campos: RPC para o nome e update só dos demais campos', async () => {
+    mock.enqueue({}, {});
 
-    await expect(
-      updateCreditCard({ id: 'card-x', userId: 'user-1', updates: { name: 'Novo' } })
-    ).rejects.toThrow('Cartão não encontrado');
+    await updateCreditCard({
+      id: 'card-1',
+      userId: 'user-1',
+      updates: { name: 'Novo', color: '#000' },
+    });
+
+    expect(mock.getRpcCalls('rename_credit_card')).toHaveLength(1);
+    const [update] = mock.getOperationsFor('credit_cards', 'update');
+    expect(update.payload).toEqual({ color: '#000' });
   });
 
   it('atualiza apenas os campos enviados quando o nome não é alterado', async () => {
@@ -189,6 +184,7 @@ describe('updateCreditCard', () => {
 
     const [update] = mock.getOperationsFor('credit_cards', 'update');
     expect(update.payload).toEqual({ paid: true, due_day: 15 });
+    expect(mock.getRpcCalls()).toHaveLength(0);
   });
 
   it('não dispara update quando não há campos', async () => {

@@ -50,6 +50,16 @@ Habilitado nas tabelas de negócio. Políticas típicas: SELECT/INSERT/UPDATE/DE
 
 ---
 
+## RPCs atômicas (DEV-145 / ADR-010)
+
+| Função | Uso |
+| --- | --- |
+| `create_expense_with_series` | Create gasto fixo+repeat ou parcelado |
+| `create_income_with_series` / `create_investment_with_series` | Create com repeat no ano |
+| `rename_credit_card` | Rename + sync rótulos |
+
+`SECURITY INVOKER` + RLS. CSV e fills de parcelas no update permanecem multi-statement.
+
 ## Triggers
 
 - `on_auth_user_created` → `profiles` + `finance_settings`
