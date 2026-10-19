@@ -37,6 +37,7 @@ export function toExpense(row: ExpenseRow): Expense {
     category: row.category,
     description: row.description,
     paymentMethod: row.payment_method,
+    creditCardId: row.credit_card_id ?? null,
     value: Number(row.value),
     paid: row.paid,
     date: row.date ?? undefined,

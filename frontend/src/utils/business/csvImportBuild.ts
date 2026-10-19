@@ -33,6 +33,8 @@ export interface ImportReviewRow {
   monthDiverges: boolean;
   category: string;
   paymentMethod: string;
+  /** DEV-144: cartão associado (origem cartão); null para conta/Pix/etc. */
+  creditCardId: string | null;
   action: SuggestedImportAction;
   linkExpenseId?: string;
   candidates: MatchCandidate[];
@@ -51,6 +53,8 @@ export interface BuildReviewRowsParams {
   uiYearMonth: string;
   defaultCategory: string;
   defaultPaymentMethod: string;
+  /** Cartão da origem (quando importando fatura); omitir/null para conta. */
+  defaultCreditCardId?: string | null;
   existingExpenses: Expense[];
 }
 
@@ -60,6 +64,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
     uiYearMonth,
     defaultCategory,
     defaultPaymentMethod,
+    defaultCreditCardId = null,
     existingExpenses,
   } = params;
 
@@ -87,6 +92,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
         monthDiverges: false,
         category: defaultCategory,
         paymentMethod: defaultPaymentMethod,
+        creditCardId: defaultCreditCardId,
         action: 'ignore',
         candidates: [],
         suggestionReason: 'Dados incompletos',
@@ -116,6 +122,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
         monthDiverges: yearMonthFromDate(date) !== uiYearMonth,
         category: defaultCategory,
         paymentMethod: defaultPaymentMethod,
+        creditCardId: defaultCreditCardId,
         action: 'ignore',
         candidates: [],
         suggestionReason: 'Crédito ou valor não positivo',
@@ -158,6 +165,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
       monthDiverges,
       category: defaultCategory,
       paymentMethod: defaultPaymentMethod,
+      creditCardId: defaultCreditCardId,
       action,
       linkExpenseId:
         action === 'link_existing' ? suggestion.candidates[0]?.expense.id : undefined,

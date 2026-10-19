@@ -24,6 +24,7 @@ export async function deleteCreditCard(id: string, _userId: string): Promise<voi
 }
 
 export async function canDeleteCreditCard(
+  _cardId: string,
   _cardName: string,
   _userId: string
 ): Promise<boolean> {

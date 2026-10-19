@@ -25,10 +25,11 @@ export async function deleteCreditCard(id: string, userId: string): Promise<void
 }
 
 export async function canDeleteCreditCard(
+  cardId: string,
   cardName: string,
   userId: string
 ): Promise<boolean> {
-  return creditCardsAdapter().canDeleteCreditCard(cardName, userId);
+  return creditCardsAdapter().canDeleteCreditCard(cardId, cardName, userId);
 }
 
 export async function getCardMonthlyStatus(

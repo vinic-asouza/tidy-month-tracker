@@ -184,6 +184,7 @@ export function ImportExpensesCsvDialog({
         uiYearMonth: currentMonth,
         defaultCategory: seedCategory,
         defaultPaymentMethod: payment,
+        defaultCreditCardId: originMode === 'card' && selectedCard ? selectedCard.id : null,
         existingExpenses: expenses,
       });
       // Origem cartão: trava paymentMethod
@@ -192,6 +193,7 @@ export function ImportExpensesCsvDialog({
           ? built.map((r) => ({
               ...r,
               paymentMethod: selectedCard.name,
+              creditCardId: selectedCard.id,
               effectuate: false,
             }))
           : built;
@@ -284,6 +286,7 @@ export function ImportExpensesCsvDialog({
           value: row.value,
           category: row.category,
           paymentMethod: row.paymentMethod,
+          creditCardId: row.creditCardId ?? null,
           date: row.date,
         };
         if (shouldEffectuate) {
@@ -318,6 +321,7 @@ export function ImportExpensesCsvDialog({
         category: row.category,
         description: row.description,
         paymentMethod: row.paymentMethod,
+        creditCardId: row.creditCardId ?? null,
         value: row.value,
         paid: shouldEffectuate,
         date: row.date,

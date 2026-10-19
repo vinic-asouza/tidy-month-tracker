@@ -96,6 +96,7 @@ export type Database = {
           base_expense_id: string | null
           category: string
           created_at: string
+          credit_card_id: string | null
           current_installment: number | null
           date: string | null
           description: string
@@ -115,6 +116,7 @@ export type Database = {
           base_expense_id?: string | null
           category: string
           created_at?: string
+          credit_card_id?: string | null
           current_installment?: number | null
           date?: string | null
           description: string
@@ -134,6 +136,7 @@ export type Database = {
           base_expense_id?: string | null
           category?: string
           created_at?: string
+          credit_card_id?: string | null
           current_installment?: number | null
           date?: string | null
           description?: string
@@ -155,6 +158,13 @@ export type Database = {
             columns: ["base_expense_id"]
             isOneToOne: false
             referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
             referencedColumns: ["id"]
           }
         ]
