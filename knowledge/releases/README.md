@@ -1,7 +1,7 @@
 ---
 type: index
 secao: releases
-ultima_atualizacao: 2026-10-17
+ultima_atualizacao: 2026-10-19
 ---
 
 # Releases
@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.11.1 | 2026-10-19 | Publicado | [v0.11.1-2026-10-19.md](./v0.11.1-2026-10-19.md) |
 | v0.11.0 | 2026-10-17 | Publicado | [v0.11.0-2026-10-17.md](./v0.11.0-2026-10-17.md) |
 | v0.10.0 | 2026-10-16 | Publicado | [v0.10.0-2026-10-16.md](./v0.10.0-2026-10-16.md) |
 | v0.9.0 | 2026-10-16 | Publicado | [v0.9.0-2026-10-16.md](./v0.9.0-2026-10-16.md) |
@@ -42,10 +43,10 @@ Gatilho: **PR com destino `main`** (produção / Vercel). A nota entra **no mesm
 - Template: [`../00_meta/templates/template-release-notes.md`](../00_meta/templates/template-release-notes.md)
 - Nome: `vX.Y.Z-YYYY-MM-DD.md` (ex.: `v0.1.1-2026-08-24.md`)
 - Frontmatter: `ambiente: production`; IDs Linear no campo `issues`
-- SemVer: última publicada é `v0.11.0` (MINOR, gráficos por seção na visão Anual). A próxima é **PATCH** `v0.11.1`, salvo MINOR/MAJOR justificados.
+- SemVer: última publicada é `v0.11.0` (MINOR, gráficos por seção na visão Anual). Esta PR leva **PATCH** `v0.11.1` (docs do gate schema/RLS). Próxima após publicar: **PATCH** `v0.11.2`, salvo MINOR/MAJOR justificados.
 - `v1.0.0` só no go-live público do [roadmap](../01_produto/roadmap.md).
 
-Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, migrations, landing).
+Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, landing). O item de migrations/RLS em produção foi fechado em out/2026 (DEV-141 / DEV-142).
 
 ---
 

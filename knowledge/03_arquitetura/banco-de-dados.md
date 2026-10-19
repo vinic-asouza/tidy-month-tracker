@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Banco de dados
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-19
 ---
 
 # Banco de dados
@@ -9,6 +9,8 @@ ultima_atualizacao: 2026-10-16
 Postgres gerenciado no **Supabase**. Schema evolui por `supabase/setup-completo.sql` **mais** `supabase/migrations/`. Tipos gerados: `frontend/src/integrations/supabase/types.ts`. Mapeamento snake_case ↔ camelCase: `services/adapters/mappers.ts`.
 
 Projeto em uso: `tidy-tracker`, ID `yoinjsmlntehikilqoxx`, região `us-east-2` (`config.toml` alinhado). Isolamento: `user_id` + RLS (`auth.uid() = user_id`). Regras: [`../02_regras-de-negocio/regras-gerais.md`](../02_regras-de-negocio/regras-gerais.md) RN-G01.
+
+**Produção (DEV-141, out/2026):** schema remoto alinhado ao pós-ADR-007 — sem `accounts` / `account_balances` / `account_operations`; migration `remove_wallets_dev_151` registrada no histórico remoto. O histórico de migrations no painel pode estar incompleto vs. a pasta local; o critério de go-live é o **schema efetivo** + RLS, não a lista 1:1 de arquivos.
 
 ---
 
@@ -56,6 +58,6 @@ Habilitado nas tabelas de negócio. Políticas típicas: SELECT/INSERT/UPDATE/DE
 
 ## Convenção de mudança
 
-Nova coluna/tabela: migration em `supabase/migrations/` + regenerar `types.ts`. Aplicar no projeto remoto (checklist de go-live: aplicar `remove_wallets_dev_151.sql` em produção — [`../01_produto/roadmap.md`](../01_produto/roadmap.md)).
+Nova coluna/tabela: migration em `supabase/migrations/` + regenerar `types.ts`. Aplicar no projeto remoto. A remoção de carteiras (`remove_wallets_dev_151.sql`) **já está aplicada** em produção (DEV-141); ver [`../01_produto/roadmap.md`](../01_produto/roadmap.md).
 
 Frontend e Express (quando existir) leem **as mesmas tabelas**. Voltar ao backend não pede dump novo.
