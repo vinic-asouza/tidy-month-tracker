@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Segurança
-ultima_atualizacao: 2026-08-21
+ultima_atualizacao: 2026-10-19
 ---
 
 # Segurança
@@ -24,6 +24,8 @@ Escopo: o que o código e o Supabase fazem hoje. Políticas de produto: [`../02_
 RLS em Postgres: cada linha de negócio exige `user_id = auth.uid()`. O frontend filtra por `userId` da sessão, mas a **barreira real** é o RLS (a anon key é pública).
 
 Modo `api`: Express deve validar o JWT e usar o `user_id` do token — nunca o id vindo só do body sem checagem.
+
+**Auditoria produção (out/2026, DEV-141 / DEV-142):** no projeto `tidy-tracker`, as 9 tabelas de negócio têm RLS habilitado e policies por `auth.uid() = user_id`. Isolamento cross-user (SELECT/UPDATE/DELETE cruzados e INSERT com `user_id` alheio) foi validado — sem vazamento encontrado. Histórico e evidências ficam nas Issues Linear; este doc só registra o estado permanente.
 
 ---
 
