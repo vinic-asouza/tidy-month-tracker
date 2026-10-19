@@ -29,7 +29,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 | **Parcela** | Parte de uma compra dividida em meses (pode atravessar o ano). |
 | **Importação CSV assistida** | Fluxo em Gastos em que um CSV **propõe** linhas; a pessoa mapeia colunas, revisa e só então grava. Não é Open Finance nem lançamento automático. |
 | **Exportação anual** | PDF ou CSV baixado na visão Anual, do ano selecionado e do modo ativo. Repete as leituras agregadas da tela (incluindo entradas e gastos), sem desejos e sem cada lançamento. Não grava nada. |
-| **Resumo (aba)** | Em Entradas, Gastos e Investimentos na visão Mensal: lista agregada com barras + gráfico de pizza dos mesmos grupos. |
+| **Resumo (aba)** | Em Entradas, Gastos e Investimentos na visão Mensal: lista agregada com barras + gráfico de pizza dos mesmos grupos (no desktop a pizza ocupa ~30% da seção). |
 
 ---
 

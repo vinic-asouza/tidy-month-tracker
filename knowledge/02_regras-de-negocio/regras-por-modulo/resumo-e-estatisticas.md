@@ -86,4 +86,4 @@ No hover de cada mês, a lista do tooltip ordena os itens do **maior para o meno
 
 ## RN-R09 — Pizza no Resumo mensal
 
-Na visão Mensal, nas abas **Resumo** de Entradas, Gastos e Investimentos: desktop em duas colunas (lista com barras horizontais à esquerda; pizza dos mesmos itens à direita). Mobile empilha (lista acima, pizza abaixo). A agregação é a mesma já usada na lista do Resumo. Sem dados, a pizza não aparece.
+Na visão Mensal, nas abas **Resumo** de Entradas, Gastos e Investimentos: desktop em duas colunas — lista com barras horizontais (~70%) à esquerda e pizza dos mesmos itens (~30%) à direita. Mobile empilha (lista acima, pizza abaixo). A agregação é a mesma já usada na lista do Resumo. Sem dados, a pizza não aparece.

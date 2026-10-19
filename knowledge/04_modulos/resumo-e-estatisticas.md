@@ -36,7 +36,7 @@ Mostra o **fluxo de caixa do período** (mês ou ano civil): quatro números, to
 - Linhas de pendência no modo efetivado: a receber, a pagar, a investir (RN-R03)
 - Visão anual: os quatro cards mostram a média da janela em destaque e o total dos 12 meses abaixo, com mês vazio fora do divisor, mais gráfico mês a mês de caixa (RN-R04)
 - Seções somente leitura abaixo da regra: entradas por tag, gastos por categoria/tipo, forma de pagamento, aportes por tag e desejos do ano (RN-R06). Regra, Entradas, Gastos, Pagamento e Investimentos têm abas Valores | Gráficos (RN-R08). Desejos não entram no caixa (RN-R05)
-- Na visão Mensal, aba Resumo de Entradas/Gastos/Investimentos: lista + pizza lado a lado no desktop (RN-R09)
+- Na visão Mensal, aba Resumo de Entradas/Gastos/Investimentos: lista (~70%) + pizza (~30%) lado a lado no desktop (RN-R09)
 - Exportar PDF e CSV do ano e do modo ativos, sem desejos, sem gráficos por seção e sem gravar o arquivo (RN-R07)
 - Seletor de mês/ano no header (clique no centro + setas); o mês fica guardado para a volta à visão Mensal
 - Legenda do que o modo está somando
@@ -326,6 +326,7 @@ npm test
 | 2026-10-16 | 1.3 | Gráfico anual: `BarChart` → `LineChart` (evolução mês a mês) | DEV-152 | Technical Writer |
 | 2026-10-17 | 1.4 | Abas Valores/Gráficos e séries mês a mês por seção (RN-R08) | DEV-153 | Technical Writer |
 | 2026-10-17 | 1.5 | Entradas no anual + rename Gastos; seletor mês/ano; pizza no Resumo mensal (RN-R06–R09) | DEV-154, DEV-155, DEV-156 | Technical Writer |
+| 2026-10-19 | 1.6 | Pizza do Resumo: proporção desktop ~30% (RN-R09) | DEV-155 | Technical Writer |
 
 ---
 
