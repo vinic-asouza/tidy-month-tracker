@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS public.incomes (
   base_income_id UUID REFERENCES public.incomes(id) ON DELETE CASCADE,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT incomes_value_positive CHECK (value > 0),
+  CONSTRAINT incomes_year_month_format CHECK (year_month ~ '^\d{4}-\d{2}$')
 );
 
 -- Tabela de despesas (expenses)
@@ -71,7 +73,19 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   total_installments INTEGER,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT expenses_value_positive CHECK (value > 0),
+  CONSTRAINT expenses_year_month_format CHECK (year_month ~ '^\d{4}-\d{2}$'),
+  CONSTRAINT expenses_installment_coherence CHECK (
+    type <> 'installment'
+    OR (
+      current_installment IS NOT NULL
+      AND total_installments IS NOT NULL
+      AND current_installment >= 1
+      AND total_installments >= 1
+      AND current_installment <= total_installments
+    )
+  )
 );
 
 -- Tabela de investimentos
@@ -88,7 +102,9 @@ CREATE TABLE IF NOT EXISTS public.investments (
   base_investment_id UUID REFERENCES public.investments(id) ON DELETE CASCADE,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  CONSTRAINT investments_value_positive CHECK (value > 0),
+  CONSTRAINT investments_year_month_format CHECK (year_month ~ '^\d{4}-\d{2}$')
 );
 
 -- Tabela de configurações financeiras
