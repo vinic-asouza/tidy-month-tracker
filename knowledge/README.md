@@ -41,6 +41,7 @@ knowledge/01_produto/visao-do-produto.md
 knowledge/01_produto/personas-e-usuarios.md
 knowledge/01_produto/jornadas-de-usuario.md
 knowledge/01_produto/roadmap.md
+knowledge/01_produto/metricas-do-beta.md
 knowledge/01_produto/glossario.md
 knowledge/02_regras-de-negocio/regras-gerais.md
 knowledge/02_regras-de-negocio/politicas-e-restricoes.md

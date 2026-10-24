@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Visão do produto
-ultima_atualizacao: 2026-10-17
+ultima_atualizacao: 2026-10-24
 ---
 
 # Visão do produto
@@ -93,12 +93,13 @@ Deliberado, não “falta técnica”:
 - Múltiplos usuários ou contas compartilhadas
 - Push, WhatsApp ou e-mail transacional além da confirmação de cadastro (Supabase Auth)
 - Integração com corretoras ou sync automático de faturas
-- Administração de usuários, analytics de produto
+- Administração de usuários, analytics de produto no app (SDK, dashboard, eventos de clique)
 
 **Exceções alinhadas à visão:**
 
 - Importação **CSV assistida de gastos** (fase 0) — o arquivo propõe; a pessoa mapeia e confirma. Não é agregador passivo.
 - Exportação **anual agregada** (DEV-150) — na visão Anual, PDF ou CSV do ano e do modo que estão na tela. É leitura do que já aparece, sem desejos, sem lançamento linha a linha e sem gravar nada. Não abre extrato, visão Mensal nem Open Finance.
+- Acompanhamento do **beta fechado** (DEV-146) — o fundador consulta, no SQL Editor, dados que o produto já grava (cadastro, login, lançamento, regra). Não há vendor, não há tela e o client não lê essa consulta. Definição: [`metricas-do-beta.md`](./metricas-do-beta.md).
 
 Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
 

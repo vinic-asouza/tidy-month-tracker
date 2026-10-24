@@ -1,7 +1,7 @@
 ---
 type: regras-negocio
 titulo: Políticas e restrições
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-24
 ---
 
 # Políticas e restrições
@@ -38,6 +38,8 @@ Não há, e não deve ser prometido sem decisão de produto:
 **Exceção consciente (DEV-150):** exportação anual agregada — na visão Anual, PDF ou CSV do ano selecionado e do modo ativo. Lê o que a tela já calculou. Não cria lançamento, não inclui desejos, não lista cada gasto e não sobe o arquivo. Visão Mensal, e-mail e os dois modos no mesmo arquivo continuam fora. Regra: [`regras-por-modulo/resumo-e-estatisticas.md`](./regras-por-modulo/resumo-e-estatisticas.md) (RN-R07). Módulo: [`../04_modulos/resumo-e-estatisticas.md`](../04_modulos/resumo-e-estatisticas.md).
 
 Registro com participação ativa continua sendo política (visão do produto): a assistida acelera volume **com** revisão, não substitui o ritual por extrato automático.
+
+**Exceção consciente (DEV-146):** acompanhamento do beta fechado. O fundador lê, no SQL Editor do Supabase, cadastro, último login, existência de regra e de lançamento. Não há SDK, tabela de eventos, dashboard nem policy nova. O client não executa essa consulta e o texto versionado não seleciona e-mail. Definição e SQL: [`../01_produto/metricas-do-beta.md`](../01_produto/metricas-do-beta.md). Analytics de produto dentro do app continua fora.
 
 ---
 

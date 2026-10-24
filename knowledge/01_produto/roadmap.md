@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Roadmap
-ultima_atualizacao: 2026-10-19
+ultima_atualizacao: 2026-10-24
 ---
 
 # Roadmap
@@ -19,6 +19,7 @@ Visão: [`visao-do-produto.md`](./visao-do-produto.md).
 - **Recente em produção:** importação **CSV assistida de gastos** (DEV-103 / v0.2.0) — fase 0 antes de Open Finance.
 - **Schema / RLS (DEV-141 + DEV-142, out/2026):** produção `tidy-tracker` auditada — `remove_wallets_dev_151` aplicada; tabelas de carteira ausentes; RLS ON nas 9 tabelas de negócio; isolamento cross-user validado. Detalhe: [`../03_arquitetura/seguranca.md`](../03_arquitetura/seguranca.md), [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md).
 - **Veredito de produto (docs internas, jul/2026):** **aprovado para beta fechado**. Gate pré-lançamento (Fases 1, 2 e 2.5) implementado e revalidado; sem achados críticos/altos pendentes nesses gates.
+- **Acompanhamento do beta (DEV-146):** definido. Ativação = primeiro lançamento; retorno = novo login em dia posterior. Leitura semanal no SQL Editor, sem SDK. Detalhe: [`metricas-do-beta.md`](./metricas-do-beta.md).
 - **Linear:** projeto **Finto**; fluxo Ledger Flow no time **Development**.
 - **Release notes:** baseline [`../releases/v0.1.0-2026-08.md`](../releases/v0.1.0-2026-08.md); CSV assistida em [`../releases/v0.2.0-2026-09-03.md`](../releases/v0.2.0-2026-09-03.md) (**Publicado**).
 
