@@ -1,7 +1,7 @@
 ---
 type: index
 secao: 06_integracoes
-ultima_atualizacao: 2026-08-24
+ultima_atualizacao: 2026-10-24
 ---
 
 # 06 · Integrações
@@ -28,4 +28,4 @@ Não são integração de **produto** (não entram no browser do usuário como A
 
 ## Explicitamente ausente (código + política)
 
-Não invente estes arquivos até existirem no produto: Stripe, Open Finance, SendGrid/Resend próprio, Sentry, analytics, Storage/CDN, Edge Functions, Realtime, push, WhatsApp. Políticas: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
+Não invente estes arquivos até existirem no produto: Stripe, Open Finance, SendGrid/Resend próprio, Sentry, analytics, Storage/CDN, Edge Functions, Realtime, push, WhatsApp. A leitura semanal do beta no SQL Editor não é integração nova — é o Supabase que já está aqui. Definição: [`../01_produto/metricas-do-beta.md`](../01_produto/metricas-do-beta.md). Políticas: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).

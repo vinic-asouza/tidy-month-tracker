@@ -27,6 +27,8 @@ interface StatisticsProps {
   isLoading?: boolean;
   wishes?: WishItem[];
   wishesLoading?: boolean;
+  onAddCategory: (category: string) => Promise<void> | void;
+  onDeleteCategory: (category: string) => Promise<void> | void;
 }
 
 const formatCurrency = (value: number) => {
@@ -86,6 +88,8 @@ export const Statistics = ({
   isLoading = false,
   wishes = [],
   wishesLoading = false,
+  onAddCategory,
+  onDeleteCategory,
 }: StatisticsProps) => {
   const { viewMode, setViewMode } = useSummaryViewMode();
   const { rule, loading: ruleLoading, createRule, updateRule, deleteRule } = useFinancialRule();
@@ -391,6 +395,8 @@ export const Statistics = ({
             onCreateRule={createRule}
             onUpdateRule={updateRule}
             onDeleteRule={deleteRule}
+            onAddCategory={onAddCategory}
+            onDeleteCategory={onDeleteCategory}
           />
 
           <AnnualYearSections

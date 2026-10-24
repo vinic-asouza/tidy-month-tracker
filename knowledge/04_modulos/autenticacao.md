@@ -4,7 +4,7 @@ nome: Autenticação
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-24
 tags: [auth, supabase, frontend]
 dependencias: []
 ---
@@ -38,11 +38,12 @@ Identifica a pessoa, guarda a sessão e decide quem entra no painel. Sem este m�
 - Persistência e refresh da sessão
 - Redirecionar visitante em `/` para `/auth` e usuário autenticado em `/auth` para `/`
 - Mapear erros do Auth para mensagens em português
+- Guia opcional de primeiro acesso no painel mensal (DEV-147): lê e grava o próprio `profiles` (`onboarding_step`, `onboarding_completed_at`, `onboarding_dismissed`). Não bloqueia o painel. Encerrar o guia não cria lançamento nem conta como ativação.
 
 ### O que este módulo NÃO FAZ
 
 - Papéis, convite, conta compartilhada ou SSO
-- Tela de perfil (a tabela `profiles` existe; a UI não lê/edita)
+- Tela de perfil editável (a tabela `profiles` existe; a UI só lê o progresso do guia de primeiro acesso)
 - CRUD financeiro nem totais do mês (resumo: [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md); entradas: [`entradas.md`](./entradas.md); gastos: [`gastos.md`](./gastos.md); cartões: [`cartoes.md`](./cartoes.md); investimentos: [`investimentos.md`](./investimentos.md); desejos: [`desejos.md`](./desejos.md); regra financeira: [`regra-financeira.md`](./regra-financeira.md); seleção: [`selecao.md`](./selecao.md))
 - Definir nova senha depois do link de recovery (o SPA **não** tem esse formulário; só dispara o e-mail)
 - Hospedar SMTP: o e-mail é do Supabase Auth
@@ -85,6 +86,9 @@ Criada no signup pelo trigger; **não** há tela que a consuma.
 | `id` | UUID | Sim | PK |
 | `user_id` | UUID | Sim | `auth.users.id`, unique, ON DELETE CASCADE |
 | `email` | TEXT | Não | Copiado no insert do trigger |
+| `onboarding_step` | smallint | Sim | Passo do guia (0–3). Default 0 |
+| `onboarding_completed_at` | timestamptz | Não | Fim do guia (concluir ou dispensar) |
+| `onboarding_dismissed` | boolean | Sim | `true` quando o fim foi **Agora não**. Default false |
 | `created_at` / `updated_at` | timestamptz | Sim | |
 
 ### Side-effect no signup

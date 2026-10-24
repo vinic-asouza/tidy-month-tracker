@@ -4,7 +4,7 @@ nome: Gastos
 status: Ativo
 versao: "1.4"
 owner: Development
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-10-24
 tags: [gastos, expenses, frontend, supabase, csv]
 dependencias: [autenticacao]
 ---
@@ -155,7 +155,7 @@ interface Expense {
 | --- | --- |
 | `type` | `fixed` (Fixo), `variable` (Variável), `installment` (Parcelado) |
 | `DEFAULT_PAYMENT_METHODS` | Dinheiro, Pix, Débito, Boleto |
-| `DEFAULT_EXPENSE_CATEGORIES` | Moradia, Contas pessoais, Compras Gerais, Vestuário, Assinaturas, Trabalho, Serviços Gerais, Mercado, Lanches, Combustível, Transporte, Carro, Presentes, Lazer, Estilo de Vida, Consultas Médicas, Suplementação, Remédios, Educação, Viagem, Empréstimos, Doação, Taxas |
+| `DEFAULT_EXPENSE_CATEGORIES` | Moradia, Compras Gerais, Vestuário, Assinaturas, Trabalho, Serviços Gerais, Mercado, Lanches, Transporte, Presentes, Lazer, Saúde, Bem Estar, Internet/Telefone, Educação, Viagem, Empréstimos, Doação, Taxas. Vale para conta nova. Lista já salva não é reescrita. |
 | Ações CSV (sugestão) | `create_variable` \| `create_installment` \| `create_fixed` \| `link_existing` \| `ignore` \| `review` |
 
 `isCreditCardExpense`: `creditCards.some(c => c.name === expense.paymentMethod)`.

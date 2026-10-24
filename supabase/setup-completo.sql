@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
+  onboarding_step SMALLINT NOT NULL DEFAULT 0 CHECK (onboarding_step >= 0 AND onboarding_step <= 3),
+  onboarding_completed_at TIMESTAMP WITH TIME ZONE,
+  onboarding_dismissed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -117,11 +120,10 @@ CREATE TABLE IF NOT EXISTS public.finance_settings (
     'Freelance', 'Resgate de investimentos', 'Rendimentos', 'Presente', 'Outros'
   ],
   expense_categories TEXT[] NOT NULL DEFAULT ARRAY[
-    'Moradia', 'Contas pessoais', 'Compras Gerais', 'Vestuário', 'Assinaturas',
-    'Trabalho', 'Serviços Gerais', 'Mercado', 'Lanches', 'Combustível',
-    'Transporte', 'Carro', 'Presentes', 'Lazer', 'Estilo de Vida',
-    'Consultas Médicas', 'Suplementação', 'Remédios', 'Educação', 'Viagem',
-    'Empréstimos', 'Doação', 'Taxas'
+    'Moradia', 'Compras Gerais', 'Vestuário', 'Assinaturas',
+    'Trabalho', 'Serviços Gerais', 'Mercado', 'Lanches',
+    'Transporte', 'Presentes', 'Lazer', 'Saúde', 'Bem Estar', 'Internet/Telefone',
+    'Educação', 'Viagem', 'Empréstimos', 'Doação', 'Taxas'
   ],
   investment_tags TEXT[] NOT NULL DEFAULT ARRAY[
     'Banco A', 'Banco B', 'Corretora', 'Outros'

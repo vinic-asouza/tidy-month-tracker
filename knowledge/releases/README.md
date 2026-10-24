@@ -1,7 +1,7 @@
 ---
 type: index
 secao: releases
-ultima_atualizacao: 2026-10-19
+ultima_atualizacao: 2026-10-24
 ---
 
 # Releases
@@ -16,6 +16,8 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.15.0 | 2026-10-24 | Draft | [v0.15.0-2026-10-24.md](./v0.15.0-2026-10-24.md) |
+| v0.14.1 | 2026-10-24 | Draft | [v0.14.1-2026-10-24.md](./v0.14.1-2026-10-24.md) |
 | v0.14.0 | 2026-10-19 | Publicado | [v0.14.0-2026-10-19.md](./v0.14.0-2026-10-19.md) |
 | v0.13.0 | 2026-10-19 | Publicado | [v0.13.0-2026-10-19.md](./v0.13.0-2026-10-19.md) |
 | v0.12.0 | 2026-10-19 | Publicado | [v0.12.0-2026-10-19.md](./v0.12.0-2026-10-19.md) |
@@ -46,7 +48,7 @@ Gatilho: **PR com destino `main`** (produção / Vercel). A nota entra **no mesm
 - Template: [`../00_meta/templates/template-release-notes.md`](../00_meta/templates/template-release-notes.md)
 - Nome: `vX.Y.Z-YYYY-MM-DD.md` (ex.: `v0.1.1-2026-08-24.md`)
 - Frontmatter: `ambiente: production`; IDs Linear no campo `issues`
-- SemVer: última publicada é `v0.11.0` (MINOR, gráficos por seção na visão Anual). Esta PR leva **PATCH** `v0.11.1` (docs do gate schema/RLS). Próxima após publicar: **PATCH** `v0.11.2`, salvo MINOR/MAJOR justificados.
+- SemVer: a nota de onboarding desta linha é **MINOR** `v0.15.0` (guia opcional no primeiro acesso). A nota `v0.14.1` (métricas do beta) está na branch anterior. Próxima após publicar `v0.15.0`: **PATCH** `v0.15.1`, salvo MINOR/MAJOR justificados.
 - `v1.0.0` só no go-live público do [roadmap](../01_produto/roadmap.md).
 
 Não use `v1.0.0` enquanto o go-live público estiver pendente (regressão no browser, landing). O item de migrations/RLS em produção foi fechado em out/2026 (DEV-141 / DEV-142).
@@ -76,4 +78,4 @@ Se P3 (`credit_card_id`) ou P4 (CHECK no banco) mudarem contrato, isso é **MAJO
 - Inventar Issue ID, data de deploy ou tag que não existem
 - Duplicar 01–04: a nota aponta para a KB; não reescreve módulos
 
-Próxima nota depois de publicar `v0.11.0`: **PATCH** `v0.11.1` na PR seguinte para `main`, salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.
+Próxima nota depois de publicar `v0.15.0`: **PATCH** `v0.15.1` na PR seguinte para `main`, salvo MINOR/MAJOR justificados, ou **v1.0.0** no go-live público.

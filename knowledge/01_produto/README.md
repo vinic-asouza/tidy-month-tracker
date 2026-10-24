@@ -9,5 +9,6 @@ Documentação permanente de **produto** deste repositório (Finto).
 | [personas-e-usuarios.md](./personas-e-usuarios.md) | Uma conta por pessoa + personas de comunicação |
 | [jornadas-de-usuario.md](./jornadas-de-usuario.md) | Fluxos na UI real (`/auth`, painel mensal/anual) |
 | [roadmap.md](./roadmap.md) | Beta fechado, go-live público, P3/P4 |
+| [metricas-do-beta.md](./metricas-do-beta.md) | Ativação, retorno e revisão semanal do beta fechado |
 
 Não copie visão, personas ou glossário de outro produto. Regras de negócio: [`../02_regras-de-negocio/`](../02_regras-de-negocio/README.md).
