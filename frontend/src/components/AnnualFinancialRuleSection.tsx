@@ -50,6 +50,8 @@ interface AnnualFinancialRuleSectionProps {
   onCreateRule: (data: CreateFinancialRuleInput) => Promise<FinancialRule>;
   onUpdateRule: (data: UpdateFinancialRuleInput) => Promise<FinancialRule>;
   onDeleteRule: () => Promise<void>;
+  onAddCategory: (category: string) => Promise<void> | void;
+  onDeleteCategory: (category: string) => Promise<void> | void;
 }
 
 export const AnnualFinancialRuleSection = ({
@@ -67,6 +69,8 @@ export const AnnualFinancialRuleSection = ({
   onCreateRule,
   onUpdateRule,
   onDeleteRule,
+  onAddCategory,
+  onDeleteCategory,
 }: AnnualFinancialRuleSectionProps) => {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
@@ -270,6 +274,8 @@ export const AnnualFinancialRuleSection = ({
         categories={settings.expenseCategories}
         initialRule={rule}
         unmappedCategories={hasUnmappedCategories ? unmappedCategories : undefined}
+        onAddCategory={onAddCategory}
+        onDeleteCategory={onDeleteCategory}
       />
 
       <DeleteConfirmDialog

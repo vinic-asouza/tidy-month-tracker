@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Jornadas de usuário
-ultima_atualizacao: 2026-10-17
+ultima_atualizacao: 2026-10-24
 ---
 
 # Jornadas de usuário
@@ -49,12 +49,15 @@ Não há convite, SSO nem perfil compartilhado.
 **Persona:** Marina (hábito) / aprendiz da regra.
 
 1. Cai no **mês atual**, visão Mensal.
-2. (Opcional) Abre a regra no resumo e mapeia categorias (essencial vs. estilo de vida).
-3. (Opcional) Cadastra cartões na aba Gastos.
-4. Reserva minutos para lançar entradas, gastos e investimentos (ainda **planejados**).
-5. Efetiva o que já aconteceu (jornadas 3–5).
-6. Confere o resumo e a regra; se quiser, troca o toggle para **Planejados**.
-7. Olha a visão **Anual** quando tiver alguns meses.
+2. Se a conta ainda não tem regra nem lançamento, e o guia não foi encerrado, abre um diálogo opcional por cima do painel (quatro passos: propósito, regra, primeiro lançamento, leitura do resumo). Dá para pular um passo, fechar sem encerrar (o aviso **Continuar introdução** reabre) ou dispensar com **Agora não**. **Concluir** só existe no último passo. Encerrar o guia não é ativação — ativação continua sendo o primeiro lançamento ([`metricas-do-beta.md`](./metricas-do-beta.md)).
+3. (Opcional) Abre a regra no resumo e mapeia categorias (essencial vs. estilo de vida). O passo da regra do guia abre esse mesmo wizard.
+4. (Opcional) Cadastra cartões na aba Gastos.
+5. Reserva minutos para lançar entradas, gastos e investimentos (ainda **planejados**). O passo de lançamento do guia só leva à aba Gastos.
+6. Efetiva o que já aconteceu (jornadas 3–5).
+7. Confere o resumo e a regra; se quiser, troca o toggle para **Planejados**.
+8. Olha a visão **Anual** quando tiver alguns meses. O guia não abre nessa visão.
+
+Conta que já tem regra ou lançamento, com o guia ainda no passo zero, não vê o diálogo.
 
 ---
 

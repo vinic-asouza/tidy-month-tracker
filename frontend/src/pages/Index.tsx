@@ -11,7 +11,9 @@ import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { BulkDeleteConfirmDialog } from '@/components/BulkDeleteConfirmDialog';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
+import { OnboardingDialog } from '@/components/OnboardingDialog';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useWishItems } from '@/hooks/useWishItems';
 import { useAuth } from '@/contexts/AuthContext';
 import type { WishItem } from '@/types/domain';
@@ -48,6 +50,7 @@ const Index = () => {
   const [expenseDraft, setExpenseDraft] = useState<Partial<Expense> | null>(null);
   const [pendingWishConquer, setPendingWishConquer] = useState<WishItem | null>(null);
   const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
+  const [ruleSetupRequest, setRuleSetupRequest] = useState(0);
   const [monthAnnouncer, setMonthAnnouncer] = useState('');
   const { signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
@@ -111,6 +114,8 @@ const Index = () => {
     yearData,
     loadingYearData,
   } = useSupabaseFinance({ statisticsEnabled: view === 'statistics' });
+
+  const onboarding = useOnboarding(view === 'dashboard' && !loading);
 
   const {
     wishes,
@@ -720,12 +725,31 @@ const Index = () => {
         )}
         {view === 'dashboard' ? (
             <div className={cn('space-y-5', monthRefetching && 'opacity-60 transition-opacity')}>
+              {onboarding.paused && (
+                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    A introdução continua de onde você parou. O painel já pode ser usado.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={onboarding.resume}
+                  >
+                    Continuar introdução
+                  </Button>
+                </div>
+              )}
               <MonthSummarySection
                 currentMonth={currentMonth}
                 monthData={monthData}
                 settings={settings}
                 creditCards={creditCards}
                 cardMonthlyStatuses={cardMonthlyStatus}
+                ruleSetupRequest={ruleSetupRequest}
+                onAddCategory={addExpenseCategory}
+                onDeleteCategory={deleteExpenseCategory}
               />
 
           <MonthRecordsSection
@@ -808,6 +832,8 @@ const Index = () => {
                   isLoading={loadingYearData}
                   wishes={wishes}
                   wishesLoading={wishesLoading}
+                  onAddCategory={addExpenseCategory}
+                  onDeleteCategory={deleteExpenseCategory}
                 />
               </Suspense>
             </div>
@@ -840,6 +866,25 @@ const Index = () => {
         }}
         items={bulkDeleteItems}
         onConfirm={handleConfirmBulkDelete}
+      />
+
+      <OnboardingDialog
+        open={onboarding.open}
+        step={onboarding.step}
+        saving={onboarding.saving}
+        onPause={onboarding.pause}
+        onSkip={() => {
+          void onboarding.skip();
+        }}
+        onDismiss={() => {
+          void onboarding.dismiss();
+        }}
+        onPrimary={() => {
+          void onboarding.runPrimary({
+            openRule: () => setRuleSetupRequest((current) => current + 1),
+            openExpenses: () => setRecordsTab('expense'),
+          });
+        }}
       />
     </div>
   );
