@@ -2,7 +2,7 @@
  * Bloco unificado de resumo do mês: métricas inline e regra financeira.
  */
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -39,6 +39,7 @@ interface MonthSummarySectionProps {
   settings: FinanceSettings;
   creditCards: CreditCard[];
   cardMonthlyStatuses: Record<string, boolean>;
+  ruleSetupRequest?: number;
 }
 
 export const MonthSummarySection = ({
@@ -47,11 +48,16 @@ export const MonthSummarySection = ({
   settings,
   creditCards,
   cardMonthlyStatuses,
+  ruleSetupRequest = 0,
 }: MonthSummarySectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const { viewMode, setViewMode } = useSummaryViewMode();
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [resetRuleOpen, setResetRuleOpen] = useState(false);
+
+  useEffect(() => {
+    if (ruleSetupRequest > 0) setIsSetupOpen(true);
+  }, [ruleSetupRequest]);
 
   const isPlanned = viewMode === 'planned';
 

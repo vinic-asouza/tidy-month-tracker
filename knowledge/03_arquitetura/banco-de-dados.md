@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Banco de dados
-ultima_atualizacao: 2026-10-19
+ultima_atualizacao: 2026-10-24
 ---
 
 # Banco de dados
@@ -18,7 +18,7 @@ Projeto em uso: `tidy-tracker`, ID `yoinjsmlntehikilqoxx`, região `us-east-2` (
 
 | Tabela | Papel |
 | --- | --- |
-| `profiles` | Trigger no signup; frontend quase não lê |
+| `profiles` | Trigger no signup; o painel lê só o progresso do guia de primeiro acesso (`onboarding_step`, `onboarding_completed_at`, `onboarding_dismissed`) |
 | `finance_settings` | Tags, categorias, métodos de pagamento |
 | `incomes` | Entradas; `received` |
 | `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `credit_card_id` (FK opcional); `payment_method` (rótulo) |
@@ -38,6 +38,7 @@ Lançamentos mensais usam `year_month` (`YYYY-MM`). Séries: `base_*_id`. Parcel
 
 - Lançamentos (`incomes`, `expenses`, `investments`) não têm FK para carteira nem operação. Séries usam `base_*_id` (**ON DELETE CASCADE**).
 - `expenses.credit_card_id` → `credit_cards(id)` **ON DELETE SET NULL** (DEV-144 / ADR-009). Delete de cartão com gastos continua bloqueado na app.
+- `profiles.onboarding_step` entre 0 e 3 (DEV-147). `onboarding_completed_at` nulo enquanto o guia não encerra. Migration: `add_onboarding_profile_dev_147.sql`.
 - Ordem da migration DEV-151: desvincular `incomes.source_operation_id` **antes** de dropar `account_operations`, para o CASCADE antigo não apagar entradas históricas *Resgate de investimentos* (elas viram entradas normais).
 
 **CHECKs de lançamentos (DEV-143 / [ADR-008](../07_decisoes-tecnicas/ADR-008-checks-integridade-lancamentos.md)):** `value > 0` e `year_month ~ '^\d{4}-\d{2}$'` em `incomes` / `expenses` / `investments`; coerência de parcelas em `expenses` quando `type = 'installment'`. Soma 100% da regra: CHECK em `financial_rule`. **Só na app:** categoria ∈ settings; método ∈ defaults ∪ cartões. Migration: `add_financial_integrity_checks_dev_143.sql`.

@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
+  onboarding_step SMALLINT NOT NULL DEFAULT 0 CHECK (onboarding_step >= 0 AND onboarding_step <= 3),
+  onboarding_completed_at TIMESTAMP WITH TIME ZONE,
+  onboarding_dismissed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
