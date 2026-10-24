@@ -120,11 +120,10 @@ CREATE TABLE IF NOT EXISTS public.finance_settings (
     'Freelance', 'Resgate de investimentos', 'Rendimentos', 'Presente', 'Outros'
   ],
   expense_categories TEXT[] NOT NULL DEFAULT ARRAY[
-    'Moradia', 'Contas pessoais', 'Compras Gerais', 'Vestuário', 'Assinaturas',
-    'Trabalho', 'Serviços Gerais', 'Mercado', 'Lanches', 'Combustível',
-    'Transporte', 'Carro', 'Presentes', 'Lazer', 'Estilo de Vida',
-    'Consultas Médicas', 'Suplementação', 'Remédios', 'Educação', 'Viagem',
-    'Empréstimos', 'Doação', 'Taxas'
+    'Moradia', 'Compras Gerais', 'Vestuário', 'Assinaturas',
+    'Trabalho', 'Serviços Gerais', 'Mercado', 'Lanches',
+    'Transporte', 'Presentes', 'Lazer', 'Saúde', 'Bem Estar', 'Internet/Telefone',
+    'Educação', 'Viagem', 'Empréstimos', 'Doação', 'Taxas'
   ],
   investment_tags TEXT[] NOT NULL DEFAULT ARRAY[
     'Banco A', 'Banco B', 'Corretora', 'Outros'

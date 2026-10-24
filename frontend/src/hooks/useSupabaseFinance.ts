@@ -999,8 +999,13 @@ export const useSupabaseFinance = (options: UseSupabaseFinanceOptions = {}) => {
       try {
         await settingsService.updateExpenseCategories(user.id, newCategories);
         setSettings((prev) => ({ ...prev, expenseCategories: newCategories }));
-      } catch {
-        toast.error('Erro ao adicionar categoria de gasto');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erro ao adicionar categoria de gasto';
+        toast.error(message);
+        throw error;
       }
     },
     [user, settings.expenseCategories]

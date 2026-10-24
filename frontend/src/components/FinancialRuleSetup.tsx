@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, Trash2 } from 'lucide-react';
 import type { CreateFinancialRuleInput, FinancialRule } from '@/types/domain';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +26,8 @@ interface FinancialRuleSetupProps {
   categories: string[];
   initialRule?: FinancialRule | null;
   unmappedCategories?: string[];
+  onAddCategory: (category: string) => Promise<void> | void;
+  onDeleteCategory: (category: string) => Promise<void> | void;
 }
 
 type RuleModel = 'default' | 'custom';
@@ -37,6 +39,8 @@ export const FinancialRuleSetup = ({
   categories,
   initialRule,
   unmappedCategories,
+  onAddCategory,
+  onDeleteCategory,
 }: FinancialRuleSetupProps) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [ruleModel, setRuleModel] = useState<RuleModel>('default');
@@ -47,6 +51,8 @@ export const FinancialRuleSetup = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryBusy, setCategoryBusy] = useState(false);
 
   const filteredCategories = categories.filter((cat) =>
     cat.toLowerCase().includes(categorySearch.trim().toLowerCase())
@@ -80,6 +86,7 @@ export const FinancialRuleSetup = ({
     }
 
     setCategorySearch('');
+    setNewCategoryName('');
     // Só reidrata ao abrir / mudar a regra salva — categorias novas sincronizam sem resetar %.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmappedCategories propositalmente fora
   }, [open, initialRule]);
@@ -127,12 +134,17 @@ export const FinancialRuleSetup = ({
 
   // Validação do passo 2
   const validateStep2 = (): boolean => {
-    const mappedCategories = Object.keys(categoryMapping);
-    const unmappedCategories = categories.filter((cat) => !mappedCategories.includes(cat));
+    if (categories.length === 0) {
+      setErrors({ mapping: 'Inclua pelo menos uma categoria.' });
+      return false;
+    }
 
-    if (unmappedCategories.length > 0) {
+    const mappedCategories = Object.keys(categoryMapping);
+    const pendingCategories = categories.filter((cat) => !mappedCategories.includes(cat));
+
+    if (pendingCategories.length > 0) {
       setErrors({
-        mapping: `Todas as categorias devem estar mapeadas. Faltam: ${unmappedCategories.join(', ')}`,
+        mapping: `Todas as categorias devem estar mapeadas. Faltam: ${pendingCategories.join(', ')}`,
       });
       return false;
     }
@@ -193,7 +205,36 @@ export const FinancialRuleSetup = ({
     }
   };
 
-  const allCategoriesMapped = categories.every((cat) => categoryMapping[cat] !== undefined);
+  const trimmedNewCategory = newCategoryName.trim();
+  const newCategoryDuplicate =
+    trimmedNewCategory.length > 0 && categories.includes(trimmedNewCategory);
+
+  const handleAddCategory = async () => {
+    if (!trimmedNewCategory || newCategoryDuplicate || categoryBusy || isSubmitting) return;
+    setCategoryBusy(true);
+    try {
+      await onAddCategory(trimmedNewCategory);
+      setNewCategoryName('');
+      setCategorySearch('');
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const handleDeleteCategory = async (category: string) => {
+    if (categoryBusy || isSubmitting) return;
+    setCategoryBusy(true);
+    try {
+      await onDeleteCategory(category);
+    } catch {
+      // O hook já mostra o motivo (categoria em uso).
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const allCategoriesMapped =
+    categories.length > 0 && categories.every((cat) => categoryMapping[cat] !== undefined);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -367,8 +408,40 @@ export const FinancialRuleSetup = ({
               </Label>
               <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
                 Defina quais categorias são Essenciais e quais são Estilo de Vida. Exemplos:
-                Essenciais — moradia, contas; Estilo de vida — lazer, assinaturas.
+                Essenciais — moradia, mercado; Estilo de vida — lazer, assinaturas.
+                Dá para incluir uma categoria nova ou excluir uma que ainda não tenha gasto.
               </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Nova categoria..."
+                aria-label="Nova categoria"
+                className="h-9"
+                disabled={categoryBusy || isSubmitting}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleAddCategory();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 shrink-0"
+                onClick={() => void handleAddCategory()}
+                disabled={
+                  categoryBusy ||
+                  isSubmitting ||
+                  !trimmedNewCategory ||
+                  newCategoryDuplicate
+                }
+              >
+                Incluir
+              </Button>
             </div>
 
             {errors.mapping && (
@@ -424,20 +497,34 @@ export const FinancialRuleSetup = ({
                         </Badge>
                       )}
                     </div>
-                    <Select
-                      value={categoryMapping[category]}
-                      onValueChange={(value) =>
-                        handleCategoryMappingChange(category, value as 'essentials' | 'lifestyle')
-                      }
-                    >
-                      <SelectTrigger className="w-full sm:w-32 h-9 sm:h-8 text-xs">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="essentials">Essenciais</SelectItem>
-                        <SelectItem value="lifestyle">Estilo de Vida</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Select
+                        value={categoryMapping[category]}
+                        onValueChange={(value) =>
+                          handleCategoryMappingChange(category, value as 'essentials' | 'lifestyle')
+                        }
+                      >
+                        <SelectTrigger className="w-full sm:w-32 h-9 sm:h-8 text-xs">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="essentials">Essenciais</SelectItem>
+                          <SelectItem value="lifestyle">Estilo de Vida</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        aria-label={`Excluir ${category}`}
+                        title="Excluir"
+                        disabled={categoryBusy || isSubmitting}
+                        onClick={() => void handleDeleteCategory(category)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

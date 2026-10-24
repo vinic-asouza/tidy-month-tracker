@@ -40,6 +40,8 @@ interface MonthSummarySectionProps {
   creditCards: CreditCard[];
   cardMonthlyStatuses: Record<string, boolean>;
   ruleSetupRequest?: number;
+  onAddCategory: (category: string) => Promise<void> | void;
+  onDeleteCategory: (category: string) => Promise<void> | void;
 }
 
 export const MonthSummarySection = ({
@@ -49,6 +51,8 @@ export const MonthSummarySection = ({
   creditCards,
   cardMonthlyStatuses,
   ruleSetupRequest = 0,
+  onAddCategory,
+  onDeleteCategory,
 }: MonthSummarySectionProps) => {
   const { rule, loading, createRule, updateRule, deleteRule } = useFinancialRule();
   const { viewMode, setViewMode } = useSummaryViewMode();
@@ -327,6 +331,8 @@ export const MonthSummarySection = ({
         categories={settings.expenseCategories}
         initialRule={rule}
         unmappedCategories={hasUnmappedCategories ? unmappedCategories : undefined}
+        onAddCategory={onAddCategory}
+        onDeleteCategory={onDeleteCategory}
       />
 
       <DeleteConfirmDialog

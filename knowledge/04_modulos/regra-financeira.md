@@ -4,7 +4,7 @@ nome: Regra financeira
 status: Ativo
 versao: "1.2"
 owner: Development
-ultima_atualizacao: 2026-10-17
+ultima_atualizacao: 2026-10-24
 tags: [regra-financeira, 50-30-20, frontend, supabase]
 dependencias: [autenticacao]
 ---
@@ -33,7 +33,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 
 - Uma linha por `user_id` (UNIQUE): criar, editar, resetar/apagar (RN-F01, RN-F06)
 - Três percentuais que somam 100%; default 50 / 30 / 20; `is_custom` quando o modelo não é o padrão
-- Mapear **todas** as categorias de gasto atuais para `essentials` ou `lifestyle` no wizard (passo 2)
+- Mapear **todas** as categorias de gasto atuais para `essentials` ou `lifestyle` no wizard (passo 2). Nesse passo dá para incluir e excluir categoria pela mesma operação de [`gastos.md`](./gastos.md): exclusão recusada se o nome já aparece em gasto. Rename continua só no formulário de gasto.
 - Bucket **investimentos** = aportes do modo ativo (`invested` no efetivado; todos no planejado) / renda — **não** usa categoria de gasto (RN-F03)
 - Base de renda (RN-F02): efetivado = entradas `received` (inclui tag histórica de resgate); planejado = entradas **exceto** tag de resgate (`isResgateIncome`); renda 0 → percentuais atuais 0
 - Gastos na regra: só os do modo ativo; cartão no efetivado via `isExpenseEffectivelyPaid` (RN-F03, RN-F05)
@@ -45,7 +45,7 @@ Uma **meta de alocação** por usuário: três buckets (essenciais, estilo de vi
 ### O que este módulo NÃO FAZ
 
 - Totais do caixa / gráfico anual ([`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) **hospeda** esta UI à direita / no anual)
-- CRUD de categorias ([`gastos.md`](./gastos.md) — este módulo só lê `expense_categories`)
+- CRUD de categorias fora do wizard ([`gastos.md`](./gastos.md)). O passo 2 só inclui e exclui, chamando essa mesma operação.
 - CRUD de entradas, gastos, aportes ou faturas — só lê `MonthData`
 - Incluir desejos na conta
 - Definir o toggle (dono: resumo, `localStorage` `tidy-summary-view-mode`)
@@ -128,7 +128,7 @@ interface FinancialRuleStats {
 
 ### Categorias default (se settings vazio)
 
-`DEFAULT_EXPENSE_CATEGORIES` em `types/finance.ts` (Moradia, Mercado, Lazer, …). O adapter usa a lista salva em `finance_settings.expense_categories` quando não está vazia.
+`DEFAULT_EXPENSE_CATEGORIES` em `types/finance.ts` (Moradia, Mercado, Lazer, Saúde, …). O `DEFAULT` da coluna no banco segue a mesma lista e só vale para conta nova. O adapter usa a lista salva em `finance_settings.expense_categories` quando não está vazia.
 
 ---
 
@@ -149,7 +149,7 @@ Produção: PostgREST. Express espelha `/api/financial-rule`.
 ### Wizard (`FinancialRuleSetup`)
 
 1. Modelo padrão (força 50/30/20, `isCustom: false`) ou personalizado (três inputs; soma 100 no cliente).
-2. Cada categoria da lista atual → `essentials` ou `lifestyle`. Submit bloqueado se faltar alguma (`allCategoriesMapped`).
+2. Cada categoria da lista atual → `essentials` ou `lifestyle`. O mesmo passo inclui categoria nova (nasce sem bucket) e exclui uma que não esteja em gasto. Submit bloqueado se faltar mapeamento ou se a lista ficar vazia (`allCategoriesMapped`).
 3. Categorias novas desde o último save: `unmappedCategories` abre direto no passo 2.
 
 ### Validação

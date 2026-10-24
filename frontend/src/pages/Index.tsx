@@ -748,6 +748,8 @@ const Index = () => {
                 creditCards={creditCards}
                 cardMonthlyStatuses={cardMonthlyStatus}
                 ruleSetupRequest={ruleSetupRequest}
+                onAddCategory={addExpenseCategory}
+                onDeleteCategory={deleteExpenseCategory}
               />
 
           <MonthRecordsSection
@@ -830,6 +832,8 @@ const Index = () => {
                   isLoading={loadingYearData}
                   wishes={wishes}
                   wishesLoading={wishesLoading}
+                  onAddCategory={addExpenseCategory}
+                  onDeleteCategory={deleteExpenseCategory}
                 />
               </Suspense>
             </div>
