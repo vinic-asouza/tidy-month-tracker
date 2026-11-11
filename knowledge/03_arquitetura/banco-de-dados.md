@@ -23,7 +23,7 @@ Projeto em uso: `tidy-tracker`, ID `yoinjsmlntehikilqoxx`, região `us-east-2` (
 | `incomes` | Entradas; `received` |
 | `expenses` | Gastos; `paid`; tipo fixo/variável/parcelado; `credit_card_id` (FK opcional); `payment_method` (rótulo) |
 | `investments` | Aportes; `invested` |
-| `credit_cards` | Cartões; limite e `due_day` opcionais |
+| `credit_cards` | Cartões; limite e `due_day` opcionais; `hidden` (DEV-183) |
 | `credit_card_monthly_status` | Fatura paga por cartão/mês |
 | `financial_rule` | Percentuais + `category_mapping` |
 | `wish_items` | Desejos; visibilidade calculada no cliente |

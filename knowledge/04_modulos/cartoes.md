@@ -4,14 +4,14 @@ nome: Cartões
 status: Ativo
 versao: "1.0"
 owner: Development
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 tags: [cartoes, fatura, frontend, supabase]
 dependencias: [autenticacao, gastos]
 ---
 
 # Módulo — Cartões
 
-Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento da fatura (`credit_card_monthly_status`) ou o match por **`credit_card_id`** mudarem.
+Documento-base em `knowledge/04_modulos/cartoes.md`. Atualize quando cadastro, fatura mensal, pagamento da fatura (`credit_card_monthly_status`), ocultar (`hidden`) ou o match por **`credit_card_id`** mudarem.
 
 Regras: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-de-negocio/regras-por-modulo/cartoes.md). Match gasto↔cartão: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md). Gastos: [`gastos.md`](./gastos.md). Termos: [`../01_produto/glossario.md`](../01_produto/glossario.md). Persistência: [`../03_arquitetura/banco-de-dados.md`](../03_arquitetura/banco-de-dados.md). ADR: [`../07_decisoes-tecnicas/ADR-009-cartao-por-id.md`](../07_decisoes-tecnicas/ADR-009-cartao-por-id.md).
 
@@ -41,6 +41,8 @@ Cadastro de **cartões de crédito** (globais, não por mês) e o ciclo da **fat
 - Alerta de vencimento só no **mês corrente**, fatura pendente, janela `CREDIT_CARD_DUE_ALERT_DAYS = 3` (RN-C05)
 - % de uso do limite (fatura / limite); **não** bloqueia lançamento (`canAddExpenseToCreditCard` sempre `true`)
 - Dialog da fatura: lista de gastos + resumo por categoria (leitura; gastos continuam no módulo gastos)
+- Fatura do mês = 0: **não** exibe ação pendente/pago no chip nem no dialog (RN-C06)
+- Ocultar cartão (`hidden`): some do strip padrão e do select de novos gastos; reexibir via “Mostrar ocultos” (RN-C07)
 
 ### O que este módulo NÃO FAZ
 
@@ -99,6 +101,7 @@ Backend `backend/src/routes/creditCards.ts` + Zod existe; **produção não usa*
 | `paid` | BOOLEAN | Sim | Default false. **Legado** — não é o pago do mês |
 | `due_day` | SMALLINT | Não | 1–31; dia 31 em fevereiro vira 28 (`getEffectiveDueDay`) |
 | `credit_limit` | NUMERIC(12,2) | Não | `> 0` se preenchido |
+| `hidden` | BOOLEAN | Sim | Default false. Oculta das listagens do dia a dia (DEV-183 / RN-C07) |
 | `display_order` | INTEGER | Sim | Default 0 |
 | `created_at` / `updated_at` | timestamptz | Sim | |
 
@@ -127,6 +130,7 @@ interface CreditCard {
   paid: boolean; // legado da tabela; UI usa cardMonthlyStatuses[id]
   dueDay?: number | null;
   creditLimit?: number | null;
+  hidden?: boolean; // RN-C07; default false
 }
 
 interface CreditCardMonthlyStatus {
@@ -210,6 +214,8 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/cartoes.md`](../02_regras-d
 | RN-C03 | Pagar = status mensal pago; efetiva gastos no caixa | `payCardInvoice` + `isExpenseEffectivelyPaid` |
 | RN-C04 | Desmarcar reverte o status | `unpayCardInvoice` |
 | RN-C05 | Alerta 3 dias; limite só % | `getCreditCardDueAlertContext`; `getCreditCardUsagePercent`; `canAddExpenseToCreditCard` → true |
+| RN-C06 | Fatura do mês = 0 → sem ação pendente/pago | `CreditCardStrip` / `CreditCardInvoiceDialog` (`total > 0`) |
+| RN-C07 | Ocultar cartão sem excluir; reexibir no strip | `credit_cards.hidden`; filtro UI + select/CSV |
 | Política nome | Gasto casa por **nome**, não por id | `isCreditCardExpense`; dois cartões iguais colidem |
 
 **Código vs intenção:** não há UNIQUE de nome no Postgres. A UI impede duplicata ignore-case; o adapter no rename compara **string exata**. `credit_cards.paid` não governa o mês.
@@ -300,6 +306,7 @@ npm test --workspace=frontend
 | --- | --- | --- | --- | --- |
 | 2026-08-23 | 1.0 | Bootstrap da KB a partir do código | — | Technical Writer |
 | 2026-10-16 | 1.1 | Remove carteiras: pagar fatura só via `credit_card_monthly_status`; sem `invoice_payment` nem sync | DEV-151 | Technical Writer |
+| 2026-11-11 | 1.2 | Fatura zerada sem toggle pago; flag `hidden` + ocultar/reativar | DEV-183 | Technical Writer |
 
 ---
 
