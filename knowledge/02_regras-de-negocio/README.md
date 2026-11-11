@@ -5,7 +5,7 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 | Arquivo | Conteúdo |
 | --- | --- |
 | [regras-gerais.md](./regras-gerais.md) | Caixa, efetivado, repetição no ano civil, isolamento, saldo do mês |
-| [politicas-e-restricoes.md](./politicas-e-restricoes.md) | O que o produto recusa ou limita (Open Finance, CSV assistida e exportação anual como exceções, validações, cartão por nome) |
+| [politicas-e-restricoes.md](./politicas-e-restricoes.md) | O que o produto recusa ou limita (Open Finance; CSV assistida, export anual e export linha a linha como exceções) |
 | [regras-por-modulo/](./regras-por-modulo/) | Regras por área da UI |
 
 ## Por módulo
@@ -21,5 +21,6 @@ Regras permanentes do **Finto**. Histórico de demanda fica no Linear, não aqui
 | [desejos.md](./regras-por-modulo/desejos.md) | Planejamento isolado do caixa |
 | [regra-financeira.md](./regras-por-modulo/regra-financeira.md) | 50/30/20 e não classificado |
 | [selecao.md](./regras-por-modulo/selecao.md) | Soma na barra inferior |
+| [exportacao-portabilidade.md](./regras-por-modulo/exportacao-portabilidade.md) | Export CSV linha a linha (RN-EXP-01…03) |
 
 Código manda se divergir desta KB.

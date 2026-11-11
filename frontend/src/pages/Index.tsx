@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Calendar } from 'lucide-react';
+import { Wallet, BarChart3, Menu, Sparkles, LogOut, Loader2, Moon, Sun, Calendar, Download } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { MonthNavigator, getCurrentMonthKey, isCurrentMonthKey } from '@/components/MonthNavigator';
@@ -11,6 +11,7 @@ import { SelectionBottomBar } from '@/components/SelectionBottomBar';
 import { BulkDeleteConfirmDialog } from '@/components/BulkDeleteConfirmDialog';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { FinancialGlossaryDialog } from '@/components/FinancialGlossaryDialog';
+import { ExportMyDataDialog } from '@/components/ExportMyDataDialog';
 import { OnboardingDialog } from '@/components/OnboardingDialog';
 import { useSupabaseFinance } from '@/hooks/useSupabaseFinance';
 import { useOnboarding } from '@/hooks/useOnboarding';
@@ -52,6 +53,7 @@ const Index = () => {
   const [recordsTab, setRecordsTab] = useState<RecordsTab>('expense');
   const [ruleSetupRequest, setRuleSetupRequest] = useState(0);
   const [monthAnnouncer, setMonthAnnouncer] = useState('');
+  const [exportMyDataOpen, setExportMyDataOpen] = useState(false);
   const { signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -532,6 +534,16 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-10 w-10 rounded-md hover:bg-muted"
+                  title="Exportar meus dados"
+                  aria-label="Exportar meus dados"
+                  onClick={() => setExportMyDataOpen(true)}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={handleThemeToggle}
                   className="h-10 w-10 rounded-md hover:bg-muted"
                   title={isDark ? 'Modo claro' : 'Modo escuro'}
@@ -687,6 +699,17 @@ const Index = () => {
                       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                       <span>{isDark ? 'Modo claro' : 'Modo escuro'}</span>
                     </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 rounded-md text-sm hover:bg-muted"
+                      onClick={() => {
+                        setMobileSidebarOpen(false);
+                        setExportMyDataOpen(true);
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Exportar meus dados</span>
+                    </Button>
                   </div>
                 </nav>
 
@@ -839,6 +862,12 @@ const Index = () => {
             </div>
         )}
       </main>
+
+      <ExportMyDataDialog
+        open={exportMyDataOpen}
+        onOpenChange={setExportMyDataOpen}
+        referenceMonth={currentMonth}
+      />
 
       {/* Footer */}
       <footer className="border-t border-border/50 mt-8 py-4 bg-muted/30">

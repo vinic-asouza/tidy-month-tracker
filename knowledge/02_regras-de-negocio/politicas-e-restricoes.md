@@ -30,14 +30,14 @@ Não há, e não deve ser prometido sem decisão de produto:
 - Push, WhatsApp, e-mail transacional além da confirmação de cadastro
 - Assinatura / gateway de pagamento
 - Multiplayer ou papéis
-- Exportação CSV/PDF fora do recorte anual agregado (roadmap P4; plano em DEV-149 / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md) — feature ainda não implementada)
+- Exportação PDF complementar / e-mail / ZIP da portabilidade (CSV linha a linha já em DEV-187; ver [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md))
 - Importação automática / inbox persistente / presets de banco
 
 **Exceção consciente (DEV-103 / DEV-105):** importação **CSV assistida de gastos** — o arquivo só propõe linhas; a pessoa mapeia, revisa e confirma. Nada grava em `expenses` até **Importar selecionados**. Parse no browser; o CSV não sobe ao Supabase. Heurística de parcela (CSV-06) só sugere e evidencia na revisão. Regras: [`regras-por-modulo/gastos.md`](./regras-por-modulo/gastos.md) (CSV-01…CSV-06). Módulo: [`../04_modulos/gastos.md`](../04_modulos/gastos.md).
 
 **Exceção consciente (DEV-150):** exportação anual agregada — na visão Anual, PDF ou CSV do ano selecionado e do modo ativo. Lê o que a tela já calculou. Não cria lançamento, não inclui desejos, não lista cada gasto e não sobe o arquivo. Visão Mensal, e-mail e os dois modos no mesmo arquivo continuam fora. Regra: [`regras-por-modulo/resumo-e-estatisticas.md`](./regras-por-modulo/resumo-e-estatisticas.md) (RN-R07). Módulo: [`../04_modulos/resumo-e-estatisticas.md`](../04_modulos/resumo-e-estatisticas.md).
 
-**Plano (DEV-149 / ADR-013):** portabilidade linha a linha (CSV primeiro, PDF complementar) documentada em [`../04_modulos/exportacao-portabilidade.md`](../04_modulos/exportacao-portabilidade.md). Não altera a política acima até a Issue de implementação.
+**Exceção consciente (DEV-187 / ADR-013):** “Exportar meus dados” — CSVs linha a linha no browser (sessão + RLS), sem upload. Não substitui o export anual. PDF complementar ainda fora. Módulo: [`../04_modulos/exportacao-portabilidade.md`](../04_modulos/exportacao-portabilidade.md). Regras: [`regras-por-modulo/exportacao-portabilidade.md`](./regras-por-modulo/exportacao-portabilidade.md).
 
 Registro com participação ativa continua sendo política (visão do produto): a assistida acelera volume **com** revisão, não substitui o ritual por extrato automático.
 
