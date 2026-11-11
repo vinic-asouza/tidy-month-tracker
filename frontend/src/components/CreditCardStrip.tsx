@@ -199,6 +199,8 @@ const CreditCardStripComponent = ({
 
   const handleToggleHidden = async (card: CreditCard) => {
     const nextHidden = !card.hidden;
+    // Ao ocultar, sai do modo "mostrar ocultos" para o chip sumir na hora.
+    if (nextHidden) setShowHidden(false);
     const success = await onUpdate(card.id, { hidden: nextHidden });
     if (!success) {
       toast.error(nextHidden ? 'Erro ao ocultar cartão' : 'Erro ao reexibir cartão');
