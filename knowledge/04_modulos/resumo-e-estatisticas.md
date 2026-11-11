@@ -223,6 +223,8 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/resumo-e-estatisticas.md`](
 | RN-R05 | Desejos fora do caixa; histórico só na seção anual | ausência em `monthTotals.ts`; `groupWishesForYear` |
 | RN-R06 | Seções anuais Entradas, Gastos, pagamento (com soma dos cartões), aportes e desejos; abas Valores | `annualBreakdown.ts`, `AnnualYearSections.tsx` |
 | RN-R07 | PDF/CSV do ano e do modo ativos; desejos e gráficos por seção de fora; sem gravação | `annualExportDocument.ts`, `AnnualExportActions.tsx` |
+
+Portabilidade linha a linha (além deste módulo): plano em [`exportacao-portabilidade.md`](./exportacao-portabilidade.md) / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md) — **ainda sem UI**.
 | RN-R08 | Gráficos por seção (Regra, Entradas, Gastos, Pagamento, Investimentos) | `annualMonthlySeries.ts`, `AnnualChartTabs`, `AnnualSectionChart`, `AnnualFinancialRuleSection` |
 | RN-R09 | Pizza ao lado do Resumo mensal (Entradas, Gastos, Investimentos) | `SummaryPieChart.tsx`, seções mensais |
 | RN-G03 | Fórmulas efetivado / planejado | `monthTotals.ts` |

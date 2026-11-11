@@ -60,4 +60,4 @@ O Express **não** cobre ainda desejos (rotas só de lançamentos clássicos). C
 
 ## O que este sistema não tem (código)
 
-Admin de usuários, pagamentos, Open Finance, exportação CSV/PDF fora do recorte anual, importação automática (sem revisão), analytics, push, feature flags além de `VITE_DATA_PROVIDER`. Duas exceções no browser, sem upload: importação **CSV assistida de gastos** e exportação **anual agregada** (PDF/CSV do que a visão Anual já mostra). Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
+Admin de usuários, pagamentos, Open Finance, exportação CSV/PDF fora do recorte anual (ainda sem UI; plano em [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md)), importação automática (sem revisão), analytics, push, feature flags além de `VITE_DATA_PROVIDER`. Duas exceções no browser, sem upload: importação **CSV assistida de gastos** e exportação **anual agregada** (PDF/CSV do que a visão Anual já mostra). Política: [`../02_regras-de-negocio/politicas-e-restricoes.md`](../02_regras-de-negocio/politicas-e-restricoes.md).
