@@ -22,6 +22,6 @@ Ordem de preenchimento (jornada): autenticação → resumo/estatísticas → en
 | Desejos | Preenchido | [desejos.md](./desejos.md) |
 | Regra financeira | Preenchido | [regra-financeira.md](./regra-financeira.md) |
 | Seleção | Preenchido | [selecao.md](./selecao.md) |
-| Exportação / Portabilidade | **Planejado** (DEV-149 / ADR-013) | [exportacao-portabilidade.md](./exportacao-portabilidade.md) |
+| Exportação / Portabilidade | **Ativo** — CSV MVP (DEV-187 / ADR-013); PDF follow-up | [exportacao-portabilidade.md](./exportacao-portabilidade.md) |
 
 Arquitetura: [`../03_arquitetura/`](../03_arquitetura/README.md). Regras: [`../02_regras-de-negocio/`](../02_regras-de-negocio/README.md). Integrações: [`../06_integracoes/`](../06_integracoes/README.md). ADRs: [`../07_decisoes-tecnicas/`](../07_decisoes-tecnicas/index.md).

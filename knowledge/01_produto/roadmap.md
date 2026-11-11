@@ -63,7 +63,7 @@ Não bloqueiam a primeira campanha.
 **P4 e lacunas de mercado** (contínuo)
 
 - ~~Constraints no banco para valores~~ — **feito** em DEV-143 / ADR-008 (`value > 0`, `year_month`, parcelas); soma 100% da regra já tinha CHECK
-- Exportação CSV/PDF além do recorte anual agregado (DEV-150 / v0.8.0). **Plano documentado** em DEV-149 / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md) / [`../04_modulos/exportacao-portabilidade.md`](../04_modulos/exportacao-portabilidade.md): MVP futuro = CSV linha a linha (entradas, gastos, investimentos, cartões); PDF complementar; sem carteiras. Visão Mensal UI, e-mail e implementação da feature **continuam fora** até Issue de implementação
+- ~~Exportação CSV além do recorte anual agregado~~ — **CSV linha a linha** em DEV-187 / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md) (“Exportar meus dados”). PDF complementar, e-mail e ZIP continuam fora. Export anual agregado permanece (DEV-150 / RN-R07).
 - ~~PWA (objeção “não tem app”)~~ — shell instalável online-first em DEV-186 / [ADR-012](../07_decisoes-tecnicas/ADR-012-shell-pwa-online-first.md) (política offline: [ADR-011](../07_decisoes-tecnicas/ADR-011-adiar-pwa.md))
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)
 - Métodos de pagamento customizáveis — fora do MVP (D8)

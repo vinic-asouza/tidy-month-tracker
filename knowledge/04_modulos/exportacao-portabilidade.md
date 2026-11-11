@@ -1,8 +1,8 @@
 ---
 type: modulo
 nome: Exportação / Portabilidade
-status: Planejado
-versao: "0.1"
+status: Ativo
+versao: "0.2"
 owner: Development
 ultima_atualizacao: 2026-11-11
 tags: [exportacao, csv, pdf, portabilidade, p4]
@@ -11,8 +11,8 @@ dependencias: [autenticacao, entradas, gastos, cartoes, investimentos, resumo-e-
 
 # Módulo — Exportação / Portabilidade
 
-Plano permanente da portabilidade **além** da exportação anual agregada (RN-R07 / DEV-150).  
-**Estado:** planejado (DEV-149 / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md)). **Não há UI desta feature em produção.**
+Portabilidade **além** da exportação anual agregada (RN-R07 / DEV-150).  
+**Estado:** MVP CSV em produção (DEV-187 / [ADR-013](../07_decisoes-tecnicas/ADR-013-exportacao-portabilidade.md)). PDF complementar continua follow-up.
 
 ---
 
@@ -32,14 +32,15 @@ Plano permanente da portabilidade **além** da exportação anual agregada (RN-R
 | --- | --- | --- |
 | Exportação anual agregada | Produção | [`resumo-e-estatisticas.md`](./resumo-e-estatisticas.md) (RN-R07) |
 | Importação CSV de gastos | Produção | [`gastos.md`](./gastos.md) |
-| Exportação linha a linha / Mensal | **Planejado** | este documento |
+| Exportação linha a linha (CSV) | **Produção** (DEV-187) | este documento + `ExportMyDataDialog` |
+| PDF complementar da portabilidade | **Planejado** | follow-up |
 | Carteiras / accounts | Removido | [ADR-007](../07_decisoes-tecnicas/ADR-007-remover-carteiras.md) |
 
 ---
 
 ## Inventário de dados
 
-### MVP (Issue futura de implementação)
+### MVP (DEV-187 — entregue)
 
 | Entidade | Tabela | Conteúdo |
 | --- | --- | --- |
@@ -157,13 +158,16 @@ Arquitetura: **só frontend** + facades existentes (skip backend Express).
 
 ---
 
-## Regras sugeridas (formalizar na implementação)
+## Implementação (código)
 
-| ID sugerido | Texto |
+| Peça | Path |
 | --- | --- |
-| RN-EXP-01 | Exportação linha a linha só do usuário autenticado; CSV UTF-8 BOM `;`; sem gravação no Storage |
-| RN-EXP-02 | PDF complementar é sumário da janela, não dump linha a linha |
-| RN-EXP-03 | Naming e entrada de UI distintos de “Exportar anual” e “Importar CSV” |
+| Serialização / coleta / download | `frontend/src/utils/business/dataExportCsv.ts` |
+| Dialog | `frontend/src/components/ExportMyDataDialog.tsx` |
+| Entrada UI | Preferências (Sheet) + ícone no header desktop (`Index.tsx`) |
+| Testes | `frontend/src/utils/business/__tests__/dataExportCsv.test.ts` |
+
+Regras: [`../02_regras-de-negocio/regras-por-modulo/exportacao-portabilidade.md`](../02_regras-de-negocio/regras-por-modulo/exportacao-portabilidade.md) (RN-EXP-01…03).
 
 ---
 
@@ -172,3 +176,4 @@ Arquitetura: **só frontend** + facades existentes (skip backend Express).
 | Data | Versão | Mudança | Issue |
 | --- | --- | --- | --- |
 | 2026-11-11 | 0.1 | Plano inicial (DEV-149) | DEV-149 |
+| 2026-11-11 | 0.2 | MVP CSV linha a linha | DEV-187 |
