@@ -9,6 +9,8 @@ import {
   MoreVertical,
   Loader2,
   HelpCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -125,6 +127,7 @@ const CreditCardStripComponent = ({
   const [invoiceDialogCard, setInvoiceDialogCard] = useState<CreditCard | null>(null);
   const [payDialogCard, setPayDialogCard] = useState<CreditCard | null>(null);
   const [unpayDialogCard, setUnpayDialogCard] = useState<CreditCard | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     if (openAddDialog) setIsOpen(true);
@@ -160,10 +163,18 @@ const CreditCardStripComponent = ({
     }
   };
 
-  const sortedCards = useMemo(() => sortCards(creditCards), [creditCards, sortOption, getCardTotal, currentMonth]);
+  const hasHiddenCards = creditCards.some((c) => c.hidden);
+  const displayCards = useMemo(
+    () => (showHidden ? creditCards : creditCards.filter((c) => !c.hidden)),
+    [creditCards, showHidden]
+  );
+  const sortedCards = useMemo(
+    () => sortCards(displayCards),
+    [displayCards, sortOption, getCardTotal, currentMonth]
+  );
 
-  const totalInvoices = creditCards.reduce((sum, card) => sum + getCardTotal(card), 0);
-  const paidCount = creditCards.filter((c) => getCardPaidStatus(c.id)).length;
+  const totalInvoices = displayCards.reduce((sum, card) => sum + getCardTotal(card), 0);
+  const paidCount = displayCards.filter((c) => getCardPaidStatus(c.id)).length;
 
   const resetForm = () => {
     setName('');
@@ -174,13 +185,27 @@ const CreditCardStripComponent = ({
     setNameError(null);
   };
 
-  const buildCardPayload = (): Omit<CreditCard, 'id'> => ({
-    name: name.trim(),
-    color: selectedColor,
-    paid: false,
-    dueDay: dueDay === DUE_DAY_NONE ? null : parseInt(dueDay, 10),
-    creditLimit: creditLimitInput.trim() ? parseCurrencyToNumber(creditLimitInput) : null,
-  });
+  const buildCardPayload = (): Omit<CreditCard, 'id'> => {
+    const editingCard = editingId ? creditCards.find((c) => c.id === editingId) : undefined;
+    return {
+      name: name.trim(),
+      color: selectedColor,
+      paid: false,
+      dueDay: dueDay === DUE_DAY_NONE ? null : parseInt(dueDay, 10),
+      creditLimit: creditLimitInput.trim() ? parseCurrencyToNumber(creditLimitInput) : null,
+      hidden: editingCard?.hidden ?? false,
+    };
+  };
+
+  const handleToggleHidden = async (card: CreditCard) => {
+    const nextHidden = !card.hidden;
+    const success = await onUpdate(card.id, { hidden: nextHidden });
+    if (!success) {
+      toast.error(nextHidden ? 'Erro ao ocultar cartão' : 'Erro ao reexibir cartão');
+      return;
+    }
+    toast.success(nextHidden ? 'Cartão oculto' : 'Cartão reexibido');
+  };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -228,7 +253,7 @@ const CreditCardStripComponent = ({
       const canDelete = await canDeleteCard(card);
       if (!canDelete) {
         setDeleteError(
-          `Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Remova os gastos primeiro.`
+          `Não é possível excluir o cartão "${card.name}" pois existem gastos vinculados a ele. Você pode ocultá-lo pelo menu do cartão para tirá-lo da vista sem apagar o histórico.`
         );
         return;
       }
@@ -289,12 +314,16 @@ const CreditCardStripComponent = ({
     const isPaid = getCardPaidStatus(card.id);
     const usagePercent = getCreditCardUsagePercent(total, card.creditLimit);
     const dueAlert = getCreditCardDueAlertContext(card.dueDay, currentMonth, isPaid);
+    const showPaidToggle = total > 0;
 
     return (
       <div
         key={card.id}
         id={`card-chip-${card.id}`}
-        className="relative flex-shrink-0 w-[168px] sm:w-[184px] overflow-hidden rounded-lg snap-start"
+        className={cn(
+          'relative flex-shrink-0 w-[168px] sm:w-[184px] overflow-hidden rounded-lg snap-start',
+          card.hidden && 'opacity-70'
+        )}
       >
         <div className={cn('absolute inset-0 bg-gradient-to-br opacity-90', colorClass)} />
         {isPaid && (
@@ -308,6 +337,11 @@ const CreditCardStripComponent = ({
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <CreditCardIcon className="h-3 w-3 flex-shrink-0 text-white/80" />
               <span className="font-semibold text-white text-xs truncate">{card.name}</span>
+              {card.hidden && (
+                <span className="text-[9px] uppercase tracking-wide text-white/70 shrink-0">
+                  oculto
+                </span>
+              )}
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -327,6 +361,22 @@ const CreditCardStripComponent = ({
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-lg cursor-pointer gap-2"
+                    onClick={() => void handleToggleHidden(card)}
+                  >
+                    {card.hidden ? (
+                      <>
+                        <Eye className="h-3.5 w-3.5" />
+                        Mostrar cartão
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-3.5 w-3.5" />
+                        Ocultar cartão
+                      </>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="rounded-lg cursor-pointer gap-2 text-destructive focus:text-destructive"
@@ -394,17 +444,19 @@ const CreditCardStripComponent = ({
             <p className="text-[10px] text-white/60 mt-0.5">Toque para ver detalhes</p>
           </button>
 
-          <StatusToggleBadge
-            checked={isPaid}
-            checkedLabel="Pago"
-            uncheckedLabel="Pendente"
-            onToggle={() => {
-              void handleSetCardPaid(card.id, !isPaid);
-            }}
-            surface="onGradient"
-            size="full"
-            ariaLabel={isPaid ? 'Desmarcar fatura como paga' : 'Marcar fatura como paga'}
-          />
+          {showPaidToggle && (
+            <StatusToggleBadge
+              checked={isPaid}
+              checkedLabel="Pago"
+              uncheckedLabel="Pendente"
+              onToggle={() => {
+                void handleSetCardPaid(card.id, !isPaid);
+              }}
+              surface="onGradient"
+              size="full"
+              ariaLabel={isPaid ? 'Desmarcar fatura como paga' : 'Marcar fatura como paga'}
+            />
+          )}
         </div>
       </div>
     );
@@ -424,7 +476,24 @@ const CreditCardStripComponent = ({
           </Button>
         }
       />
-      {creditCards.length > 0 && (
+      {hasHiddenCards && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'rounded-lg h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0',
+            showHidden && 'text-foreground bg-muted'
+          )}
+          onClick={() => setShowHidden((prev) => !prev)}
+          aria-pressed={showHidden}
+        >
+          {showHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          <span className="hidden sm:inline">
+            {showHidden ? 'Ocultar arquivados' : 'Mostrar ocultos'}
+          </span>
+        </Button>
+      )}
+      {displayCards.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -464,7 +533,9 @@ const CreditCardStripComponent = ({
       subtitle={
         creditCards.length === 0
           ? 'Cadastre cartões para acompanhar faturas'
-          : `${creditCards.length} cartão${creditCards.length > 1 ? 's' : ''} · ${formatCurrency(totalInvoices)}${paidCount > 0 ? ` · ${paidCount}/${creditCards.length} pagos` : ''}`
+          : displayCards.length === 0
+            ? `${creditCards.length} cartão${creditCards.length > 1 ? 's' : ''} oculto${creditCards.length > 1 ? 's' : ''} · use “Mostrar ocultos”`
+            : `${displayCards.length} cartão${displayCards.length > 1 ? 's' : ''} · ${formatCurrency(totalInvoices)}${paidCount > 0 ? ` · ${paidCount}/${displayCards.length} pagos` : ''}${hasHiddenCards && !showHidden ? ' · há ocultos' : ''}`
       }
       icon={CreditCardIcon}
       iconVariant="primary"
@@ -483,6 +554,19 @@ const CreditCardStripComponent = ({
           <CreditCardIcon className="h-4 w-4" />
           Adicionar cartão de crédito
         </button>
+      ) : displayCards.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground">
+          <p>Todos os cartões estão ocultos.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg gap-1.5"
+            onClick={() => setShowHidden(true)}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Mostrar ocultos
+          </Button>
+        </div>
       ) : (
         <div className="flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
           {sortedCards.map(renderCardChip)}

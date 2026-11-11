@@ -414,11 +414,13 @@ export function ImportExpensesCsvDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="account">Conta (Pix, débito, boleto…)</SelectItem>
-                  {creditCards.map((c) => (
-                    <SelectItem key={c.id} value={`card:${c.id}`}>
-                      Cartão: {c.name}
-                    </SelectItem>
-                  ))}
+                  {creditCards
+                    .filter((c) => !c.hidden)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={`card:${c.id}`}>
+                        Cartão: {c.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {originMode === 'card' && (

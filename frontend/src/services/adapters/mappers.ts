@@ -71,6 +71,7 @@ export function toCreditCard(row: CreditCardRow): CreditCard {
     paid: row.paid,
     dueDay: row.due_day ?? null,
     creditLimit: row.credit_limit != null ? Number(row.credit_limit) : null,
+    hidden: row.hidden ?? false,
   };
 }
 

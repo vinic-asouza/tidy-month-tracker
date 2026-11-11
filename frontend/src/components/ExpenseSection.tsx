@@ -190,10 +190,13 @@ const ExpenseForm = ({
     }
   }, [initialData]);
 
-  // Build payment methods list with active credit cards
+  // Novos lançamentos: só cartões visíveis; edição preserva o cartão atual mesmo se oculto (DEV-183).
+  const selectableCreditCards = creditCards.filter(
+    (c) => !c.hidden || c.name === paymentMethod
+  );
   const allPaymentMethods = [
     ...paymentMethods,
-    ...creditCards.map(c => ({ label: `Crédito: ${c.name}`, value: c.name }))
+    ...selectableCreditCards.map((c) => ({ label: `Crédito: ${c.name}`, value: c.name })),
   ];
 
   const isCardPayment = creditCards.some((c) => c.name === paymentMethod);
