@@ -1,12 +1,18 @@
 ---
 type: regras-modulo
 modulo: entradas
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 ---
 
 # Entradas
 
 `IncomeSection`.
+
+---
+
+## DUP-01 — Possível duplicata (mesmo mês)
+
+No **create** manual, se já existir entrada com descrição normalizada + tag + valor (±0,01) + data iguais, exibir alerta e só gravar após confirmação. Edição do próprio id não dispara. Detalhe: [`gastos.md`](./gastos.md) (DUP-01). Sem UNIQUE no banco (DEV-184).
 
 ---
 

@@ -2,7 +2,7 @@
 type: modulo
 nome: Gastos
 status: Ativo
-versao: "1.6"
+versao: "1.7"
 owner: Development
 ultima_atualizacao: 2026-11-11
 tags: [gastos, expenses, frontend, supabase, csv]
@@ -81,8 +81,10 @@ frontend/src/
   utils/business/csvNormalize.ts               # data BR/ISO, money, rebase mês
   utils/business/installmentDetect.ts          # N/M, Nx, Única/À vista; resolveInstallmentFromCsv
   utils/business/expenseMatch.ts               # score fixo/parcela + sugestão de ação
-  utils/business/csvImportBuild.ts             # monta linhas de revisão
+  utils/business/duplicateMatch.ts             # fingerprint 4-campos (DUP-01 / DEV-184)
+  utils/business/csvImportBuild.ts             # monta linhas de revisão (+ categoria na associação, CSV-07)
   utils/business/__tests__/csvImport.test.ts   # Vitest parse/normalize/match/parcela
+  utils/business/__tests__/duplicateMatch.test.ts
 ```
 
 | Arquivo | Descrição |

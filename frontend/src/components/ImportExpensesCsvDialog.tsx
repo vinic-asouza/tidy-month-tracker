@@ -33,7 +33,9 @@ import {
 } from '@/utils/business/csvParse';
 import {
   buildReviewRows,
+  patchImportReviewRow,
   resolveRowMonth,
+  withDuplicateHint,
   type ImportReviewRow,
 } from '@/utils/business/csvImportBuild';
 import type { SuggestedImportAction } from '@/utils/business/expenseMatch';
@@ -205,14 +207,23 @@ export function ImportExpensesCsvDialog({
   };
 
   const updateRow = (id: string, patch: Partial<ImportReviewRow>) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? patchImportReviewRow(r, patch, {
+              defaultCategory: seedCategory,
+              existingExpenses: expenses,
+            })
+          : r
+      )
+    );
   };
 
   const resolveAllPendingMonths = (choice: 'csv' | 'ui') => {
     setRows((prev) =>
       prev.map((r) =>
         r.monthDiverges && r.monthResolution === 'pending'
-          ? resolveRowMonth(r, choice, currentMonth)
+          ? withDuplicateHint(resolveRowMonth(r, choice, currentMonth), expenses)
           : r
       )
     );
@@ -222,18 +233,34 @@ export function ImportExpensesCsvDialog({
     (r) => !r.ineligible && r.monthDiverges && r.monthResolution === 'pending'
   ).length;
 
+  const blockedDuplicates = rows.filter(
+    (r) =>
+      r.selected &&
+      !r.ineligible &&
+      r.action === 'create_variable' &&
+      Boolean(r.possibleDuplicateOfId) &&
+      !r.duplicateConfirmed
+  );
+
   const importable = rows.filter(
     (r) =>
       r.selected &&
       !r.ineligible &&
       r.action !== 'ignore' &&
       r.action !== 'review' &&
-      r.monthResolution !== 'pending'
+      r.monthResolution !== 'pending' &&
+      !(r.action === 'create_variable' && r.possibleDuplicateOfId && !r.duplicateConfirmed)
   );
 
   const runImport = async () => {
     if (pendingMonthCount > 0) {
       toast.error('Resolva o mês das linhas divergentes antes de importar.');
+      return;
+    }
+    if (blockedDuplicates.length > 0) {
+      toast.error(
+        'Confirme ou ignore as linhas com possível duplicata antes de importar.'
+      );
       return;
     }
     if (importable.length === 0) {
@@ -649,6 +676,9 @@ function ReviewRowCard({
 
   const isInstallmentAction = row.action === 'create_installment';
 
+  const hasPossibleDuplicate =
+    row.action === 'create_variable' && Boolean(row.possibleDuplicateOfId);
+
   const hasExtras =
     row.ineligible ||
     row.action === 'review' ||
@@ -656,6 +686,7 @@ function ReviewRowCard({
     isInstallmentAction ||
     installmentDetected ||
     row.action === 'create_fixed' ||
+    hasPossibleDuplicate ||
     (row.monthDiverges && row.monthResolution === 'pending');
 
   return (
@@ -664,6 +695,10 @@ function ReviewRowCard({
         'rounded-md border px-2 py-1.5 text-sm transition-colors',
         row.ineligible && 'opacity-60 bg-muted/40',
         row.action === 'review' && 'border-amber-500/50',
+        hasPossibleDuplicate &&
+          !row.duplicateConfirmed &&
+          !row.ineligible &&
+          'border-amber-500/50',
         isInstallmentAction &&
           !row.ineligible &&
           'border-sky-500/55 bg-sky-500/[0.06] dark:bg-sky-400/[0.08]',
@@ -743,7 +778,12 @@ function ReviewRowCard({
           disabled={row.ineligible}
           onValueChange={(v) => {
             const action = v as SuggestedImportAction;
-            const patch: Partial<ImportReviewRow> = { action };
+            const patch: Partial<ImportReviewRow> = {
+              action,
+              // Troca de associação / ação: permite ressync de categoria
+              categoryManualOverride:
+                action === 'link_existing' ? false : row.categoryManualOverride,
+            };
             if (action === 'link_existing' && row.candidates[0]) {
               patch.linkExpenseId = row.candidates[0].expense.id;
             }
@@ -820,7 +860,13 @@ function ReviewRowCard({
           {row.action === 'link_existing' && row.candidates.length > 0 && (
             <Select
               value={row.linkExpenseId}
-              onValueChange={(v) => onChange({ linkExpenseId: v, action: 'link_existing' })}
+              onValueChange={(v) =>
+                onChange({
+                  linkExpenseId: v,
+                  action: 'link_existing',
+                  categoryManualOverride: false,
+                })
+              }
             >
               <SelectTrigger className="h-8 w-56 text-sm">
                 <SelectValue placeholder="Escolha o existente" />
@@ -833,6 +879,22 @@ function ReviewRowCard({
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {hasPossibleDuplicate && (
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <Badge variant="secondary">Possível duplicata</Badge>
+              <span className="text-xs text-muted-foreground min-w-0">
+                {row.possibleDuplicateSummary}
+              </span>
+              <label className="flex items-center gap-1.5 text-xs shrink-0">
+                <Checkbox
+                  checked={row.duplicateConfirmed}
+                  onCheckedChange={(c) => onChange({ duplicateConfirmed: c === true })}
+                />
+                Confirmar duplicata
+              </label>
+            </div>
           )}
 
           {isInstallmentAction && (

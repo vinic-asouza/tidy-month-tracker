@@ -10,6 +10,24 @@ ultima_atualizacao: 2026-11-11
 
 ---
 
+## DUP-01 — Possível duplicata (mesmo mês)
+
+Antes de **criar** (não na edição do próprio id), se já existir lançamento com os **quatro** campos iguais no mês aberto, o app **alerta** e só grava após confirmação explícita. Não há UNIQUE no banco.
+
+| Campo | Critério |
+| --- | --- |
+| Descrição | Igualdade após `normalizeDescription` (lower, sem acentos) |
+| Categoria / tag | Igualdade após `trim` (gasto: categoria; entrada/investimento: tag) |
+| Valor | Igualdade com tolerância de R$ 0,01 |
+| Data | Igualdade exata `YYYY-MM-DD` |
+
+- **Gastos:** aplica-se a create de tipo **variável** (manual e CSV `create_variable`).
+- **Entradas / investimentos:** mesma regra no create manual (ver módulos respectivos).
+- Fixo/parcela no CSV continuam no fluxo Associar/Revisar (CSV-02/03); DUP-01 **não** os substitui.
+- Duplicata legítima (ex.: dois cafés iguais no mesmo dia) permanece possível após “Criar mesmo assim”.
+
+---
+
 ## RN-X01 — Tipos
 
 | Tipo | Uso |
@@ -75,6 +93,8 @@ Exceção à política de “sem importação automática”. Só **gastos**. Pr
 | **CSV-04** | Origem **conta**: métodos `DEFAULT_PAYMENT_METHODS`; efetivar opcional (default off; só marca `paid`). Origem **cartão X**: `paymentMethod` = nome do cartão; sem efetivar (RN-X04). |
 | **CSV-05** | Data da linha ≠ mês aberto na UI → exige escolha explícita (data/mês do CSV **ou** mês da UI) antes de importar. |
 | **CSV-06** | Detecção de parcela no CSV é **heurística + evidência na revisão**, não gravação automática. Coluna **Parcela** (se mapeada) tem prioridade sobre a descrição; `Única` / `À vista` / `1x` / `1/1` → **sem** série. Se detectar N/total (ou `Nx` → atual=1), sugerir **Novo parcelado**, exibir badge `N/total` e pré-preencher parcela/total. Override da ação pelo usuário prevalece; se houver detecção e a ação não for criar parcelado, avisar. |
+| **CSV-07** | Em **Associar existente**, a categoria da linha é pré-preenchida com a do item associado; troca de associação ressincroniza; override manual de categoria é preservado até nova troca (DEV-182). |
+| **CSV-08** | Linha que criaria **variável** com match DUP-01 no mês exibe aviso de possível duplicata; import da linha exige confirmação explícita ou Ignorar — sem auto-Ignorar nem auto-Associar (DEV-184). |
 
 ### Comportamentos adicionais
 

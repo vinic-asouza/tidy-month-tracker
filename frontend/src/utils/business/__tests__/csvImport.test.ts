@@ -358,6 +358,76 @@ describe('rebaseDateToYearMonth', () => {
   });
 });
 
+describe('buildReviewRows — categoria na associação (DEV-182)', () => {
+  it('pré-preenche categoria do item associado', () => {
+    const fixed: Expense[] = [
+      {
+        id: 'fix-1',
+        type: 'fixed',
+        category: 'Moradia',
+        description: 'Aluguel',
+        paymentMethod: 'Pix',
+        value: 2000,
+        paid: false,
+        date: '2026-11-01',
+      },
+    ];
+    const rows = buildReviewRows({
+      mapped: [
+        {
+          sourceIndex: 0,
+          dateRaw: '01/11/2026',
+          valueRaw: '2000,00',
+          descriptionRaw: 'Aluguel',
+          installmentRaw: '',
+        },
+      ],
+      uiYearMonth: '2026-11',
+      defaultCategory: 'Outros',
+      defaultPaymentMethod: 'Pix',
+      existingExpenses: fixed,
+    });
+    expect(rows[0].action).toBe('link_existing');
+    expect(rows[0].category).toBe('Moradia');
+    expect(rows[0].linkExpenseId).toBe('fix-1');
+  });
+});
+
+describe('buildReviewRows — possível duplicata variável (DEV-184)', () => {
+  it('marca create_variable quando há match 4-campos', () => {
+    const existing: Expense[] = [
+      {
+        id: 'var-1',
+        type: 'variable',
+        category: 'Outros',
+        description: 'Padaria XYZ',
+        paymentMethod: 'Pix',
+        value: 12.5,
+        paid: false,
+        date: '2026-11-10',
+      },
+    ];
+    const rows = buildReviewRows({
+      mapped: [
+        {
+          sourceIndex: 0,
+          dateRaw: '10/11/2026',
+          valueRaw: '12,50',
+          descriptionRaw: 'Padaria XYZ',
+          installmentRaw: '',
+        },
+      ],
+      uiYearMonth: '2026-11',
+      defaultCategory: 'Outros',
+      defaultPaymentMethod: 'Pix',
+      existingExpenses: existing,
+    });
+    expect(rows[0].action).toBe('create_variable');
+    expect(rows[0].possibleDuplicateOfId).toBe('var-1');
+    expect(rows[0].duplicateConfirmed).toBe(false);
+  });
+});
+
 describe('suggestImportAction', () => {
   const fixed: Expense[] = [
     {
