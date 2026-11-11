@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: investimentos
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 ---
 
 # Investimentos (aportes do mês)
@@ -9,6 +9,12 @@ ultima_atualizacao: 2026-10-16
 `InvestmentSection`. Não há posição acumulada nem carteira de destino (removidas na DEV-151).
 
 Esta seção responde *“quanto aportei neste mês?”* — não substitui a corretora.
+
+---
+
+## DUP-01 — Possível duplicata (mesmo mês)
+
+No **create** manual, se já existir aporte com descrição normalizada + tag + valor (±0,01) + data iguais, exibir alerta e só gravar após confirmação. Edição do próprio id não dispara. Detalhe: [`gastos.md`](./gastos.md) (DUP-01). Sem UNIQUE no banco (DEV-184).
 
 ---
 
