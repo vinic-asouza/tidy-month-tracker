@@ -446,8 +446,31 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- create_expense_with_series
+-- rebase_date_to_year_month (DEV-176) + create_expense_with_series
 -- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.rebase_date_to_year_month(p_ymd text, p_year_month text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  SELECT p_year_month || '-' || lpad(
+    LEAST(
+      GREATEST(
+        COALESCE(NULLIF(substring(COALESCE(p_ymd, '') from 9 for 2), '')::int, 1),
+        1
+      ),
+      EXTRACT(DAY FROM (
+        date_trunc('month', to_date(p_year_month || '-01', 'YYYY-MM-DD'))
+        + interval '1 month'
+        - interval '1 day'
+      ))::int
+    )::text,
+    2,
+    '0'
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION public.create_expense_with_series(p_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -468,6 +491,7 @@ DECLARE
   v_credit_card_id uuid;
   v_root public.expenses%ROWTYPE;
   v_ym text;
+  v_clone_date text;
   v_idx int;
   i int;
 BEGIN
@@ -513,6 +537,7 @@ BEGIN
     FOR i IN 1..12 LOOP
       CONTINUE WHEN i = v_month;
       v_ym := v_year::text || '-' || lpad(i::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.expenses (
         user_id, year_month, type, category, description, payment_method, credit_card_id,
@@ -520,7 +545,7 @@ BEGIN
       )
       SELECT
         v_uid, v_ym, v_root.type, v_root.category, v_root.description,
-        v_root.payment_method, v_root.credit_card_id, v_root.value, false, v_date,
+        v_root.payment_method, v_root.credit_card_id, v_root.value, false, v_clone_date,
         true, v_root.id, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.expenses e
@@ -537,6 +562,7 @@ BEGIN
     FOR i IN 1..(v_tot - v_cur) LOOP
       v_idx := v_year * 12 + (v_month - 1) + i;
       v_ym := (v_idx / 12)::text || '-' || lpad(((v_idx % 12) + 1)::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.expenses (
         user_id, year_month, type, category, description, payment_method, credit_card_id,
@@ -545,7 +571,7 @@ BEGIN
       )
       SELECT
         v_uid, v_ym, v_root.type, v_root.category, v_root.description,
-        v_root.payment_method, v_root.credit_card_id, v_root.value, false, v_date,
+        v_root.payment_method, v_root.credit_card_id, v_root.value, false, v_clone_date,
         v_root.id, v_cur + i, v_tot, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.expenses e
@@ -580,6 +606,7 @@ DECLARE
   v_repeat boolean;
   v_root public.incomes%ROWTYPE;
   v_ym text;
+  v_clone_date text;
   i int;
 BEGIN
   IF v_uid IS NULL THEN
@@ -616,13 +643,14 @@ BEGIN
     FOR i IN 1..12 LOOP
       CONTINUE WHEN i = v_month;
       v_ym := v_year::text || '-' || lpad(i::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.incomes (
         user_id, year_month, description, value, tag, date, received, repeat_all_months,
         base_income_id, display_order
       )
       SELECT
-        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_date, false, true,
+        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_clone_date, false, true,
         v_root.id, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.incomes x
@@ -656,6 +684,7 @@ DECLARE
   v_repeat boolean;
   v_root public.investments%ROWTYPE;
   v_ym text;
+  v_clone_date text;
   i int;
 BEGIN
   IF v_uid IS NULL THEN
@@ -691,13 +720,14 @@ BEGIN
     FOR i IN 1..12 LOOP
       CONTINUE WHEN i = v_month;
       v_ym := v_year::text || '-' || lpad(i::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.investments (
         user_id, year_month, description, value, tag, date, invested, repeat_all_months,
         base_investment_id, display_order
       )
       SELECT
-        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_date, false, true,
+        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_clone_date, false, true,
         v_root.id, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.investments x
@@ -773,6 +803,7 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.rebase_date_to_year_month(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_expense_with_series(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_income_with_series(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_investment_with_series(jsonb) TO authenticated;

@@ -2,9 +2,9 @@
 type: modulo
 nome: Gastos
 status: Ativo
-versao: "1.4"
+versao: "1.6"
 owner: Development
-ultima_atualizacao: 2026-10-24
+ultima_atualizacao: 2026-11-11
 tags: [gastos, expenses, frontend, supabase, csv]
 dependencias: [autenticacao]
 ---
@@ -38,6 +38,7 @@ Registra **despesas do mês** (fixo, variável, parcelado), marca as não-cartã
 - Cartão: sem toggle de pago no item; status visual e caixa efetivado vêm da fatura (`credit_card_monthly_status`); match por `creditCardId` (fallback nome só legado) (RN-X04 / ADR-009)
 - Parcelas: gera o restante da série (`installments.ts`), **pode cruzar o ano**; excluir “este mês” deixa buraco; excluir “todas” pela série `base_expense_id` (RN-X05)
 - Fixo com `repeatAllMonths`: mesmos 11 meses do ano civil que entradas (RN-G05); `paid` não se copia
+- Datas de série: cada clone/parcela recebe `date` rebaseada no próprio `year_month` (mesmo dia, clamp em meses curtos — RN-X08 / DEV-176)
 - CRUD de categorias; renomear propaga em **todas** as `expenses` do usuário; excluir bloqueado se a categoria estiver em uso em **qualquer** mês (RN-X06 / RN-G06)
 - **Troca de tipo** no formulário (criar/editar): um único form por `activeTab` preserva campos comuns; no update, `type` muda só no registro aberto, com unlink/promote de série e geração de nova série se aplicável (RN-X07)
 - Aceitar rascunho de gasto vindo da conquista de desejo (o desejo só fecha **depois** do INSERT)
@@ -171,7 +172,7 @@ Não há REST de produção. Produção = facade + hook + PostgREST.
 | Operação | Onde | Auth | Input | Efeito |
 | --- | --- | --- | --- | --- |
 | Listar mês | `getExpenses(userId, yearMonth)` | JWT + RLS | `YYYY-MM` | `Expense[]` (`display_order`) |
-| Criar | `createExpense` | idem | payload | INSERT da **linha criada:** `paid` do payload (default false). Clones de `fixed`+repeat (outros 11 meses do **mesmo ano**) e parcelas seguintes (**podem ser outro ano**): `paid: false`. Falha nos clones faz rollback da série |
+| Criar | `createExpense` | idem | payload | INSERT da **linha criada:** `paid` do payload (default false). Clones de `fixed`+repeat (outros 11 meses do **mesmo ano**) e parcelas seguintes (**podem ser outro ano**): `paid: false`; `date` rebaseada por `year_month` (RN-X08). Falha nos clones faz rollback da série |
 | Atualizar | `updateExpense` | idem | `updates`, `applyToAllMonths?` | Ver série abaixo |
 | Excluir um / seguintes (fixo) | `deleteExpense` | idem | `applyToAllMonths?` | Um id; se fixo + all, série com `year_month >=` atual. **Parcelado + all neste método não apaga a série** |
 | Excluir todas as parcelas | `deleteInstallmentExpense` | idem | `Expense` | Todos os ids `id = base` ou `base_expense_id = base` |
@@ -248,6 +249,7 @@ Detalhe: [`../02_regras-de-negocio/regras-por-modulo/gastos.md`](../02_regras-de
 | RN-X04 | Cartão: sem checkbox de pago no item; caixa = fatura | UI `isExpenseLinkedToCard`; `isExpenseEffectivelyPaid` no resumo; origem CSV cartão |
 | RN-X05 | Excluir este mês = um registro (buraco ok); todas = série | `deleteExpense(false)` vs `deleteInstallmentExpense` |
 | RN-X06 | CRUD categorias; rename propaga | `updateExpenseCategory` no hook |
+| RN-X08 | `date` de cada ocorrência = dia do root no `year_month` (clamp) | RPC `rebase_date_to_year_month` + `rebaseDateToYearMonth` no adapter |
 | RN-G05 | Fixo+repeat = outros 11 meses do **mesmo** ano civil | `calculateRemainingMonths` (não usa `installments.ts`) |
 | RN-G06 | Não excluir categoria em uso em **qualquer** mês | Adapter `updateExpenseCategories` (existence check em `expenses`); UI propaga erro |
 | CSV-01…06 | Assistida; match só sugestão; associar não duplica; origem; mês divergente; evidência de parcela | `ImportExpensesCsvDialog` + `csvImportBuild` / `expenseMatch` / `installmentDetect` |
@@ -346,6 +348,7 @@ npm test --workspace=frontend
 | 2026-09-04 | 1.3 | Troca de tipo na edição (preservar campos + unlink/generate — RN-X07) | DEV-104 | Technical Writer |
 | 2026-09-04 | 1.4 | CSV-06: coluna Parcela + evidência N/total na revisão do import | DEV-105 | Technical Writer |
 | 2026-10-16 | 1.5 | Remove carteiras: efetivar só com toggle; sem `account_id`, sync de fatura nem carteira no CSV | DEV-151 | Technical Writer |
+| 2026-11-11 | 1.6 | Datas de série rebaseadas por `year_month` (RN-X08); RPC + adapter | DEV-176 | Technical Writer |
 
 ---
 

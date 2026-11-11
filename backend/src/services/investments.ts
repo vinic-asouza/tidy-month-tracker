@@ -4,6 +4,7 @@
 
 import { pool } from '../infra/database';
 import { calculateRemainingMonths } from '../utils/repeatMonths';
+import { rebaseDateToYearMonth } from '../utils/rebaseDate';
 
 export interface Investment {
   id: string;
@@ -100,7 +101,7 @@ export async function createInvestment(
           data.description,
           data.value,
           data.tag,
-          itemDate,
+          rebaseDateToYearMonth(itemDate, month),
           false,
           true, // repeat_all_months
           createdInvestment.id, // base_investment_id
@@ -139,6 +140,9 @@ export async function updateInvestment(
     // É um item original que está sendo marcado como recorrente
     const remainingMonths = calculateRemainingMonths(currentInvestment.year_month);
     
+    const sourceDate =
+      (data.date !== undefined ? data.date : currentInvestment.date) ??
+      new Date().toISOString().slice(0, 10);
     for (const month of remainingMonths) {
       await pool.query(
         `INSERT INTO investments (user_id, year_month, description, value, tag, date, invested, repeat_all_months, base_investment_id, display_order)
@@ -149,7 +153,7 @@ export async function updateInvestment(
           data.description !== undefined ? data.description : currentInvestment.description,
           data.value !== undefined ? data.value : Number(currentInvestment.value),
           data.tag !== undefined ? data.tag : currentInvestment.tag,
-          currentInvestment.date,
+          rebaseDateToYearMonth(sourceDate, month),
           false, // invested sempre inicia como false
           true, // repeat_all_months
           id, // base_investment_id aponta para o original
