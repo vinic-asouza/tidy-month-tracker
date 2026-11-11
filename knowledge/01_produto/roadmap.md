@@ -1,7 +1,7 @@
 ---
 type: produto
 titulo: Roadmap
-ultima_atualizacao: 2026-10-24
+ultima_atualizacao: 2026-11-11
 ---
 
 # Roadmap
@@ -64,7 +64,7 @@ Não bloqueiam a primeira campanha.
 
 - ~~Constraints no banco para valores~~ — **feito** em DEV-143 / ADR-008 (`value > 0`, `year_month`, parcelas); soma 100% da regra já tinha CHECK
 - Exportação CSV/PDF além do recorte anual agregado (DEV-150 / v0.8.0). Visão Mensal, lançamento linha a linha, e-mail e arquivo dos dois modos continuam fora
-- PWA (objeção “não tem app”)
+- PWA (objeção “não tem app”) — **avaliada** em DEV-148 / [ADR-011](../07_decisoes-tecnicas/ADR-011-adiar-pwa.md): **adiada**; se voltar, preferir shell instalável online-first (sem cache de dados financeiros)
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)
 - Métodos de pagamento customizáveis — fora do MVP (D8)
 - Open Finance / agregador (DEV-96 **adiada**; reaproveitar UX da importação assistida quando voltar)
