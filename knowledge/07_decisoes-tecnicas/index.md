@@ -6,7 +6,7 @@ ultima_atualizacao: 2026-11-11
 
 # Índice de ADRs
 
-Registro do que o código **já faz**. Data = quando entrou na KB (a decisão é anterior). Status **Aceito** = vigente em produção.
+Registro do que o código **já faz** (e decisões de plano vigentes). Data = quando entrou na KB (a decisão é anterior). Status **Aceito** = vigente.
 
 Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template-adr.md). Arquitetura: [`../03_arquitetura/`](../03_arquitetura/README.md).
 
@@ -24,6 +24,7 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | [ADR-010](./ADR-010-rpcs-atomicas-series.md) | RPCs atômicas para séries e rename | Aceito | banco, integridade |
 | [ADR-011](./ADR-011-adiar-pwa.md) | Adiar PWA; sem cache offline de dados financeiros | Substituída (ADR-012) — política offline vigente | frontend, infra, segurança |
 | [ADR-012](./ADR-012-shell-pwa-online-first.md) | Shell PWA instalável online-first | Aceito | frontend, infra, segurança |
+| [ADR-013](./ADR-013-exportacao-portabilidade.md) | Plano de exportação/portabilidade além do anual | Aceito | frontend, produto, segurança, dados |
 
 ## Não entra aqui
 
@@ -32,5 +33,6 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | D1–D9 (caixa efetivado, D8 métodos, etc.; Saldo Livre/carteiras removidos na DEV-151) | Produto / regras |
 | Express incompleto (sem desejos) | Consequência da ADR-001; [`../03_arquitetura/api-design.md`](../03_arquitetura/api-design.md) |
 | Sem CI / Prettier | [`../05_padroes/`](../05_padroes/README.md) |
+| Contrato CSV/colunas do plano de portabilidade | [`../04_modulos/exportacao-portabilidade.md`](../04_modulos/exportacao-portabilidade.md) |
 
-Próxima ADR: **ADR-013**. Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
+Próxima ADR: **ADR-014**. Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
