@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Segurança
-ultima_atualizacao: 2026-10-19
+ultima_atualizacao: 2026-11-11
 ---
 
 # Segurança
@@ -50,5 +50,6 @@ Valor > 0, percentuais da regra, formulários: **Zod/UI**. Um cliente adulterado
 | XSS / HTML | UI React; sem markdown de usuário na KB |
 | Cartão pelo nome | Não é falha de auth; é risco de **integridade** (dois cartões homônimos). ADR: [`../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md`](../07_decisoes-tecnicas/ADR-005-cartao-por-nome.md) |
 | Atomicidade | Vários INSERTs (repetição/parcelas) sem transação única no modo Supabase — falha parcial possível |
+| PWA / offline | Sem service worker hoje. Se houver no futuro: **proibido** cache de dados financeiros ou tokens no Cache API. ADR: [`../07_decisoes-tecnicas/ADR-011-adiar-pwa.md`](../07_decisoes-tecnicas/ADR-011-adiar-pwa.md) |
 
 Não há WAF, rate limit de produto, 2FA nem audit log além do que o Supabase oferecer no plano.

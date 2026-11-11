@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.17.1 | 2026-11-11 | Draft (DEV-148) | [v0.17.1-2026-11-11.md](./v0.17.1-2026-11-11.md) |
 | v0.17.0 | 2026-11-11 | Draft (DEV-183) | [v0.17.0-2026-11-11.md](./v0.17.0-2026-11-11.md) |
 | v0.16.0 | 2026-11-11 | Draft (DEV-182 + DEV-184) | [v0.16.0-2026-11-11.md](./v0.16.0-2026-11-11.md) |
 | v0.15.1 | 2026-11-11 | Draft (DEV-176 + DEV-185) | [v0.15.1-2026-11-11.md](./v0.15.1-2026-11-11.md) |
