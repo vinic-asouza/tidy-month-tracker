@@ -6,6 +6,7 @@
 
 import { pool } from '../infra/database';
 import { calculateRemainingMonths } from '../utils/repeatMonths';
+import { rebaseDateToYearMonth } from '../utils/rebaseDate';
 import {
   calculateRemainingInstallments,
   isValidInstallmentExpense,
@@ -154,7 +155,7 @@ export async function createExpense(
           data.paymentMethod,
           data.value,
           false,
-          itemDate,
+          rebaseDateToYearMonth(itemDate, month),
           true,
           createdExpense.id,
           0,
@@ -185,7 +186,7 @@ export async function createExpense(
           data.paymentMethod,
           data.value,
           false,
-          itemDate,
+          rebaseDateToYearMonth(itemDate, inst.yearMonth),
           createdExpense.id,
           inst.installmentNumber,
           data.totalInstallments,
@@ -230,6 +231,7 @@ export async function updateExpense(
       const remainingMonths = calculateRemainingMonths(currentExpense.year_month);
       
       const currentDate = currentExpense.date ?? new Date().toISOString().slice(0, 10);
+      const sourceDate = data.date !== undefined ? data.date : currentDate;
       for (const month of remainingMonths) {
         await pool.query(
           `INSERT INTO expenses (user_id, year_month, type, category, description, payment_method, value, paid, date, repeat_all_months, base_expense_id, display_order)
@@ -243,7 +245,7 @@ export async function updateExpense(
             data.paymentMethod !== undefined ? data.paymentMethod : currentExpense.payment_method,
             data.value !== undefined ? data.value : Number(currentExpense.value),
             false,
-            data.date !== undefined ? data.date : currentDate,
+            rebaseDateToYearMonth(sourceDate, month),
             true,
             id,
             0,
@@ -324,11 +326,53 @@ export async function updateExpense(
       const baseId = expense.base_expense_id || id;
       const currentYearMonth = expense.year_month;
       const targetResult = await pool.query(
-        'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2) AND year_month >= $3',
+        'SELECT id, year_month FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2) AND year_month >= $3',
         [userId, baseId, currentYearMonth]
       );
-      targetIds = targetResult.rows.map((row: { id: string }) => row.id);
+      const fixedRows = targetResult.rows as { id: string; year_month: string }[];
+      targetIds = fixedRows.map((row) => row.id);
       if (targetIds.length === 0) return;
+
+      // DEV-176: date em lote rebaseada por year_month
+      if (data.date !== undefined) {
+        const nonDateUpdates: string[] = [];
+        const nonDateValues: any[] = [];
+        let np = 1;
+        if (data.category !== undefined) {
+          nonDateUpdates.push(`category = $${np++}`);
+          nonDateValues.push(data.category);
+        }
+        if (data.description !== undefined) {
+          nonDateUpdates.push(`description = $${np++}`);
+          nonDateValues.push(data.description);
+        }
+        if (data.paymentMethod !== undefined) {
+          nonDateUpdates.push(`payment_method = $${np++}`);
+          nonDateValues.push(data.paymentMethod);
+        }
+        if (data.value !== undefined) {
+          nonDateUpdates.push(`value = $${np++}`);
+          nonDateValues.push(data.value);
+        }
+        if (data.repeatAllMonths !== undefined) {
+          nonDateUpdates.push(`repeat_all_months = $${np++}`);
+          nonDateValues.push(data.repeatAllMonths);
+        }
+        for (const row of fixedRows) {
+          const setParts = [...nonDateUpdates, `date = $${np}`];
+          await pool.query(
+            `UPDATE expenses SET ${setParts.join(', ')}, updated_at = NOW()
+             WHERE id = $${np + 1} AND user_id = $${np + 2}`,
+            [
+              ...nonDateValues,
+              rebaseDateToYearMonth(data.date, row.year_month),
+              row.id,
+              userId,
+            ]
+          );
+        }
+        return;
+      }
     } else if (expense.type === 'installment') {
       // Parcelas: current_installment/total_installments só na linha editada;
       // nas demais, só campos compartilhados (description, value, etc.)
@@ -338,10 +382,11 @@ export async function updateExpense(
       );
       const baseId = baseIdResult.rows.length > 0 ? (baseIdResult.rows[0].base_expense_id || id) : id;
       const installmentsResult = await pool.query(
-        'SELECT id FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2)',
+        'SELECT id, year_month FROM expenses WHERE user_id = $1 AND (id = $2 OR base_expense_id = $2)',
         [userId, baseId]
       );
-      targetIds = installmentsResult.rows.map((row: { id: string }) => row.id);
+      const installmentRows = installmentsResult.rows as { id: string; year_month: string }[];
+      targetIds = installmentRows.map((row) => row.id);
 
       const sharedUpdates: string[] = [];
       const sharedValues: any[] = [];
@@ -366,11 +411,23 @@ export async function updateExpense(
         sharedUpdates.push(`paid = $${p++}`);
         sharedValues.push(data.paid);
       }
-      if (data.date !== undefined) {
-        sharedUpdates.push(`date = $${p++}`);
-        sharedValues.push(data.date);
-      }
-      if (sharedUpdates.length > 0 && targetIds.length > 0) {
+      // DEV-176: date rebaseada por year_month de cada parcela
+      if (data.date !== undefined && installmentRows.length > 0) {
+        for (const row of installmentRows) {
+          const setParts = [...sharedUpdates, `date = $${p}`];
+          const vals = [
+            ...sharedValues,
+            rebaseDateToYearMonth(data.date, row.year_month),
+            row.id,
+            userId,
+          ];
+          await pool.query(
+            `UPDATE expenses SET ${setParts.join(', ')}, updated_at = NOW()
+             WHERE id = $${p + 1} AND user_id = $${p + 2}`,
+            vals
+          );
+        }
+      } else if (sharedUpdates.length > 0 && targetIds.length > 0) {
         await pool.query(
           `UPDATE expenses SET ${sharedUpdates.join(', ')}, updated_at = NOW()
            WHERE id = ANY($${p}::uuid[]) AND user_id = $${p + 1}`,
@@ -471,7 +528,7 @@ async function ensureRemainingInstallmentsExist(userId: string, expenseId: strin
         e.description,
         e.payment_method,
         Number(e.value),
-        itemDate,
+        rebaseDateToYearMonth(itemDate, inst.yearMonth),
         baseId,
         inst.installmentNumber,
         tot,

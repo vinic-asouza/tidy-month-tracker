@@ -9,6 +9,7 @@ import {
 import { toExpense } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
 import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
+import { rebaseDateToYearMonth } from '@/utils/business/csvNormalize';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -77,7 +78,7 @@ async function ensureRemainingInstallmentsExist(
       credit_card_id: e.credit_card_id ?? null,
       value: Number(e.value),
       paid: false,
-      date: itemDate,
+      date: rebaseDateToYearMonth(itemDate, inst.yearMonth),
       base_expense_id: baseId,
       current_installment: inst.installmentNumber,
       total_installments: tot,
@@ -271,7 +272,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           credit_card_id: creditCardId,
           value,
           paid: false,
-          date: itemDate,
+          date: rebaseDateToYearMonth(itemDate ?? new Date().toISOString().slice(0, 10), month),
           repeat_all_months: true,
           base_expense_id: id,
           display_order: 0,
@@ -297,6 +298,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       );
 
       if (installments.length > 0) {
+        const sourceDate = itemDate ?? new Date().toISOString().slice(0, 10);
         const rows = installments.map((inst) => ({
           user_id: userId,
           year_month: inst.yearMonth,
@@ -307,7 +309,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
           credit_card_id: creditCardId,
           value,
           paid: false,
-          date: itemDate,
+          date: rebaseDateToYearMonth(sourceDate, inst.yearMonth),
           base_expense_id: id,
           current_installment: inst.installmentNumber,
           total_installments: totalInstallments,
@@ -333,6 +335,8 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       const currentDate = currentExpense.date ?? new Date().toISOString().slice(0, 10);
 
       if (remainingMonths.length > 0) {
+        const sourceDate =
+          updates.date !== undefined ? updates.date : currentDate;
         const rows = remainingMonths.map((month) => ({
           user_id: userId,
           year_month: month,
@@ -346,7 +350,7 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
               : (updates.creditCardId ?? currentExpense.credit_card_id ?? null),
           value: updates.value ?? Number(currentExpense.value),
           paid: false,
-          date: updates.date !== undefined ? updates.date : currentDate,
+          date: rebaseDateToYearMonth(sourceDate, month),
           repeat_all_months: true,
           base_expense_id: id,
           display_order: 0,
@@ -386,12 +390,13 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       const baseId = currentExpense.base_expense_id || id;
       const { data: installments, error: instFetchError } = await supabase
         .from('expenses')
-        .select('id')
+        .select('id, year_month')
         .eq('user_id', userId)
         .or(`id.eq.${baseId},base_expense_id.eq.${baseId}`);
 
       throwIfError(instFetchError);
-      const targetIds = (installments || []).map((t) => t.id);
+      const targets = installments || [];
+      const targetIds = targets.map((t) => t.id);
 
       const sharedRow: Record<string, unknown> = {};
       if (updates.category !== undefined) sharedRow.category = updates.category;
@@ -400,12 +405,26 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       Object.assign(sharedRow, creditCardColumnFromUpdates(updates));
       if (updates.value !== undefined) sharedRow.value = updates.value;
       if (updates.paid !== undefined) sharedRow.paid = updates.paid;
-      if (updates.date !== undefined) sharedRow.date = updates.date;
 
-      if (Object.keys(sharedRow).length > 0 && targetIds.length > 0) {
+      const sharedClean = omitPerMonthFields(sharedRow);
+
+      // DEV-176: date em lote deve ser rebaseada por year_month de cada linha
+      if (updates.date !== undefined && targets.length > 0) {
+        for (const t of targets) {
+          const { error: sharedError } = await supabase
+            .from('expenses')
+            .update({
+              ...sharedClean,
+              date: rebaseDateToYearMonth(updates.date, t.year_month),
+            })
+            .eq('id', t.id)
+            .eq('user_id', userId);
+          throwIfError(sharedError);
+        }
+      } else if (Object.keys(sharedClean).length > 0 && targetIds.length > 0) {
         const { error: sharedError } = await supabase
           .from('expenses')
-          .update(omitPerMonthFields(sharedRow))
+          .update(sharedClean)
           .in('id', targetIds)
           .eq('user_id', userId);
         throwIfError(sharedError);
@@ -436,15 +455,34 @@ export async function updateExpense(params: UpdateExpenseParams): Promise<void> 
       const baseId = currentExpense.base_expense_id || id;
       const { data: targets, error: targetError } = await supabase
         .from('expenses')
-        .select('id')
+        .select('id, year_month')
         .eq('user_id', userId)
         .or(`id.eq.${baseId},base_expense_id.eq.${baseId}`)
         .gte('year_month', currentExpense.year_month);
 
       throwIfError(targetError);
-      const targetIds = (targets || []).map((t) => t.id);
-      if (targetIds.length === 0) return;
+      const rows = targets || [];
+      if (rows.length === 0) return;
 
+      // DEV-176: date em lote rebaseada por year_month
+      if (updates.date !== undefined) {
+        const { date: _ignored, ...rest } = omitPerMonthFields(row);
+        void _ignored;
+        for (const t of rows) {
+          const { error: updateError } = await supabase
+            .from('expenses')
+            .update({
+              ...rest,
+              date: rebaseDateToYearMonth(updates.date, t.year_month),
+            })
+            .eq('id', t.id)
+            .eq('user_id', userId);
+          throwIfError(updateError);
+        }
+        return;
+      }
+
+      const targetIds = rows.map((t) => t.id);
       const { error: updateError } = await supabase
         .from('expenses')
         .update(omitPerMonthFields(row))

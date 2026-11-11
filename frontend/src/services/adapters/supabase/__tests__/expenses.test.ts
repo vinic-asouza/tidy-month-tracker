@@ -268,6 +268,74 @@ describe('updateExpense', () => {
       { method: 'eq', args: ['user_id', 'user-1'] },
     ]);
   });
+
+  it('DEV-176: ao ligar repeat, clones recebem date rebaseada por year_month (clamp dia 31)', async () => {
+    mock.enqueue(
+      {
+        data: expenseRow({
+          id: 'exp-1',
+          type: 'fixed',
+          year_month: '2026-01',
+          date: '2026-01-31',
+          repeat_all_months: false,
+        }),
+      },
+      {}, // insert clones
+      {} // update root
+    );
+
+    await updateExpense({
+      id: 'exp-1',
+      userId: 'user-1',
+      updates: { repeatAllMonths: true },
+    });
+
+    const inserts = mock.getOperationsFor('expenses', 'insert');
+    expect(inserts).toHaveLength(1);
+    const rows = inserts[0].payload as Array<Record<string, unknown>>;
+    const byMonth = Object.fromEntries(rows.map((r) => [r.year_month, r.date]));
+    expect(byMonth['2026-02']).toBe('2026-02-28');
+    expect(byMonth['2026-04']).toBe('2026-04-30');
+    expect(byMonth['2026-03']).toBe('2026-03-31');
+  });
+
+  it('DEV-176: applyToAllMonths com date rebaseia por year_month de cada linha', async () => {
+    mock.enqueue(
+      {
+        data: expenseRow({
+          id: 'exp-1',
+          type: 'fixed',
+          year_month: '2026-01',
+          date: '2026-01-15',
+          repeat_all_months: true,
+        }),
+      },
+      {
+        data: [
+          { id: 'exp-1', year_month: '2026-01' },
+          { id: 'exp-2', year_month: '2026-02' },
+          { id: 'exp-3', year_month: '2026-04' },
+        ],
+      },
+      {},
+      {},
+      {}
+    );
+
+    await updateExpense({
+      id: 'exp-1',
+      userId: 'user-1',
+      updates: { date: '2026-01-31' },
+      applyToAllMonths: true,
+    });
+
+    const updates = mock.getOperationsFor('expenses', 'update');
+    expect(updates.length).toBeGreaterThanOrEqual(3);
+    const dates = updates.map((u) => (u.payload as Record<string, unknown>).date).filter(Boolean);
+    expect(dates).toContain('2026-01-31');
+    expect(dates).toContain('2026-02-28');
+    expect(dates).toContain('2026-04-30');
+  });
 });
 
 describe('deleteInstallmentExpense', () => {
