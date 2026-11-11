@@ -59,6 +59,7 @@ export type Database = {
           credit_limit: number | null
           display_order: number
           due_day: number | null
+          hidden: boolean
           id: string
           name: string
           paid: boolean
@@ -71,6 +72,7 @@ export type Database = {
           credit_limit?: number | null
           display_order?: number
           due_day?: number | null
+          hidden?: boolean
           id?: string
           name: string
           paid?: boolean
@@ -83,6 +85,7 @@ export type Database = {
           credit_limit?: number | null
           display_order?: number
           due_day?: number | null
+          hidden?: boolean
           id?: string
           name?: string
           paid?: boolean

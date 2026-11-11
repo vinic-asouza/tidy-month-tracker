@@ -49,6 +49,7 @@ Carteiras, Saldo Livre, patrimônio estimado, transferência, resgate de carteir
 | --- | --- |
 | **Fatura** | Total de compras daquele cartão no mês. Ao pagar, confirma-se o **total** da fatura; o status vai para a fatura do mês, sem carteira pagadora. |
 | **Fatura paga** | Status mensal que libera os gastos daquele cartão no caixa efetivado. |
+| **Cartão oculto** | Cartão arquivado visualmente (`hidden`); some do strip e do select do dia a dia sem apagar vínculos. Reexibível via “Mostrar ocultos”. |
 | **Vencimento** | Dia informativo do cartão; não muda o cálculo da fatura. Com fatura pendente e data próxima, o chip alerta. |
 | **Limite de crédito** | Opcional. O app mostra % da fatura do mês sobre o limite. Só informativo; não bloqueia lançamentos. |
 

@@ -170,22 +170,24 @@ export const CreditCardInvoiceDialog = ({
                   value={`${formatCurrency(card.creditLimit)}${usagePercent != null ? ` · ${usagePercent}%` : ''}`}
                 />
               )}
-              <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">Status</span>
-                <label
-                  htmlFor={`invoice-paid-${card.id}`}
-                  className="flex items-center gap-2 text-sm cursor-pointer"
-                >
-                  <Checkbox
-                    id={`invoice-paid-${card.id}`}
-                    checked={isPaid}
-                    onCheckedChange={(checked) => void handlePaidChange(!!checked)}
-                  />
-                  <span className={isPaid ? 'text-income font-medium' : 'text-foreground'}>
-                    {isPaid ? 'Fatura paga' : 'Fatura pendente'}
-                  </span>
-                </label>
-              </div>
+              {summary.total > 0 && (
+                <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">Status</span>
+                  <label
+                    htmlFor={`invoice-paid-${card.id}`}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <Checkbox
+                      id={`invoice-paid-${card.id}`}
+                      checked={isPaid}
+                      onCheckedChange={(checked) => void handlePaidChange(!!checked)}
+                    />
+                    <span className={isPaid ? 'text-income font-medium' : 'text-foreground'}>
+                      {isPaid ? 'Fatura paga' : 'Fatura pendente'}
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <ToggleGroup

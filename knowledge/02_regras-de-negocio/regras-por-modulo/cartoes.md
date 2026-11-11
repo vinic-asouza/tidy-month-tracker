@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: cartoes
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 ---
 
 # Cartões de crédito
@@ -29,3 +29,11 @@ Reverte o status (`paid = false`); gastos voltam a não contar no efetivado.
 ## RN-C05 — Vencimento e limite
 
 Informativos. Alerta de vencimento com fatura pendente (`CREDIT_CARD_DUE_ALERT_DAYS = 3`). Limite: % da fatura do mês; não bloqueia lançamento.
+
+## RN-C06 — Fatura zerada sem ação de pago
+
+Quando o total da fatura do mês for **R$ 0**, a UI **não** exibe a ação de marcar pendente/pago (chip e dialog da fatura). O cartão continua visível para consulta/cadastro (salvo se estiver oculto). Não há auto-desmarcar se o status mensal já estiver pago.
+
+## RN-C07 — Ocultar cartão
+
+Cartão pode ser **oculto** (`credit_cards.hidden = true`) sem excluir. Ocultos somem do strip padrão, do select de pagamento em novos lançamentos e da origem CSV; dados e vínculos históricos permanecem. Reexibição via “Mostrar ocultos” no strip. Exclusão continua regida por RN-C01.

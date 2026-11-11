@@ -43,6 +43,7 @@ export async function createCreditCard(params: CreateCreditCardParams): Promise<
       display_order: displayOrder,
       due_day: params.dueDay ?? null,
       credit_limit: params.creditLimit ?? null,
+      hidden: params.hidden ?? false,
     })
     .select('*')
     .single();
@@ -73,6 +74,7 @@ export async function updateCreditCard(params: UpdateCreditCardParams): Promise<
   if (updates.paid !== undefined) row.paid = updates.paid;
   if (updates.dueDay !== undefined) row.due_day = updates.dueDay;
   if (updates.creditLimit !== undefined) row.credit_limit = updates.creditLimit;
+  if (updates.hidden !== undefined) row.hidden = updates.hidden;
 
   if (Object.keys(row).length === 0) return;
 

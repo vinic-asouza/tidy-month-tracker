@@ -82,6 +82,7 @@ describe('createCreditCard', () => {
       display_order: 2,
       due_day: 10,
       credit_limit: 5000,
+      hidden: false,
     });
     expect(created.id).toBe('card-1');
     expect(created.creditLimit).toBe(5000);
@@ -185,6 +186,19 @@ describe('updateCreditCard', () => {
     const [update] = mock.getOperationsFor('credit_cards', 'update');
     expect(update.payload).toEqual({ paid: true, due_day: 15 });
     expect(mock.getRpcCalls()).toHaveLength(0);
+  });
+
+  it('DEV-183: persiste hidden no update', async () => {
+    mock.enqueue({});
+
+    await updateCreditCard({
+      id: 'card-1',
+      userId: 'user-1',
+      updates: { hidden: true },
+    });
+
+    const [update] = mock.getOperationsFor('credit_cards', 'update');
+    expect(update.payload).toEqual({ hidden: true });
   });
 
   it('não dispara update quando não há campos', async () => {

@@ -47,6 +47,8 @@ export interface CreditCard {
   paid: boolean;
   dueDay?: number | null;
   creditLimit?: number | null;
+  /** Quando true, some das listagens do dia a dia (DEV-183). */
+  hidden?: boolean;
 }
 
 export interface Investment {
