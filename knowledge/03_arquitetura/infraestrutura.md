@@ -1,7 +1,7 @@
 ---
 type: arquitetura
 titulo: Infraestrutura
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 ---
 
 # Infraestrutura
@@ -16,6 +16,14 @@ ultima_atualizacao: 2026-10-16
 | SPA fallback | rewrite `/(.*)` → `/index.html` (`vercel.json`) |
 | Upload | `.vercelignore` exclui `backend/` e `landing/` |
 | Auth + DB | Supabase projeto `yoinjsmlntehikilqoxx` (`us-east-2`) |
+| PWA | `vite-plugin-pwa` no frontend — manifest + SW de shell (ADR-012) |
+
+### PWA (shell)
+
+- HTTPS via Vercel; instalável no Chromium com manifest + SW + ícones.
+- Safari iOS: Compartilhar → Adicionar à Tela de Início (`apple-touch-icon` no `index.html`).
+- Precache versionado (`autoUpdate`); dados financeiros não entram no Cache API.
+- Detalhe: [ADR-012](../07_decisoes-tecnicas/ADR-012-shell-pwa-online-first.md).
 
 `VITE_*` entra no bundle no **build**. Mudou env na Vercel → novo deploy.
 

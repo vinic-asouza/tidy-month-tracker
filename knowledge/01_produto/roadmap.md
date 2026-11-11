@@ -64,7 +64,7 @@ Não bloqueiam a primeira campanha.
 
 - ~~Constraints no banco para valores~~ — **feito** em DEV-143 / ADR-008 (`value > 0`, `year_month`, parcelas); soma 100% da regra já tinha CHECK
 - Exportação CSV/PDF além do recorte anual agregado (DEV-150 / v0.8.0). Visão Mensal, lançamento linha a linha, e-mail e arquivo dos dois modos continuam fora
-- PWA (objeção “não tem app”) — **avaliada** em DEV-148 / [ADR-011](../07_decisoes-tecnicas/ADR-011-adiar-pwa.md): **adiada**; se voltar, preferir shell instalável online-first (sem cache de dados financeiros)
+- ~~PWA (objeção “não tem app”)~~ — shell instalável online-first em DEV-186 / [ADR-012](../07_decisoes-tecnicas/ADR-012-shell-pwa-online-first.md) (política offline: [ADR-011](../07_decisoes-tecnicas/ADR-011-adiar-pwa.md))
 - Recorrência além do ano civil — só se a demanda aparecer (YAGNI no plano)
 - Métodos de pagamento customizáveis — fora do MVP (D8)
 - Open Finance / agregador (DEV-96 **adiada**; reaproveitar UX da importação assistida quando voltar)
