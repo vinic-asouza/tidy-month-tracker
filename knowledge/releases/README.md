@@ -1,7 +1,7 @@
 ---
 type: index
 secao: releases
-ultima_atualizacao: 2026-10-24
+ultima_atualizacao: 2026-11-11
 ---
 
 # Releases
@@ -16,6 +16,7 @@ Release notes **permanentes** de uma versão enviada. Não são changelog de Iss
 
 | Versão | Data | Status | Arquivo |
 | --- | --- | --- | --- |
+| v0.15.1 | 2026-11-11 | Draft | [v0.15.1-2026-11-11.md](./v0.15.1-2026-11-11.md) |
 | v0.15.0 | 2026-10-24 | Publicado | [v0.15.0-2026-10-24.md](./v0.15.0-2026-10-24.md) |
 | v0.14.1 | 2026-10-24 | Publicado | [v0.14.1-2026-10-24.md](./v0.14.1-2026-10-24.md) |
 | v0.14.0 | 2026-10-19 | Publicado | [v0.14.0-2026-10-19.md](./v0.14.0-2026-10-19.md) |

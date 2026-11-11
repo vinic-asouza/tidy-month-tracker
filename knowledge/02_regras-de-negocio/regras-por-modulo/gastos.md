@@ -1,7 +1,7 @@
 ---
 type: regras-modulo
 modulo: gastos
-ultima_atualizacao: 2026-10-16
+ultima_atualizacao: 2026-11-11
 ---
 
 # Gastos
@@ -52,6 +52,14 @@ Ao **salvar** com `type` diferente do persistido:
 - **Desvincula** da série antiga (`base_expense_id = null`). Se o item era raiz, promove o próximo irmão a nova raiz; irmãos permanecem no tipo antigo.
 - Sanitiza campos do tipo destino (parcelas / `repeat_all_months`).
 - Se o destino for fixo com “repetir todos os meses” ou parcelado com total > parcela atual, **gera** o restante da série como no create (RN-G05 / RN-X05).
+
+## RN-X08 — Data por ocorrência na série (DEV-176)
+
+Cada linha de série (fixo com `repeat_all_months` ou parcelado) persiste `date` = **mesmo dia do root** rebaseado no `year_month` da ocorrência.
+
+- Meses com menos dias: **clamp** ao último dia válido (ex.: 31 → fev 28/29, abr 30).
+- Aplica-se na criação (RPC `create_expense_with_series`), em geração tardia de parcelas, ao ligar repeat / type-change que gera série, e na edição em lote que altera `date`.
+- Alinhado a `rebaseDateToYearMonth` (CSV) e à função SQL `rebase_date_to_year_month`.
 
 ---
 
