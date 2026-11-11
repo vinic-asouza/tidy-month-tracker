@@ -534,8 +534,8 @@ const CreditCardStripComponent = ({
         creditCards.length === 0
           ? 'Cadastre cartões para acompanhar faturas'
           : displayCards.length === 0
-            ? `${creditCards.length} cartão${creditCards.length > 1 ? 's' : ''} oculto${creditCards.length > 1 ? 's' : ''} · use “Mostrar ocultos”`
-            : `${displayCards.length} cartão${displayCards.length > 1 ? 's' : ''} · ${formatCurrency(totalInvoices)}${paidCount > 0 ? ` · ${paidCount}/${displayCards.length} pagos` : ''}${hasHiddenCards && !showHidden ? ' · há ocultos' : ''}`
+            ? `${creditCards.length} ${creditCards.length === 1 ? 'cartão oculto' : 'cartões ocultos'} · use “Mostrar ocultos”`
+            : `${displayCards.length} ${displayCards.length === 1 ? 'cartão' : 'cartões'} · ${formatCurrency(totalInvoices)}${paidCount > 0 ? ` · ${paidCount}/${displayCards.length} pagos` : ''}${hasHiddenCards && !showHidden ? ' · há ocultos' : ''}`
       }
       icon={CreditCardIcon}
       iconVariant="primary"
