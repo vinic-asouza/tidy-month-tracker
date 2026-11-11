@@ -5,6 +5,7 @@ import { calculateRemainingMonths } from '@/utils/business/repeatMonths';
 import { toIncome } from '../mappers';
 import { getAuthUserId, throwIfError } from './helpers';
 import { omitPerMonthFields } from '@/utils/business/seriesUpdates';
+import { rebaseDateToYearMonth } from '@/utils/business/csvNormalize';
 
 async function resolveUserId(userId?: string): Promise<string> {
   return userId ?? getAuthUserId();
@@ -69,13 +70,16 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
   if (isChangingRepeatStatus && willBeRepeatAllMonths && !currentRows.base_income_id) {
     const remainingMonths = calculateRemainingMonths(currentRows.year_month);
     if (remainingMonths.length > 0) {
+      const sourceDate =
+        (updates.date !== undefined ? updates.date : currentRows.date) ??
+        new Date().toISOString().slice(0, 10);
       const rows = remainingMonths.map((month) => ({
         user_id: userId,
         year_month: month,
         description: updates.description ?? currentRows.description,
         value: updates.value ?? Number(currentRows.value),
         tag: updates.tag ?? currentRows.tag,
-        date: currentRows.date,
+        date: rebaseDateToYearMonth(sourceDate, month),
         received: false,
         repeat_all_months: true,
         base_income_id: id,
@@ -110,22 +114,40 @@ export async function updateIncome(params: UpdateIncomeParams): Promise<void> {
     const baseId = currentRows.base_income_id || id;
     const { data: targets, error: targetError } = await supabase
       .from('incomes')
-      .select('id')
+      .select('id, year_month')
       .eq('user_id', userId)
       .or(`id.eq.${baseId},base_income_id.eq.${baseId}`)
       .gte('year_month', currentRows.year_month);
 
     throwIfError(targetError);
-    const targetIds = (targets || []).map((t) => t.id);
-    if (targetIds.length === 0) return;
+    const rows = targets || [];
+    if (rows.length === 0) return;
 
-    const { error: updateError } = await supabase
-      .from('incomes')
-      .update(omitPerMonthFields(row))
-      .in('id', targetIds)
-      .eq('user_id', userId);
+    // DEV-185: date em lote rebaseada por year_month
+    if (updates.date !== undefined) {
+      const { date: _ignored, ...rest } = omitPerMonthFields(row);
+      void _ignored;
+      for (const t of rows) {
+        const { error: updateError } = await supabase
+          .from('incomes')
+          .update({
+            ...rest,
+            date: rebaseDateToYearMonth(updates.date, t.year_month),
+          })
+          .eq('id', t.id)
+          .eq('user_id', userId);
+        throwIfError(updateError);
+      }
+    } else {
+      const targetIds = rows.map((t) => t.id);
+      const { error: updateError } = await supabase
+        .from('incomes')
+        .update(omitPerMonthFields(row))
+        .in('id', targetIds)
+        .eq('user_id', userId);
 
-    throwIfError(updateError);
+      throwIfError(updateError);
+    }
   } else {
     const { error: updateError } = await supabase
       .from('incomes')

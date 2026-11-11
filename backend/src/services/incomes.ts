@@ -6,6 +6,7 @@
 
 import { pool } from '../infra/database';
 import { calculateRemainingMonths } from '../utils/repeatMonths';
+import { rebaseDateToYearMonth } from '../utils/rebaseDate';
 
 export interface Income {
   id: string;
@@ -119,7 +120,7 @@ export async function createIncome(
           data.description,
           data.value,
           data.tag,
-          itemDate,
+          rebaseDateToYearMonth(itemDate, month),
           false,
           true, // repeat_all_months
           createdIncome.id, // base_income_id
@@ -161,6 +162,9 @@ export async function updateIncome(
     // É um item original que está sendo marcado como recorrente
     const remainingMonths = calculateRemainingMonths(currentIncome.year_month);
     
+    const sourceDate =
+      (data.date !== undefined ? data.date : currentIncome.date) ??
+      new Date().toISOString().slice(0, 10);
     for (const month of remainingMonths) {
       await pool.query(
         `INSERT INTO incomes (user_id, year_month, description, value, tag, date, received, repeat_all_months, base_income_id, display_order)
@@ -171,7 +175,7 @@ export async function updateIncome(
           data.description !== undefined ? data.description : currentIncome.description,
           data.value !== undefined ? data.value : Number(currentIncome.value),
           data.tag !== undefined ? data.tag : currentIncome.tag,
-          currentIncome.date,
+          rebaseDateToYearMonth(sourceDate, month),
           false, // received sempre inicia como false
           true, // repeat_all_months
           id, // base_income_id aponta para o original

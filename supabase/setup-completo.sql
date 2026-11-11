@@ -606,6 +606,7 @@ DECLARE
   v_repeat boolean;
   v_root public.incomes%ROWTYPE;
   v_ym text;
+  v_clone_date text;
   i int;
 BEGIN
   IF v_uid IS NULL THEN
@@ -642,13 +643,14 @@ BEGIN
     FOR i IN 1..12 LOOP
       CONTINUE WHEN i = v_month;
       v_ym := v_year::text || '-' || lpad(i::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.incomes (
         user_id, year_month, description, value, tag, date, received, repeat_all_months,
         base_income_id, display_order
       )
       SELECT
-        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_date, false, true,
+        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_clone_date, false, true,
         v_root.id, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.incomes x
@@ -682,6 +684,7 @@ DECLARE
   v_repeat boolean;
   v_root public.investments%ROWTYPE;
   v_ym text;
+  v_clone_date text;
   i int;
 BEGIN
   IF v_uid IS NULL THEN
@@ -717,13 +720,14 @@ BEGIN
     FOR i IN 1..12 LOOP
       CONTINUE WHEN i = v_month;
       v_ym := v_year::text || '-' || lpad(i::text, 2, '0');
+      v_clone_date := public.rebase_date_to_year_month(v_date, v_ym);
 
       INSERT INTO public.investments (
         user_id, year_month, description, value, tag, date, invested, repeat_all_months,
         base_investment_id, display_order
       )
       SELECT
-        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_date, false, true,
+        v_uid, v_ym, v_root.description, v_root.value, v_root.tag, v_clone_date, false, true,
         v_root.id, 0
       WHERE NOT EXISTS (
         SELECT 1 FROM public.investments x
