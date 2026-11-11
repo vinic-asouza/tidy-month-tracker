@@ -55,7 +55,8 @@ Habilitado nas tabelas de negócio. Políticas típicas: SELECT/INSERT/UPDATE/DE
 
 | Função | Uso |
 | --- | --- |
-| `create_expense_with_series` | Create gasto fixo+repeat ou parcelado |
+| `create_expense_with_series` | Create gasto fixo+repeat ou parcelado (clones com `date` rebaseada — DEV-176) |
+| `rebase_date_to_year_month` | Helper: dia de `YYYY-MM-DD` no `year_month` alvo (clamp) |
 | `create_income_with_series` / `create_investment_with_series` | Create com repeat no ano |
 | `rename_credit_card` | Rename + sync rótulos |
 
