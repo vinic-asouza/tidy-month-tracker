@@ -22,7 +22,8 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | [ADR-008](./ADR-008-checks-integridade-lancamentos.md) | CHECKs de integridade em lançamentos | Aceito | segurança, banco |
 | [ADR-009](./ADR-009-cartao-por-id.md) | Gasto no cartão casa pelo **credit_card_id** | Aceito | dados, integridade |
 | [ADR-010](./ADR-010-rpcs-atomicas-series.md) | RPCs atômicas para séries e rename | Aceito | banco, integridade |
-| [ADR-011](./ADR-011-adiar-pwa.md) | Adiar PWA; sem cache offline de dados financeiros | Aceito | frontend, infra, segurança |
+| [ADR-011](./ADR-011-adiar-pwa.md) | Adiar PWA; sem cache offline de dados financeiros | Substituída (ADR-012) — política offline vigente | frontend, infra, segurança |
+| [ADR-012](./ADR-012-shell-pwa-online-first.md) | Shell PWA instalável online-first | Aceito | frontend, infra, segurança |
 
 ## Não entra aqui
 
@@ -32,4 +33,4 @@ Template: [`../00_meta/templates/template-adr.md`](../00_meta/templates/template
 | Express incompleto (sem desejos) | Consequência da ADR-001; [`../03_arquitetura/api-design.md`](../03_arquitetura/api-design.md) |
 | Sem CI / Prettier | [`../05_padroes/`](../05_padroes/README.md) |
 
-Próxima ADR: **ADR-012**. Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.
+Próxima ADR: **ADR-013**. Não edite ADR Aceito: crie ADR nova e marque a antiga Substituída.

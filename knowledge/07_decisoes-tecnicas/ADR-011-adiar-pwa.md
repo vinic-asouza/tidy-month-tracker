@@ -2,11 +2,12 @@
 type: adr
 id: ADR-011
 titulo: Adiar PWA; política offline sem cache de dados financeiros
-status: Aceito
+status: Substituída (ADR-012)
 data: 2026-11-11
 autor: Development
 decisores: [Development]
 tags: [frontend, infra, segurança, produto]
+supersedido_por: ADR-012
 ---
 
 # ADR-011 — Adiar PWA; política offline sem cache de dados financeiros
@@ -62,3 +63,5 @@ Se/quando priorizar (P4), o caminho preferido é **shell instalável online-firs
 ## Notas
 
 Issue: DEV-148. Índice: [index.md](./index.md). Roadmap: [`../01_produto/roadmap.md`](../01_produto/roadmap.md).
+
+**Atualização:** DEV-186 / [ADR-012](./ADR-012-shell-pwa-online-first.md) implementou a opção B (shell instalável). A política offline desta ADR permanece vigente.
