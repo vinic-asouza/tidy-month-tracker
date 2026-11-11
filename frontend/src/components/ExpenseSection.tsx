@@ -16,12 +16,17 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  findDuplicateExpense,
+  formatDuplicateSummary,
+} from '@/utils/business/duplicateMatch';
 import {
   Select,
   SelectContent,
@@ -846,6 +851,10 @@ const ExpenseSectionComponent = ({
   }, [expenseDraft]);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const [cardWarningOpen, setCardWarningOpen] = useState(false);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    summary: string;
+    payload: Omit<Expense, 'id'>;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('general');
   const [sortOption, setSortOption] = useState<SortOption>('date');
 
@@ -1044,6 +1053,13 @@ const ExpenseSectionComponent = ({
     repeatAllMonths: draft.repeatAllMonths,
   });
 
+  const persistCreate = async (data: Omit<Expense, 'id'>) => {
+    const created = await onAdd(data);
+    if (!created) return false;
+    closeDialogAfterSuccess();
+    return true;
+  };
+
   const handleSubmit = async (data: Omit<Expense, 'id'>) => {
     if (editingExpense) {
       const { paid: _omitPaid, ...updates } = data;
@@ -1055,13 +1071,36 @@ const ExpenseSectionComponent = ({
         typeChanged ? false : applyToAllMonths
       );
       if (success === false) return false;
-    } else {
-      const created = await onAdd(data);
-      if (!created) return false;
+      closeDialogAfterSuccess();
+      return true;
     }
 
-    closeDialogAfterSuccess();
-    return true;
+    if (data.type === 'variable') {
+      const dup = findDuplicateExpense(
+        {
+          description: data.description,
+          category: data.category,
+          value: data.value,
+          date: data.date,
+        },
+        expenses,
+        { types: ['variable'] }
+      );
+      if (dup) {
+        setDuplicateConfirm({
+          summary: formatDuplicateSummary({
+            description: dup.description,
+            label: dup.category,
+            value: dup.value,
+            date: dup.date,
+          }),
+          payload: data,
+        });
+        return false;
+      }
+    }
+
+    return persistCreate(data);
   };
 
   const handleEdit = (expense: Expense) => {
@@ -1818,6 +1857,41 @@ const ExpenseSectionComponent = ({
               className="rounded-md bg-expense text-white hover:bg-expense/90 focus-visible:ring-2 focus-visible:ring-expense focus-visible:ring-offset-2"
             >
               Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!duplicateConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateConfirm(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-lg max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possível duplicata</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Já existe um lançamento igual no mês:</p>
+                <p className="text-sm font-medium text-foreground">
+                  {duplicateConfirm?.summary}
+                </p>
+                <p>Deseja criar mesmo assim?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-md">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-md bg-expense text-white hover:bg-expense/90"
+              onClick={async () => {
+                const payload = duplicateConfirm?.payload;
+                setDuplicateConfirm(null);
+                if (payload) await persistCreate(payload);
+              }}
+            >
+              Criar mesmo assim
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

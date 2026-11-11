@@ -16,6 +16,10 @@ import {
   type SuggestedImportAction,
   type MatchCandidate,
 } from './expenseMatch';
+import {
+  findDuplicateExpense,
+  formatDuplicateSummary,
+} from './duplicateMatch';
 
 export type MonthResolution = 'csv' | 'ui' | 'pending';
 
@@ -32,6 +36,8 @@ export interface ImportReviewRow {
   monthResolution: MonthResolution;
   monthDiverges: boolean;
   category: string;
+  /** Usuário editou a categoria manualmente após a última sync automática. */
+  categoryManualOverride: boolean;
   paymentMethod: string;
   /** DEV-144: cartão associado (origem cartão); null para conta/Pix/etc. */
   creditCardId: string | null;
@@ -46,6 +52,10 @@ export interface ImportReviewRow {
   /** Linha inelegível (crédito / parse inválido) */
   ineligible: boolean;
   ineligibleReason?: string;
+  /** DEV-184: variável com match 4-campos no mês */
+  possibleDuplicateOfId?: string;
+  possibleDuplicateSummary?: string;
+  duplicateConfirmed: boolean;
 }
 
 export interface BuildReviewRowsParams {
@@ -56,6 +66,105 @@ export interface BuildReviewRowsParams {
   /** Cartão da origem (quando importando fatura); omitir/null para conta. */
   defaultCreditCardId?: string | null;
   existingExpenses: Expense[];
+}
+
+function clearDuplicateHint(row: ImportReviewRow): ImportReviewRow {
+  return {
+    ...row,
+    possibleDuplicateOfId: undefined,
+    possibleDuplicateSummary: undefined,
+    duplicateConfirmed: false,
+  };
+}
+
+/** Recalcula flag de possível duplicata (só create_variable). */
+export function withDuplicateHint(
+  row: ImportReviewRow,
+  existingExpenses: Expense[]
+): ImportReviewRow {
+  if (row.ineligible || row.action !== 'create_variable') {
+    return clearDuplicateHint(row);
+  }
+
+  const dup = findDuplicateExpense(
+    {
+      description: row.description,
+      category: row.category,
+      value: row.value,
+      date: row.date,
+    },
+    existingExpenses,
+    { types: ['variable'] }
+  );
+
+  if (!dup) {
+    return clearDuplicateHint(row);
+  }
+
+  const sameTarget = row.possibleDuplicateOfId === dup.id;
+  return {
+    ...row,
+    possibleDuplicateOfId: dup.id,
+    possibleDuplicateSummary: formatDuplicateSummary({
+      description: dup.description,
+      label: dup.category,
+      value: dup.value,
+      date: dup.date,
+    }),
+    duplicateConfirmed: sameTarget ? row.duplicateConfirmed : false,
+  };
+}
+
+/**
+ * Aplica patch de revisão sincronizando categoria na associação (DEV-182)
+ * e recalculando possível duplicata (DEV-184).
+ */
+export function patchImportReviewRow(
+  row: ImportReviewRow,
+  patch: Partial<ImportReviewRow>,
+  opts: { defaultCategory: string; existingExpenses: Expense[] }
+): ImportReviewRow {
+  let next: ImportReviewRow = { ...row, ...patch };
+
+  if (patch.category !== undefined && patch.category !== row.category) {
+    next.categoryManualOverride = true;
+  }
+
+  const actionChanged = patch.action !== undefined && patch.action !== row.action;
+  const linkChanged =
+    patch.linkExpenseId !== undefined && patch.linkExpenseId !== row.linkExpenseId;
+
+  if (actionChanged && patch.action === 'link_existing') {
+    if (!next.linkExpenseId && next.candidates[0]) {
+      next.linkExpenseId = next.candidates[0].expense.id;
+    }
+  }
+
+  if (
+    (actionChanged || linkChanged) &&
+    next.action === 'link_existing' &&
+    next.linkExpenseId &&
+    !next.categoryManualOverride
+  ) {
+    const linked =
+      next.candidates.find((c) => c.expense.id === next.linkExpenseId)?.expense ??
+      opts.existingExpenses.find((e) => e.id === next.linkExpenseId);
+    if (linked) {
+      next.category = linked.category;
+    }
+  }
+
+  if (
+    actionChanged &&
+    row.action === 'link_existing' &&
+    patch.action !== 'link_existing' &&
+    !next.categoryManualOverride
+  ) {
+    next.category = opts.defaultCategory;
+  }
+
+  // Campos que afetam fingerprint: reset implícito via withDuplicateHint se o alvo mudar
+  return withDuplicateHint(next, opts.existingExpenses);
 }
 
 export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[] {
@@ -91,6 +200,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
         monthResolution: 'pending',
         monthDiverges: false,
         category: defaultCategory,
+        categoryManualOverride: false,
         paymentMethod: defaultPaymentMethod,
         creditCardId: defaultCreditCardId,
         action: 'ignore',
@@ -104,6 +214,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
           : !date
             ? 'Data inválida'
             : 'Valor inválido',
+        duplicateConfirmed: false,
       } satisfies ImportReviewRow;
     }
 
@@ -121,6 +232,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
         monthResolution: 'csv',
         monthDiverges: yearMonthFromDate(date) !== uiYearMonth,
         category: defaultCategory,
+        categoryManualOverride: false,
         paymentMethod: defaultPaymentMethod,
         creditCardId: defaultCreditCardId,
         action: 'ignore',
@@ -132,6 +244,7 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
         ineligibleReason: money.isNegative
           ? 'Parece crédito (valor negativo) — fora do escopo de gastos'
           : 'Valor deve ser maior que zero',
+        duplicateConfirmed: false,
       } satisfies ImportReviewRow;
     }
 
@@ -151,8 +264,12 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
 
     const action = suggestion.action;
     const selected = action !== 'review' && action !== 'ignore';
+    const linkExpenseId =
+      action === 'link_existing' ? suggestion.candidates[0]?.expense.id : undefined;
+    const linkedCategory =
+      action === 'link_existing' ? suggestion.candidates[0]?.expense.category : undefined;
 
-    return {
+    const base: ImportReviewRow = {
       id,
       sourceIndex: row.sourceIndex,
       selected,
@@ -163,12 +280,12 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
       csvYearMonth: csvYm,
       monthResolution: monthDiverges ? 'pending' : 'csv',
       monthDiverges,
-      category: defaultCategory,
+      category: linkedCategory ?? defaultCategory,
+      categoryManualOverride: false,
       paymentMethod: defaultPaymentMethod,
       creditCardId: defaultCreditCardId,
       action,
-      linkExpenseId:
-        action === 'link_existing' ? suggestion.candidates[0]?.expense.id : undefined,
+      linkExpenseId,
       candidates: suggestion.candidates,
       suggestionReason: suggestion.reason,
       currentInstallment: installment?.current,
@@ -176,7 +293,10 @@ export function buildReviewRows(params: BuildReviewRowsParams): ImportReviewRow[
       repeatAllMonths: false,
       effectuate: false,
       ineligible: false,
-    } satisfies ImportReviewRow;
+      duplicateConfirmed: false,
+    };
+
+    return withDuplicateHint(base, existingExpenses);
   });
 }
 

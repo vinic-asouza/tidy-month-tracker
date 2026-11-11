@@ -33,6 +33,16 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { ApplyToAllDialog } from '@/components/ui/apply-to-all-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { CurrencyInput, parseCurrencyToNumber } from '@/components/ui/currency-input';
 import { IncomeEntry } from '@/types/finance';
 import { formatDateToYYYYMMDD, formatItemDayMonth } from '@/lib/utils';
@@ -46,6 +56,10 @@ import { StatusToggleBadge } from '@/components/StatusToggleBadge';
 import { SectionAddItemButton } from '@/components/SectionAddItemButton';
 import { comparePendingThenDate } from '@/utils/business/recordSort';
 import { showSelectionHintIfNeeded } from '@/utils/selectionHint';
+import {
+  findDuplicateIncome,
+  formatDuplicateSummary,
+} from '@/utils/business/duplicateMatch';
 import { toast } from 'sonner';
 
 type PersistHandler = (data: Omit<IncomeEntry, 'id'>) => Promise<boolean> | boolean;
@@ -338,6 +352,10 @@ const IncomeSectionComponent = ({
   const [repeatAllMonths, setRepeatAllMonths] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    summary: string;
+    payload: Omit<IncomeEntry, 'id'>;
+  } | null>(null);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
   const [showApplyToAllDialog, setShowApplyToAllDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'edit' | 'delete' | null>(null);
@@ -486,6 +504,15 @@ const IncomeSectionComponent = ({
     setTagError(null);
   };
 
+  const finishSuccessfulSubmit = () => {
+    if (editingId) {
+      setApplyToAllMonths(false);
+    }
+    resetForm();
+    setIsOpen(false);
+    onAddDialogClose?.();
+  };
+
   const handleSubmit = async () => {
     const numValue = parseCurrencyToNumber(value);
     let hasError = false;
@@ -505,16 +532,36 @@ const IncomeSectionComponent = ({
     
     if (hasError) return;
 
+    const basePayload = {
+      description: description.trim(),
+      value: numValue,
+      tag: selectedTag,
+      date: itemDate,
+      repeatAllMonths,
+    };
+
+    if (!editingId) {
+      const createPayload = {
+        ...basePayload,
+        received: false,
+      };
+      const dup = findDuplicateIncome(createPayload, incomes);
+      if (dup) {
+        setDuplicateConfirm({
+          summary: formatDuplicateSummary({
+            description: dup.description,
+            label: dup.tag,
+            value: dup.value,
+            date: dup.date,
+          }),
+          payload: createPayload,
+        });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
-      const basePayload = {
-        description: description.trim(),
-        value: numValue,
-        tag: selectedTag,
-        date: itemDate,
-        repeatAllMonths,
-      };
-
       const success = editingId
         ? await onUpdate(editingId, basePayload, applyToAllMonths)
         : await onAdd({
@@ -523,13 +570,7 @@ const IncomeSectionComponent = ({
           });
 
       if (success === false) return;
-
-      if (editingId) {
-        setApplyToAllMonths(false);
-      }
-      resetForm();
-      setIsOpen(false);
-      onAddDialogClose?.();
+      finishSuccessfulSubmit();
     } finally {
       setIsSubmitting(false);
     }
@@ -1131,6 +1172,49 @@ const IncomeSectionComponent = ({
         }
         applyToAllButtonLabel={pendingAction === 'edit' ? 'Alterar todos os meses seguintes' : 'Excluir todos os meses seguintes'}
       />
+
+      <AlertDialog
+        open={!!duplicateConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateConfirm(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-lg max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possível duplicata</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Já existe um lançamento igual no mês:</p>
+                <p className="text-sm font-medium text-foreground">
+                  {duplicateConfirm?.summary}
+                </p>
+                <p>Deseja criar mesmo assim?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-md">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-md"
+              onClick={async () => {
+                const payload = duplicateConfirm?.payload;
+                setDuplicateConfirm(null);
+                if (!payload) return;
+                setIsSubmitting(true);
+                try {
+                  const success = await onAdd(payload);
+                  if (success === false) return;
+                  finishSuccessfulSubmit();
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+            >
+              Criar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
